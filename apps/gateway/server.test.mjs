@@ -1,0 +1,100 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import http from 'node:http';
+import {once} from 'node:events';
+import {mkdtemp, writeFile, rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {createGateway} from './server.mjs';
+
+async function listen(server) {
+  server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  return `http://127.0.0.1:${server.address().port}`;
+}
+async function fixture(t, handler) {
+  const dist = await mkdtemp(join(tmpdir(), 'safesc-gateway-'));
+  await writeFile(join(dist, 'index.html'), '<h1>SafeSC</h1>');
+  const backend = http.createServer(handler || ((_req, res) => res.end('upstream')));
+  const backendOrigin = await listen(backend);
+  const gateway = createGateway({backendOrigin, dist});
+  const origin = await listen(gateway);
+  t.after(async () => {
+    gateway.closeStreams(); gateway.closeAllConnections(); backend.closeAllConnections();
+    await Promise.all([new Promise(r => gateway.close(r)), new Promise(r => backend.close(r))]);
+    await rm(dist, {recursive:true});
+  });
+  return {gateway, backend, origin};
+}
+
+test('serves phone SPA and readiness without backend, excludes private files', async t => {
+  const {origin} = await fixture(t);
+  assert.match(await (await fetch(origin + '/capture')).text(), /SafeSC/);
+  assert.equal((await fetch(origin + '/_health')).status, 200);
+  for (const path of ['/.env', '/data/private.json', '/%2eenv', '/missing.js']) {
+    assert.equal((await fetch(origin + path)).status, 404, path);
+  }
+  assert.equal((await fetch(origin + '/', {method:'POST'})).status, 405);
+});
+
+test('streams upload body, auth cookies, compressed responses and media ranges', async t => {
+  const {origin} = await fixture(t, async (req, res) => {
+    if (req.url === '/api/login') {
+      let body = ''; for await (const chunk of req) body += chunk;
+      assert.equal(body, '{"token":"test-only"}');
+      assert.equal(req.headers['x-forwarded-host'], undefined);
+      res.setHeader('Set-Cookie', 'safesc_token=test-only; HttpOnly; Secure; SameSite=Strict; Path=/');
+      return res.end('{"ok":true}');
+    }
+    assert.equal(req.headers.cookie, 'safesc_token=test-only');
+    assert.equal(req.headers.range, 'bytes=3-5');
+    res.writeHead(206, {'Content-Range':'bytes 3-5/10', 'Content-Type':'video/mp4'});
+    res.end('345');
+  });
+  const login = await fetch(origin + '/api/login', {method:'POST', body:'{"token":"test-only"}',
+    headers:{'x-forwarded-host':'attacker.invalid'}});
+  assert.match(login.headers.get('set-cookie'), /HttpOnly; Secure; SameSite=Strict/);
+  const media = await fetch(origin + '/api/video', {headers:{cookie:'safesc_token=test-only', range:'bytes=3-5'}});
+  assert.equal(media.status, 206);
+  assert.equal(media.headers.get('content-range'), 'bytes 3-5/10');
+  assert.equal(media.headers.get('cache-control'), 'private, no-store');
+  assert.equal(await media.text(), '345');
+});
+
+test('passes backend auth failures and reports unreachable workers', async t => {
+  const {origin, backend} = await fixture(t, (_req, res) => { res.writeHead(401); res.end('Sign in'); });
+  assert.equal((await fetch(origin + '/api/health')).status, 401);
+  backend.closeAllConnections(); await new Promise(r => backend.close(r));
+  assert.equal((await fetch(origin + '/api/health')).status, 502);
+});
+
+test('relays WebSocket cookies and binary data, rejects unrelated paths and origins', async t => {
+  const {origin, backend} = await fixture(t);
+  backend.on('upgrade', (req, socket, head) => {
+    assert.equal(req.headers.cookie, 'safesc_token=test-only');
+    socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n');
+    if (head.length) socket.write(head);
+    socket.pipe(socket);
+  });
+  const socket = await new Promise((resolve, reject) => {
+    const request = http.request(origin + '/ws/capture', {headers:{Connection:'Upgrade', Upgrade:'websocket',
+      Origin:origin, Cookie:'safesc_token=test-only'}});
+    request.on('upgrade', (_response, socket) => resolve(socket)); request.on('error', reject); request.end();
+  });
+  const binary = Buffer.from([0x82, 0x83, 1, 2, 3, 4, 42, 43, 44]);
+  const data = once(socket, 'data'); socket.write(binary);
+  assert.deepEqual((await data)[0], binary); socket.destroy();
+  for (const [path, from, expected] of [['/ws/capture', 'https://evil.invalid', 403], ['/ws/admin', origin, 404]]) {
+    const status = await new Promise((resolve, reject) => {
+      const request = http.request(origin + path, {headers:{Connection:'Upgrade', Upgrade:'websocket', Origin:from}});
+      request.on('response', response => { response.resume(); resolve(response.statusCode); });
+      request.on('error', reject); request.end();
+    });
+    assert.equal(status, expected);
+  }
+});
+
+test('requires a fixed HTTPS worker origin and forbids credentials or URL paths', () => {
+  for (const backendOrigin of ['http://example.com', 'https://user:password@example.com', 'https://example.com/api', 'https://example.com/?token=x']) {
+    assert.throws(() => createGateway({backendOrigin}));
+  }
+});

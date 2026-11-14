@@ -67,6 +67,8 @@ For the actual GPU stack, follow [model setup and licenses](docs/overview/models
 
 ## Connect a phone
 
+To host the dashboard and phone capture page on Replit while keeping inference on Runpod, use the checked-in `.replit` configuration and [Replit hosting instructions](docs/overview/replit.md). Only the public backend origin belongs in Replit configuration; provider tokens stay on their existing machines.
+
 1. Serve the application through HTTPS and set `PUBLIC_URL` to that origin.
 2. Sign in to the reviewer workspace and select **Connect phone**.
 3. Scan the QR code, open the link in Safari or Chrome, allow camera access, and tap **Start camera**.

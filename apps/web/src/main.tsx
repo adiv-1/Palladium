@@ -110,7 +110,7 @@ function App(){
     }};ws.onclose=()=>{setConnected(false);if(!stopped)retry=window.setTimeout(connect,2000)}};connect();
     const poll=setInterval(()=>{refresh();setTick(t=>t+1)},2500);return()=>{stopped=true;clearInterval(poll);clearTimeout(retry);ws?.close()};
   },[authed]);
-  async function pairPhone(){try{setError('');const r=await post('/sources',{name:'Mobile camera',kind:'phone'});setPair(r.capture_url);refresh()}catch(e){setError(String(e))}}
+  async function pairPhone(){try{setError('');const r=await post('/sources',{name:'Mobile camera',kind:'phone'});const capture=new URL('/capture',window.location.origin);capture.hash=new URL(r.capture_url,window.location.origin).hash;setPair(capture.href);refresh()}catch(e){setError(String(e))}}
   async function upload(file:File){setUploading(true);setError('');try{const body=new FormData();body.append('file',file);await api('/upload',{method:'POST',body});refresh()}catch(e){setError(String(e))}finally{setUploading(false)}}
   async function markMoment(sourceId:string){try{await post(`/sources/${sourceId}/bookmark`,{});setBookmarkNotice('Moment marked. Surrounding footage will appear for review after its context is saved.')}catch(e){setError(String(e))}}
   async function exportFeedback(){try{const data=await api('/reviews/export');const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='safesc-review-history.json';link.click();URL.revokeObjectURL(url)}catch(e){setError(String(e))}}
