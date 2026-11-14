@@ -21,7 +21,7 @@ Laptop dashboard                 Phone Safari / Chrome
 
 ## Import and publish
 
-1. Import `https://github.com/adiv-1/SafeSC` into Replit. Switch the Git pane to **reviewed-learning** before running: main predates this hosting configuration and the learning repository. In the Replit Shell, `git switch reviewed-learning` also works after fetching that branch.
+1. Import `https://github.com/adiv-1/SafeSC` into Replit. Switch to the **replit-ui** deployment branch before running. It contains only the Node gateway, React source and deployment documentation; the complete application remains on **reviewed-learning**. In the Replit Shell, run `git fetch origin replit-ui:refs/remotes/origin/replit-ui` then `git switch --track -c replit-ui origin/replit-ui`. A GitHub import may initially select main even when given a branch URL.
 2. In Replit Secrets set **only** `SAFESC_BACKEND_ORIGIN` to the current GPU app origin, for example `https://YOUR-POD-ID-8000.proxy.runpod.net`. It is an address, not a provider key. The current origin is recorded locally in `data/runpod-access.txt`.
 3. Click Run. The configured command builds the UI and binds the gateway to `0.0.0.0:3000`. Check the preview shows the SafeSC sign-in screen.
 4. Open Publishing → Adjust settings. Choose **Reserved VM**, web server, smallest available machine for a single-phone demo. Set build to `npm run build`, run to `npm start`, local port `3000` / external port `80`. Confirm `SAFESC_BACKEND_ORIGIN` is also present in the published environment.
@@ -32,6 +32,12 @@ Laptop dashboard                 Phone Safari / Chrome
 The GitHub import does not include `.env`, original clips, local databases, model weights, or cloud keys. Do not paste `RUNPOD_TOKEN`, `VULTR_API_KEY`, `HF_TOKEN`, SSH keys, or the Mac's entire `.env` into Replit. No `VITE_` secret is needed. The gateway never bypasses backend authorization, logs request bodies/tokens, or stores video; uploads, playback range responses, WebSocket bytes and cookies pass through it.
 
 Both Runpod and Replit process traffic when this route is used. If the GPU pod stops or its origin changes, the UI still loads, but API/video operations fail until the pod is available or `SAFESC_BACKEND_ORIGIN` is updated and the deployment restarted. Replit hosting does not extend the Runpod budget or its Sunday shutdown deadline.
+
+## Update the deployment branch
+
+From the complete application checkout, commit the desired source changes and run `python3 scripts/export_replit.py`, inspect `git ls-tree -r --name-only replit-ui`, then push `git push origin replit-ui`. Pull that branch in Replit and republish. The exporter reads committed Git blobs from an explicit UI allowlist, records the source commit in `DEPLOYMENT_SOURCE.txt`, and keeps the current checkout unchanged. It does not export `.env`, local video, Python dependency manifests or model weights. Never merge this deployment-only tree into the full application branch.
+
+The first full-repository Replit publish was blocked by its scanner's Python/GPU dependency findings, including Pillow and Transformers. Those manifests belong to the Runpod backend and are excluded from the UI deployment artifact because the Node gateway does not use them. This is packaging separation, not a resolution of the backend findings. Keep Replit's security checks enabled and review backend advisories separately before broader adoption.
 
 ## Verification
 
