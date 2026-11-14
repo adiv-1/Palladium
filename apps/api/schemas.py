@@ -27,6 +27,15 @@ class Detection(BaseModel):
     uncertainties: list[str] = Field(max_length=20)
     supporting_frames: list[int] = Field(max_length=100)
     simulated: bool = False
+    action: Literal['physical_contact','object_taking','ordinary_activity','insufficient_visibility'] | None = None
+
+    @model_validator(mode='after')
+    def consistent_action(self):
+        if self.action and self.state=='NORMAL' and self.action!='ordinary_activity':
+            raise ValueError('NORMAL must describe ordinary activity')
+        if self.action=='ordinary_activity' and self.state!='NORMAL':
+            raise ValueError('Ordinary activity must not assert a positive review state')
+        return self
 
 class Review(BaseModel):
     decision: Literal['confirmed','dismissed','needs_review']

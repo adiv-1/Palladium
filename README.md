@@ -12,8 +12,9 @@ SafeSC connects a phone camera or uploaded video to a streaming vision pipeline,
 - Preserved original incident windows, SHA-256 hashes, reviewer bookmarks, append-only decisions, and model provenance.
 - Serialized RelayVSR review enhancement, ReLift estimated 3D trajectories, and optional BVI-Mamba comparisons.
 - An interactive map of 75,686 grouped LAPD reports from January 2010 through October 2026, with date/category filters and source-linked summaries.
+- A reviewed learning repository with original video playback, exact four-frame training inputs, permission history, append-only annotations, immutable dataset versions, and measured model experiments.
 
-The current application supports **one active video source** and a shared reviewer workspace. Two-camera support, separate student accounts, reviewer-approved student notifications, and the reviewed learning repository are **planned**, not implemented. Forecasting and automatic model training are not enabled.
+The current application supports **one active video source** and a shared reviewer workspace. Two-camera support, separate student accounts, and reviewer-approved student notifications remain planned. A Qwen LoRA research candidate has been trained on 19 approved research windows and evaluated separately; [results and limitations](docs/overview/learning.md) are explicit. Forecasting and automatic continuous training are not enabled.
 
 ## Architecture
 
@@ -92,9 +93,9 @@ uv run python -m scripts.evaluate --annotations evaluation/example.json --predic
 python3 scripts/check_secrets.py --tracked
 ```
 
-Seventeen CPU/API/protocol tests and the production frontend build passed in the November 14 engineering verification. Real GPU smoke tests passed for the installed models, and a human-bookmarked upload completed the postprocessing/review workflow. The final public wire-protocol test received 160 frames at 6.68 FPS with a 140 ms mean ACK round trip; capture throughput does not establish incident-detection accuracy.
+Twenty-eight CPU/API/protocol/learning tests and the production frontend build passed in the November 14 engineering verification. Real GPU smoke tests passed for the installed models, and a human-bookmarked upload completed the postprocessing/review workflow. The final public wire-protocol test received 160 frames at 6.68 FPS with a 140 ms mean ACK round trip; capture throughput does not establish incident-detection accuracy.
 
-The evaluation JSON files are synthetic schema examples. Positive incident recall, false-negative rates, and multi-camera capacity still require labeled evaluation. No production safety-performance claim is established by the smoke tests.
+`evaluation/example.json` and `evaluation/predictions.example.json` are synthetic schema examples. The learning-pilot ledger and results contain actual research-experiment records. Production event recall, false-negative rates, and multi-camera capacity still require representative evaluation; smoke tests and the tiny prelocalized research pilot do not establish safety performance.
 
 ## Repository hygiene and limitations
 

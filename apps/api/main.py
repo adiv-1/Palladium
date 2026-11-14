@@ -43,6 +43,8 @@ def authenticated(request: Request):
 
 from .activity import router as activity_router
 app.include_router(activity_router, dependencies=[Depends(authenticated)])
+from .learning import router as learning_router
+app.include_router(learning_router, dependencies=[Depends(authenticated)])
 from starlette.middleware.gzip import GZipMiddleware
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
@@ -61,12 +63,13 @@ async def health():
         out,_=await asyncio.wait_for(proc.communicate(),3); gpu=out.decode().strip().splitlines()
     except (OSError,asyncio.TimeoutError): pass
     from ml.service import model_service
-    from ml.verifier import verifier_is_loaded
+    from ml.verifier import verifier_is_loaded,verifier_metadata
     return {'status':'ok','streaming_model':settings.streaming_model,'revision':settings.model_revision,
         'simulated':settings.streaming_model=='fixture','gpu':gpu,'active_sources':len(sessions),
         'enhancement_model':settings.enhancement_model,'postprocessing_waits_for_idle':True,
         'moss_process_running':bool(model_service.process and model_service.process.returncode is None),
         'visual_verifier':settings.observation_verifier_model,'visual_verifier_loaded':verifier_is_loaded(),
+        'verifier_research_mode':settings.verifier_research_mode,'verifier_artifact':verifier_metadata(),
         'tracking_enabled':settings.enable_tracking,'relayvsr_enabled':settings.enable_relay_vsr,
         'relift_enabled':settings.enable_relift,'bvimamba_enabled':settings.enable_bvimamba,
         'retention_hours':settings.retention_hours}
@@ -160,7 +163,14 @@ async def review(incident_id:str,payload:Review):
     incident=get(Incident,incident_id)
     if not incident: raise HTTPException(404)
     save(ReviewAction(incident_id=incident_id,decision=payload.decision,note=payload.note))
-    incident.review_status=payload.decision; save(incident); await hub.publish('incident',incident.model_dump()); return incident
+    incident.review_status=payload.decision; save(incident)
+    if payload.decision=='confirmed':
+        from .learning import retain_incident
+        try:retain_incident(incident)
+        except (ValueError,OSError) as error:
+            # Event review is independent of training eligibility or expired media.
+            await hub.publish('learning_warning',{'incident_id':incident.id,'message':str(error)})
+    await hub.publish('incident',incident.model_dump()); return incident
 
 @app.post('/api/jobs/{job_id}/retry',dependencies=[Depends(authenticated)])
 def retry(job_id:str):
