@@ -30,6 +30,7 @@ async function fixture(t, handler) {
 test('serves phone SPA and readiness without backend, excludes private files', async t => {
   const {origin} = await fixture(t);
   assert.match(await (await fetch(origin + '/capture')).text(), /SafeSC/);
+  assert.equal((await fetch(origin + '/')).headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
   assert.equal((await fetch(origin + '/_health')).status, 200);
   for (const path of ['/.env', '/data/private.json', '/%2eenv', '/missing.js']) {
     assert.equal((await fetch(origin + path)).status, 404, path);

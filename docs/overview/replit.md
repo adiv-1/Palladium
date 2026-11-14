@@ -50,3 +50,7 @@ SAFESC_BACKEND_ORIGIN=https://YOUR-POD-ID-8000.proxy.runpod.net npm start
 Test sign-in, historical map, training-video playback and seeking, incident review, phone QR origin, frame ACKs and dashboard live status on the **published** URL. `/_health` reports only gateway readiness; `/api/health` requires the existing token and checks the actual GPU backend. The public Runpod URL remains a fallback while Replit is configured.
 
 References: [Replit deployment types](https://docs.replit.com/features/publishing/deployment-types), [configuration](https://docs.replit.com/features/project-setup/configuration), [publishing costs](https://docs.replit.com/billing/deployment-pricing).
+
+## Published verification — November 14, 2026
+
+The authenticated deployment at https://safe-sc.replit.app passed API sign-in, anonymous API rejection, the live event WebSocket, activity metadata, the 48-asset learning library, and original learning-video retrieval. A 16-frame synthetic JPEG phone-protocol test received all 16 ACKs, with mean ACK round trip 178.84 ms, maximum 315.49 ms, and total capture runtime 4.54 seconds. The source closed cleanly. This measures receipt over the Replit route; it does not establish model latency, detection accuracy, physical-phone behavior or sustained capacity. Original video retrieval returned a full HTTP 200 response, rather than a partial 206 response. Results and deployed/source commits are recorded in [the hosting check](../../evaluation/replit-hosting.json) on the full source branch.
