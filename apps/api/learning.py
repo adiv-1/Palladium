@@ -140,6 +140,7 @@ def asset_record(asset,annotations=None,permissions=None):
     if asset.origin=='incident' and asset.provenance.get('source_id'):
         source_grant=(permissions if permissions is not None else latest_permissions()).get('source:'+asset.provenance['source_id'])
         if not source_grant or source_grant.permission not in PERMITTED:permission=source_grant.permission if source_grant else 'unknown'
+        elif source_grant.permission=='academic_research' and permission=='permitted':permission='academic_research'
     available=Path(asset.path).is_file() and asset.expires_at>now()
     eligible=bool(available and permission in PERMITTED and annotation and annotation.status=='approved')
     return {k:v for k,v in {**asset.model_dump(),'path':None,'permission':permission,'eligible':eligible,
@@ -167,14 +168,15 @@ def annotate(asset,payload,reviewer='workspace reviewer'):
 def build_snapshot():
     annotations=latest_annotations();permissions=latest_permissions();entries=[];groups={}
     for asset in sorted(rows(LearningAsset),key=lambda a:a.id):
-        if not asset_record(asset,annotations,permissions)['eligible']:continue
+        current_record=asset_record(asset,annotations,permissions)
+        if not current_record['eligible']:continue
         if digest(asset.path)!=asset.sha256:raise ValueError('Asset hash mismatch: '+asset.id)
         label=annotations[asset.id];split=split_for(asset)
         if asset.group_id in groups and groups[asset.group_id]!=split:raise ValueError('Original recording appears in multiple dataset splits')
         groups[asset.group_id]=split
         entries.append({'asset_id':asset.id,'video_path':str(Path(asset.path).relative_to(settings.data_dir.resolve())),'video_sha256':asset.sha256,
             'group_id':asset.group_id,'split':split,'annotation':label.model_dump(),
-            'permission':permissions['asset:'+asset.id].permission,'provenance':asset.provenance})
+            'permission':current_record['permission'],'provenance':asset.provenance})
     if not entries:raise ValueError('Approve visible labels on permitted videos before building a dataset')
     manifest={'version':1,'created_at':now(),'examples':entries,'training_automatic':False,
         'base_model':'Qwen/Qwen3-VL-4B-Instruct','task':'observable video actions; no legal guilt classification'}
@@ -192,6 +194,8 @@ def validate_snapshot_current(manifest):
         asset=get(LearningAsset,entry['asset_id'])
         if not asset or not asset_record(asset,annotations,permissions)['eligible']:
             raise ValueError('Snapshot contains unavailable or no-longer-permitted footage; build a new dataset version')
+        if asset_record(asset,annotations,permissions)['permission']!=entry['permission']:
+            raise ValueError('Snapshot permissions changed; build a new dataset version')
         current=annotations.get(asset.id)
         if current is None or current.id!=entry['annotation']['id'] or asset.sha256!=entry['video_sha256']:
             raise ValueError('Snapshot annotations changed; build a new dataset version')

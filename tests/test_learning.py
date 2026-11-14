@@ -54,6 +54,12 @@ def test_source_permission_revocation_removes_eligibility(learning_env):
     assert retain_incident(incident) is None
     db.save(LearningPermission(subject='source:'+source.id,permission='permitted',note='Permission from the staged footage owner'))
     asset=retain_incident(incident);approved(asset);assert asset_record(asset)['eligible']
+    snapshot=build_snapshot()
+    db.save(LearningPermission(subject='source:'+source.id,permission='academic_research',note='Future reuse narrowed to academic research'))
+    assert asset_record(asset)['permission']=='academic_research'
+    from apps.api.learning import validate_snapshot_current
+    with pytest.raises(ValueError,match='permissions changed'):validate_snapshot_current(json.loads(Path(snapshot.path).read_text()))
+    assert json.loads(Path(build_snapshot().path).read_text())['examples'][0]['permission']=='academic_research'
     db.save(LearningPermission(subject='source:'+source.id,permission='denied',note='Owner revoked future training reuse'))
     assert not asset_record(asset)['eligible']
 
