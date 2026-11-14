@@ -1,5 +1,0 @@
-{$SAFESC_DOMAIN} {
-    reverse_proxy api:8000
-    header Referrer-Policy "no-referrer"
-    header X-Content-Type-Options "nosniff"
-}

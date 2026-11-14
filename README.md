@@ -1,109 +1,52 @@
-# SafeSC
+# Host the UI on Replit
 
-**Campus video review with preserved context and a human decision.** Built for the AI@USC hackathon.
-
-SafeSC connects a phone camera or uploaded video to a streaming vision pipeline, preserves potentially relevant moments, and gives a reviewer original footage, uncertainty, and clearly labeled derived artifacts. A separate campus-activity map explores public LAPD reports near USC.
-
-## What works today
-
-- Phone capture through an expiring QR pairing link, HTTPS/WebSockets, rear/front camera selection, and frame acknowledgements. Audio is off.
-- MOSS-VL-Realtime NF4 observation with a separate Qwen3-VL-4B visual verifier and strict structured-output validation.
-- Lighting assessment, gated FastLLVE enhancement, YOLO11n/ByteTrack anonymous tracking, and temporal incident gating.
-- Preserved original incident windows, SHA-256 hashes, reviewer bookmarks, append-only decisions, and model provenance.
-- Serialized RelayVSR review enhancement, ReLift estimated 3D trajectories, and optional BVI-Mamba comparisons.
-- An interactive map of 75,686 grouped LAPD reports from January 2010 through October 2026, with date/category filters and source-linked summaries.
-- A reviewed learning repository with original video playback, exact four-frame training inputs, permission history, append-only annotations, immutable dataset versions, and measured model experiments.
-
-The current application supports **one active video source** and a shared reviewer workspace. Two-camera support, separate student accounts, and reviewer-approved student notifications remain planned. A Qwen LoRA research candidate has been trained on 19 approved research windows and evaluated separately; [results and limitations](docs/overview/learning.md) are explicit. Forecasting and automatic continuous training are not enabled.
-
-## Architecture
+Replit runs a small Node 22 gateway and the built React UI. Runpod remains the sole inference backend and authoritative store. Do not install Python, CUDA, model weights, or video datasets on Replit.
 
 ```text
-Phone camera / uploaded video
-             |
-     FastAPI CPU ingestion ---- frame ACK / live telemetry
-             |
-     Timestamped original buffer
-             |
-     Lighting -> FastLLVE when dark -> anonymous tracking
-             |
-     MOSS streaming observer + Qwen visual verifier
-             |
-     Schema checks + temporal evidence gate
-             |
-     Original clip + hash + provenance -> human review
-             |
-     GPU idle queue: RelayVSR / ReLift / BVI-Mamba
-
-Official LAPD records -> bounded local import -> SQLite
-             |
-     UPC Lyft-area historical activity map
+Laptop dashboard                 Phone Safari / Chrome
+       |                                  |
+       +------------- HTTPS --------------+
+                         |
+               Replit UI + Node gateway
+                |                |
+          React static files     +-- /api/* and /ws/* (streamed proxy)
+                                         |
+                                 Runpod HTTPS proxy
+                                         |
+                            FastAPI / original video / SQLite
+                                         |
+                              GPU queue: MOSS + verifier
+                             FastLLVE / RelayVSR / ReLift
 ```
 
-See the [project documentation](docs/overview/README.md) and [full text diagram](docs/architecture.txt).
+## Import and publish
 
-## Quick start: local development
+1. Import `https://github.com/adiv-1/SafeSC` into Replit. Switch to the **replit-ui** deployment branch before running. It contains only the Node gateway, React source and deployment documentation; the complete application remains on **reviewed-learning**. In the Replit Shell, run `git fetch origin replit-ui:refs/remotes/origin/replit-ui` then `git switch --track -c replit-ui origin/replit-ui`. A GitHub import may initially select main even when given a branch URL.
+2. In Replit Secrets set **only** `SAFESC_BACKEND_ORIGIN` to the current GPU app origin, for example `https://YOUR-POD-ID-8000.proxy.runpod.net`. It is an address, not a provider key. The current origin is recorded locally in `data/runpod-access.txt`.
+3. Click Run. The configured command builds the UI and binds the gateway to `0.0.0.0:3000`. Check the preview shows the SafeSC sign-in screen.
+4. Open Publishing → Adjust settings. Choose **Reserved VM**, web server, smallest available machine for a single-phone demo. Set build to `npm run build`, run to `npm start`, local port `3000` / external port `80`. Confirm `SAFESC_BACKEND_ORIGIN` is also present in the published environment.
+5. Check the displayed publishing charge against the trial's remaining credits before publishing. The trial is not a guarantee of unlimited deployment or video bandwidth. Replit's November 14 pricing documentation lists the shared 0.5 vCPU / 2 GB VM at $15/month before credits. Autoscale can serve the dashboard, but Reserved VM avoids scale-to-zero interruptions for long-lived phone WebSockets. Static hosting cannot run this proxy.
+6. Publish, open the HTTPS `.replit.app` URL, and enter the existing SafeSC workspace token. No additional reviewer token is configured in Replit. The login cookie belongs to the Replit app origin; the gateway forwards it to the existing authenticated backend.
+7. Click Connect phone **on the published Replit dashboard**, scan the new QR code and start the camera. Pairing links use the dashboard's current origin automatically, so both the phone capture page and its WebSocket use Replit. Keep the phone page foregrounded. Existing links from the Runpod dashboard still point at Runpod.
 
-Requires Python 3.11, Node.js 22, and [uv](https://docs.astral.sh/uv/). The control plane runs on macOS or Linux; real model inference requires Linux and NVIDIA CUDA.
+The GitHub import does not include `.env`, original clips, local databases, model weights, or cloud keys. Do not paste `RUNPOD_TOKEN`, `VULTR_API_KEY`, `HF_TOKEN`, SSH keys, or the Mac's entire `.env` into Replit. No `VITE_` secret is needed. The gateway never bypasses backend authorization, logs request bodies/tokens, or stores video; uploads, playback range responses, WebSocket bytes and cookies pass through it.
 
-```bash
-git clone git@github.com:adiv-1/SafeSC.git
-cd SafeSC
-uv sync --python 3.11 --frozen --extra test
-npm ci --prefix apps/web
-npm run build --prefix apps/web
-```
+Both Runpod and Replit process traffic when this route is used. If the GPU pod stops or its origin changes, the UI still loads, but API/video operations fail until the pod is available or `SAFESC_BACKEND_ORIGIN` is updated and the deployment restarted. Replit hosting does not extend the Runpod budget or its Sunday shutdown deadline.
 
-On a fresh checkout, copy `.env.example` to `.env` and enter credentials locally. Never overwrite an existing `.env` containing your own settings. For a clearly labeled fixture demonstration without a GPU:
+## Update the deployment branch
 
-```bash
-uv run python -m scripts.make_demo
-STREAMING_MODEL=fixture uv run uvicorn apps.api.main:app --host 127.0.0.1 --port 8000 --workers 1
-```
+From the complete application checkout, commit the desired source changes and run `python3 scripts/export_replit.py`, inspect `git ls-tree -r --name-only replit-ui`, then push `git push origin replit-ui`. Pull that branch in Replit and republish. The exporter reads committed Git blobs from an explicit UI allowlist, records the source commit in `DEPLOYMENT_SOURCE.txt`, and keeps the current checkout unchanged. It does not export `.env`, local video, Python dependency manifests or model weights. Never merge this deployment-only tree into the full application branch.
 
-Open [localhost:8000](http://localhost:8000) and enter the generated access token from `data/app_token`. Upload `data/demo-fixture.mp4`. Fixture alerts are visibly simulated; they verify application plumbing, not detection accuracy. Real inference never silently falls back to simulated results.
-
-For the actual GPU stack, follow [model setup and licenses](docs/overview/models.md) and [deployment notes](docs/overview/deployment.md). Checkpoint revisions and measured smoke-test results are recorded in `model-lock.json`. Upstream models use isolated environments; the CPU Docker image is not a validated all-model GPU image.
-
-## Connect a phone
-
-To host the dashboard and phone capture page on Replit while keeping inference on Runpod, use the checked-in `.replit` configuration and [Replit hosting instructions](docs/overview/replit.md). Only the public backend origin belongs in Replit configuration; provider tokens stay on their existing machines.
-
-1. Serve the application through HTTPS and set `PUBLIC_URL` to that origin.
-2. Sign in to the reviewer workspace and select **Connect phone**.
-3. Scan the QR code, open the link in Safari or Chrome, allow camera access, and tap **Start camera**.
-4. Keep the capture page foregrounded. The acknowledged-frame counter confirms receipt.
-
-Transport is timestamped JPEG over WebSockets. Capture targets 8 FPS; inference sampling and actual processing rates differ. Waiting, skipped samples, and model errors remain visible. The user has reported successful physical-device stream telemetry; reproducible engineering measurements are documented separately.
-
-## Download historical activity
-
-```bash
-uv run python scripts/data/download_activity.py
-```
-
-The importer requests selected non-demographic LAPD fields near USC, filters the published UPC Lyft boundary approximation, and writes compressed source pages plus a normalized SQLite snapshot under ignored `data/activity/`. The map database is approximately 22 MB. No source video, incident database, or downloaded police data is included in this repository.
-
-The map shows reported history, not personal risk or a forecast. Locations and the digitized service boundary are approximate. See [data methodology and coverage](docs/overview/activity-data.md).
+The first full-repository Replit publish was blocked by its scanner's Python/GPU dependency findings, including Pillow and Transformers. Those manifests belong to the Runpod backend and are excluded from the UI deployment artifact because the Node gateway does not use them. This is packaging separation, not a resolution of the backend findings. Keep Replit's security checks enabled and review backend advisories separately before broader adoption.
 
 ## Verification
 
-```bash
-uv run pytest -q
-npm run build --prefix apps/web
-uv run python -m scripts.evaluate --annotations evaluation/example.json --predictions evaluation/predictions.example.json
-python3 scripts/check_secrets.py --tracked
+```sh
+npm run test:gateway
+npm run build
+SAFESC_BACKEND_ORIGIN=https://YOUR-POD-ID-8000.proxy.runpod.net npm start
 ```
 
-Twenty-eight CPU/API/protocol/learning tests and the production frontend build passed in the November 14 engineering verification. Real GPU smoke tests passed for the installed models, and a human-bookmarked upload completed the postprocessing/review workflow. The final public wire-protocol test received 160 frames at 6.68 FPS with a 140 ms mean ACK round trip; capture throughput does not establish incident-detection accuracy.
+Test sign-in, historical map, training-video playback and seeking, incident review, phone QR origin, frame ACKs and dashboard live status on the **published** URL. `/_health` reports only gateway readiness; `/api/health` requires the existing token and checks the actual GPU backend. The public Runpod URL remains a fallback while Replit is configured.
 
-`evaluation/example.json` and `evaluation/predictions.example.json` are synthetic schema examples. The learning-pilot ledger and results contain actual research-experiment records. Production event recall, false-negative rates, and multi-camera capacity still require representative evaluation; smoke tests and the tiny prelocalized research pilot do not establish safety performance.
-
-## Repository hygiene and limitations
-
-- `.env`, API tokens, SSH keys, access links, cloud-account notes, videos, databases, downloaded weights, and generated output stay local and are ignored.
-- `.env.example` contains empty credential placeholders. Provider administration tokens stay on the development machine; only required model-download access belongs on the GPU worker.
-- Run `python3 scripts/check_secrets.py` after staging changes. The check rejects credential files, known local secret values, and common token/private-key patterns without printing their values.
-- Original uploads are hashed; extracted windows and enhanced outputs have separate provenance. Generated detail and estimated 3D geometry are not authoritative evidence.
-- No identity recognition, demographic inference, or automatic external dispatch is implemented. Reviewer scores are uncalibrated.
-- Open-weight dependencies have separate code/checkpoint licenses, including non-commercial restrictions and Ultralytics licensing considerations. Download access does not grant redistribution rights.
+References: [Replit deployment types](https://docs.replit.com/features/publishing/deployment-types), [configuration](https://docs.replit.com/features/project-setup/configuration), [publishing costs](https://docs.replit.com/billing/deployment-pricing).
