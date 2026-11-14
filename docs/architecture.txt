@@ -1,0 +1,135 @@
+SafeSC: deployed single-GPU architecture (November 14, 2026)
+=========================================================
+
+ PHONE: iPhone Safari / Android Chrome         REVIEWER: laptop browser
++--------------------------------------+      +---------------------------+
+| Open expiring QR pairing link        |      | Access-token sign-in      |
+| Rear/front camera; audio off         |      | Pair phone / upload video |
+| Timestamped JPEGs; one frame in flight|      | Mark moment / review queue|
+| Camera stays in foreground           |      | Original + derived media  |
++------------------+-------------------+      +-------------+-------------+
+                   | WSS /ws/capture                        | HTTPS / WSS
+                   | pairing token in first message         | secure cookie
+                   +--------------------+-------------------+
+                                        |
+                         Runpod HTTPS proxy (TLS)
+                                        |
+ RUNPOD SECURE CLOUD: one A40, 48 GB VRAM, 9 vCPUs, 50 GB system RAM
++------------------------------------------------------------------------+
+| CPU CONTROL PLANE: FastAPI + React/Vite + SQLite + PyAV                  |
+|                                                                        |
+|  Upload exact bytes -> immutable upload + SHA-256                       |
+|  Phone JPEGs -> timestamp validation -> bounded ORIGINAL frame buffer   |
+|                         |                       |                      |
+|                         |                  Immediate frame ACK         |
+|                         |                (does not wait for GPU)       |
+|                         v                                              |
+|            Lighting assessment + hysteresis                            |
+|                         |                                              |
+|            Bounded latest-frame inference queue                        |
+|            Skips / loading / GPU waiting reported                       |
+|                         |                                              |
+| GPU REALTIME ROLES      v                                              |
+|  +---------------------------------------------------------------+     |
+|  | FastLLVE: bypass / 50% blend / full, only when dark             |     |
+|  | YOLO11n + ByteTrack: temporary anonymous track IDs              |     |
+|  |                            |                                  |     |
+|  | MOSS NF4 observer: native timestamped frame streaming           |     |
+|  | Native silence + concise descriptions; no raw caption alerts   |     |
+|  |                            | untrusted observer context        |     |
+|  | ORIGINAL source frames ----+---------------------------+      |     |
+|  |                                                        v      |     |
+|  | Qwen3-VL-4B visual verifier: bounded asynchronous windows       |     |
+|  | Constrained JSON -> strict schema + frame/time bounds          |     |
+|  | One verification at a time; MOSS ingestion continues           |     |
+|  +----------------------------+----------------------------------+     |
+|                               |                                        |
+|       Temporal evidence gate + actor agreement + cooldown               |
+|       Multiple supporting frames / windows; no external dispatch        |
+|                               |                                        |
+|                               v                                        |
+|                POSSIBLE INCIDENT: HUMAN REVIEW REQUIRED                |
+|                               ^                                        |
+|  Reviewer "Mark moment" ------+ (explicit HUMAN origin, no AI claim)     |
+|                               |                                        |
+|  Freeze pre/post context around event time, not model-completion time   |
+|  Original H.264 window + hash + thumbnail + evidence timestamps          |
+|  Separate labeled enhancement + raw model audit + model revisions       |
+|                               |                                        |
+|            SQLite persistent jobs + WebSocket updates                  |
+|                               |                                        |
+| GPU IDLE WORKER: starts only after active source closes                 |
+|  Unload MOSS and visual verifier; release live CUDA allocations          |
+|  Run one isolated postprocessing subprocess at a time:                 |
+|                                                                        |
+|  RelayVSR             ReLift                       BVI-Mamba            |
+|  bounded review       original first,              optional comparison  |
+|  working copy -> 4x   conservative LLVE second      centered 5-frame     |
+|  visible AI label     NPZ -> Three.js JSON          visible AI label     |
+|                       ESTIMATED 3D label                                |
+|                               |                                        |
+|  Hashes + settings + revision + runtime + sampled device memory          |
+|  Failure retained; retry explicit; no fabricated successful artifacts   |
+|                               |                                        |
+|  REVIEWER: original / derived playback, supporting frames, uncertainty  |
+|  Confirm / dismiss / more review -> append-only history -> JSON export  |
++------------------------------------------------------------------------+
+
+CPU intake stays online during a running heavy job. A newly connected phone
+continues to buffer and receive ACKs while its analysis is visibly queued.
+The GPU Pod's included CPU resources run this plane; no extra CPU server exists.
+Stopping this Pod also stops the web/API service. A separate CPU host is an
+optional later deployment choice if GPU-independent uptime is required.
+
+Network and storage boundaries
+------------------------------
+Public API: container port 8000, behind the owner-approved Runpod HTTPS proxy.
+MOSS: 127.0.0.1:18001 only; its unauthenticated protocol is never public.
+Reviewer access: owner-only data/app_token; cookie is Secure + HttpOnly.
+Phone access: one-hour random pairing token in /capture#fragment, first WS message.
+Mac: source backup + provider API keys + conservative local spend/stop guard.
+Worker: HF download token; no Runpod or Vultr administration key.
+data/uploads/: exact uploaded bytes, read-only and SHA-256 hashed.
+data/incidents/: originals and separately named derived review artifacts.
+data/safesc.db: sources, jobs, provenance and append-only reviewer actions.
+weights/ and third_party/: downloaded checkpoints and pinned model environments.
+
+Phone details
+-------------
+The phone uses getUserMedia, not RTSP or a special mobile app. HTTPS is required
+outside localhost. The phone and reviewer can be on different networks.
+Frame ACK pacing is bounded; actual FPS is measured, not promised as 8 FPS.
+Camera JPEGs are authoritative received input, not lossless sensor originals.
+Incident MP4s are timestamp-preserving encoded derivatives. Exact uploads stay intact.
+Keep the page foregrounded and phone awake. Reconnect starts a new stream clock.
+Physical-device camera permission still needs the owner's iPhone/Android check.
+
+Learning and forecasting boundaries
+----------------------------------
+IMPLEMENTED: distinct observer/verifier roles, serialized artifact workers,
+reviewer-only notifications, raw-response provenance, human feedback export.
+NO automatic weight training, self-label training, or automatic prompt changes.
+Human decisions are judgments, not independent ground truth.
+
+PLANNED: CPU forecasting of REPORTED incident counts by area/time, chronological
+held-out evaluation, and forecast layers on the activity map. Forecasts never increase a video's
+evidence score, identify people, or disable observation of lower-ranked areas.
+Any future tuning requires reviewed labels, a held-out test and an approved release.
+
+Unavailable: OneStreamer weights. MOSS remains the deployed streaming observer.
+Multiple simultaneous live feeds are not claimed by this single-session prototype.
+
+Historical activity plane (implemented; independent of video inference)
+----------------------------------------------------------------------
+Official LAPD 2010-19 + 2020-24 + NIBRS public datasets
+  -> whitelisted fields + small server-side bounding box
+  -> compressed local raw pages + hashes + query manifests
+  -> published UPC Lyft polygon filter + exact-case grouping
+  -> data/activity/activity.sqlite (read-only application queries)
+  -> authenticated date-range / points / detail APIs
+  -> Campus activity tab: orange recency circles + calm source-linked summaries
+
+The master snapshot remains on the Mac; a minimized copy is on Runpod.
+Map tiles come from OpenStreetMap with attribution, without paid API keys.
+No victim demographics, precise addresses, danger scores or forecasts are shown.
+The current digitized boundary is approximate and applied to all archive years.

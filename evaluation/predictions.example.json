@@ -1,0 +1,1 @@
+{"label":"SIMULATED schema example; no model ran","videos":[{"video":"normal/hug.mp4","events":[]},{"video":"staged_contact/contact.mp4","events":[{"start":12.5,"end":15.5,"detected_at":14}]}]}

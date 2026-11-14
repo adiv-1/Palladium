@@ -218,3 +218,44 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# SafeSC project exclusions
+# Credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local development and generated artifacts
+.venv/
+__pycache__/
+.pytest_cache/
+node_modules/
+dist/
+data/
+weights/
+checkpoints/
+third_party/
+evaluation/**/*.mp4
+evaluation/**/*.mov
+evaluation/**/*.webm
+*.tsbuildinfo
+.DS_Store
+
+# SafeSC private operations and credentials
+/docs/local/
+/docs/screenshots/
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.db
+*.db-*
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+*.log
+*.tar
+*.tar.gz
+*.zip
