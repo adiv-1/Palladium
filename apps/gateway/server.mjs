@@ -89,7 +89,9 @@ export function createGateway({backendOrigin = process.env.SAFESC_BACKEND_ORIGIN
     if (!info?.isFile()) return reply(res, 503, 'UI build missing. Run npm run build first.');
     res.writeHead(200, {'Content-Type':mime[extname(filename)] || 'application/octet-stream',
       'Content-Length':info.size, 'X-Content-Type-Options':'nosniff',
-      'Referrer-Policy':'no-referrer',
+      // OSM tiles require a Referer. Cross-origin requests disclose only the
+      // public site origin; pairing fragments and review paths stay private.
+      'Referrer-Policy':'strict-origin-when-cross-origin',
       'Cache-Control':pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache'});
     if (req.method === 'HEAD') return res.end();
     createReadStream(filename).on('error', () => res.destroy()).pipe(res);
