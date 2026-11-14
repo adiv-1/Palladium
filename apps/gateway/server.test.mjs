@@ -6,6 +6,7 @@ import {mkdtemp, writeFile, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createGateway} from './server.mjs';
+import {gzipSync} from 'node:zlib';
 
 async function listen(server) {
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
@@ -43,7 +44,8 @@ test('streams upload body, auth cookies, compressed responses and media ranges',
       assert.equal(body, '{"token":"test-only"}');
       assert.equal(req.headers['x-forwarded-host'], undefined);
       res.setHeader('Set-Cookie', 'safesc_token=test-only; HttpOnly; Secure; SameSite=Strict; Path=/');
-      return res.end('{"ok":true}');
+      res.setHeader('Content-Encoding', 'gzip');
+      return res.end(gzipSync('{"ok":true}'));
     }
     assert.equal(req.headers.cookie, 'safesc_token=test-only');
     assert.equal(req.headers.range, 'bytes=3-5');
@@ -53,6 +55,7 @@ test('streams upload body, auth cookies, compressed responses and media ranges',
   const login = await fetch(origin + '/api/login', {method:'POST', body:'{"token":"test-only"}',
     headers:{'x-forwarded-host':'attacker.invalid'}});
   assert.match(login.headers.get('set-cookie'), /HttpOnly; Secure; SameSite=Strict/);
+  assert.deepEqual(await login.json(), {ok:true});
   const media = await fetch(origin + '/api/video', {headers:{cookie:'safesc_token=test-only', range:'bytes=3-5'}});
   assert.equal(media.status, 206);
   assert.equal(media.headers.get('content-range'), 'bytes 3-5/10');
