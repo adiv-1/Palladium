@@ -4,6 +4,8 @@
 
 SafeSC connects a phone camera or uploaded video to a streaming vision pipeline, preserves potentially relevant moments, and gives a reviewer original footage, uncertainty, and clearly labeled derived artifacts. A separate campus-activity map explores public LAPD reports near USC.
 
+[Open the hosted SafeSC dashboard](https://safe-sc.replit.app) · Workspace access token required. The UI runs on Replit; inference and stored footage remain on Runpod.
+
 ## What works today
 
 - Phone capture through an expiring QR pairing link, HTTPS/WebSockets, rear/front camera selection, and frame acknowledgements. Audio is off.

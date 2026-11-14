@@ -1,0 +1,32 @@
+{
+  "origin": "https://safe-sc.replit.app",
+  "physical_phone_tested": false,
+  "input": "16 synthetic gray JPEGs labeled as transport test",
+  "readiness": 200,
+  "anonymous_status": 401,
+  "login_status": 200,
+  "secure_httponly_cookie": true,
+  "model": "moss",
+  "research_mode": true,
+  "activity_status": 200,
+  "learning_assets": 48,
+  "training_video_status": 200,
+  "training_video_bytes": 6983964,
+  "event_websocket": "ping",
+  "active_sources_after": 0,
+  "checked_at": "2026-11-14T23:56:25.255908+00:00",
+  "deployed_commit": "825251ab2f9b75781ec45b90a4fd97431dcec742",
+  "source_commit": "d5fc91a25cacd055ef3bd67090d4affba6de165e",
+  "capture": {
+    "acknowledged_frames": 16,
+    "mean_ack_ms": 178.83523956425051,
+    "max_ack_ms": 315.49333399743773,
+    "runtime_seconds": 4.537632207997376
+  },
+  "limitations": [
+    "Synthetic transport test; no physical phone tested on this origin.",
+    "ACK latency is receipt latency, not model inference or alert latency.",
+    "Video retrieval returned HTTP 200 with the complete file; byte-range 206 support was not established.",
+    "Backend dependency findings remain separate from the UI-only Replit security scan."
+  ]
+}
