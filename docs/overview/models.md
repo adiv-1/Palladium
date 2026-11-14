@@ -28,6 +28,10 @@ Qwen source weights: `Qwen/Qwen3-VL-4B-Instruct` revision `ebb281ec70b05090aa616
 
 ## FastLLVE
 
+The optional reviewed-learning adapter uses PEFT 0.17.1, installed by the verifier setup stage. `VERIFIER_ADAPTER` selects a local artifact with matching base revision and recorded hashes. A failed automatic gate additionally requires `VERIFIER_RESEARCH_MODE=true` and an explicit hash-bound owner approval file; it is visibly labeled research mode. See [the learning experiment](learning.md). Leave the adapter setting empty to use the base verifier.
+
+## FastLLVE setup
+
 Official source: https://github.com/Wenhao-Li-777/FastLLVE (Apache-2.0).
 
 Upstream uses a custom IA-LUT CUDA extension and an old PyTorch stack. The published constructor references a missing `backbone_name` field; the compatibility patch below preserves the existing initialization branch. Validate output against the authors' implementation before using evaluation scores.
