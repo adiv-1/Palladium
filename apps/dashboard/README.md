@@ -1,6 +1,6 @@
-# SafeSC 3D command dashboard
+# Palladium app (3D command dashboard)
 
-A full-screen 3D view of USC for the dispatcher. Live incident beams pulse until someone reviews them. Approving an incident sends the nearest officer, shown as an animated arc. Hexagon columns show history by hour of day, and camera cones show how much of campus is watched live and how much is AI triaged. Every layer is labelled Real, Demo, Simulated or Estimate.
+A full-screen 3D view of USC for the dispatcher. Live incident beams pulse until someone reviews them. Approving an incident sends the nearest officer, shown as an animated arc. Building names come from OpenStreetMap, and camera cones show how much of campus is watched live and how much is AI triaged. Every layer is labelled Real, Demo, Simulated or Estimate.
 
 ## Run
 
@@ -10,7 +10,7 @@ npm install
 npm run dev        # http://localhost:5174
 ```
 
-The hosted site opens the **Command center** in the signed-in reviewer workspace. The dashboard also has a direct route at `/command/`. Officer links use that route with the unit and room in the query string.
+Through the gateway, the site root redirects here (`/command/`). Pages: `#/trends` (Campus), `#/live` (Live detection), `#/about` (How it works) and `#/incidents`. Officer links use that route with the unit and room in the query string.
 
 Press **D**, or click **Stage demo incident**, to fire a staged event.
 
@@ -27,7 +27,7 @@ Press **D**, or click **Stage demo incident**, to fire a staged event.
 ### Connect to a live SafeSC
 
 1. Run the SafeSC API on `:8000` (`STREAMING_MODEL=cascade` is recommended).
-2. In the dashboard, click **Connect SafeSC**. If prompted, enter the token from `data/app_token`.
+2. In the dashboard, click **Connect Palladium**. If prompted, enter the token from `data/app_token`.
 
 Vite proxies `/api` and `/ws` to the API. Set `SAFESC_API` to point the proxy somewhere else. SafeSC sources carry no location, so live incidents are pinned to **simulated** camera positions.
 

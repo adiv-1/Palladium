@@ -1,12 +1,40 @@
-# SafeSC
+# Palladium
 
-**Campus video review with preserved context and a human decision.** Built for the AI@USC hackathon.
+**Campus safety for USC: AI flags it, a person decides, the right people are sent.** Built for the AI@USC hackathon. (The repository and backend still use the earlier name, SafeSC.)
+
+Palladium has two parts:
+
+- **The Palladium app** (`apps/dashboard`): a dark 3D map of campus with four pages: Campus, Live detection, How it works and Incidents. This is what the site opens on.
+- **The detection backend** (`apps/api`): live camera detection, evidence preservation and review, described in the rest of this README.
+
+## The Palladium app
+
+| Page | What it shows |
+| --- | --- |
+| **Campus** | 3D campus with named buildings, ambassador posts placed to cover past incidents for the chosen shift, camera coverage (simulated positions), **Get Somewhere** safe walking routes and a **What-if** sandbox |
+| **Live detection** | Incidents from the detection backend: an Agent Consensus Brief from the threat and devil's-advocate agents, an AI dispatch recommendation that a person approves or dismisses, alerts to app users within 200 m, an intercept plan and patrol units |
+| **How it works** | The multi-agent architecture as a diagram, with a step-by-step simulation and a card for each agent |
+| **Incidents** | Past incidents over 90 days: by hour, a 13-week trend and the top locations |
+
+Every number and layer is labelled Real, Demo, Simulated or Estimate. Camera positions, units and incident history are simulated; building names and footprints come from OpenStreetMap.
+
+```bash
+cd apps/dashboard && npm install && npm run dev   # http://localhost:5174
+```
+
+Click **Stage demo incident** on Live detection to see the full flow without a camera. To use real detections, run the API on `:8000` and click **Connect Palladium** (token from `data/app_token`). The Claude dispatch and debate agents need `ANTHROPIC_API_KEY` on the backend; without it the rules-based fallbacks are used. More detail: [apps/dashboard/README.md](apps/dashboard/README.md).
+
+When served through the gateway (`apps/gateway/server.mjs`), the site root redirects to the app at `/command/`. The reviewer app in `apps/web` still serves the phone capture page at `/capture`.
+
+The interface follows [unslop](https://github.com/heydamir/unslop) (CC BY 4.0) for buttons, labels and panels. The brand mark is in [docs/brand](docs/brand).
+
+## Detection backend
 
 SafeSC connects a phone camera or uploaded video to a streaming vision pipeline, preserves potentially relevant moments, and gives a reviewer original footage, uncertainty, and clearly labeled derived artifacts. A separate campus-activity map explores public LAPD reports near USC.
 
-[Open the hosted SafeSC dashboard](https://safe-sc.replit.app) · Workspace access token required. The UI runs on Replit; inference and working media stay on Runpod. Original incident windows, thumbnails and review metadata are backed up to private Supabase Storage.
+[Open the hosted SafeSC dashboard](https://safe-sc.replit.app) · Workspace access token required. The hosted copy runs `main` and may not include the Palladium app yet. The UI runs on Replit; inference and working media stay on Runpod. Original incident windows, thumbnails and review metadata are backed up to private Supabase Storage.
 
-## What works today
+### What works today
 
 - Phone capture through an expiring QR pairing link, a native WebRTC dashboard video path targeting 1080p/60 FPS, separate acknowledged evidence frames, and rear/front camera selection. Audio is off. See [streaming setup and measurements](docs/overview/live-video.md).
 - MOSS-VL-Realtime NF4 observation with a separate Qwen3-VL-4B visual verifier and strict structured-output validation.
@@ -21,7 +49,7 @@ SafeSC connects a phone camera or uploaded video to a streaming vision pipeline,
 
 The current application supports **one active video source** and a shared reviewer workspace. Two-camera support, separate student accounts, and reviewer-approved student notifications remain planned. A Qwen LoRA research candidate has been trained on 19 approved research windows and evaluated separately; [results and limitations](docs/overview/learning.md) are explicit. Automatic continuous training is not enabled. Activity forecasting is a separately prepared seasonal research outlook with explicit validation limits.
 
-## Architecture
+### Architecture
 
 ```text
 Phone camera / uploaded video
@@ -51,7 +79,7 @@ Official LAPD records -> bounded local import -> SQLite
 
 See the [project documentation](docs/overview/README.md) and [full text diagram](docs/architecture.txt).
 
-## Quick start: local development
+### Quick start: local development
 
 Requires Python 3.11, Node.js 22, and [uv](https://docs.astral.sh/uv/). The control plane runs on macOS or Linux; real model inference requires Linux and NVIDIA CUDA.
 
@@ -74,19 +102,7 @@ Open [localhost:8000](http://localhost:8000) and enter the generated access toke
 
 For the actual GPU stack, follow [model setup and licenses](docs/overview/models.md) and [deployment notes](docs/overview/deployment.md). Checkpoint revisions and measured smoke-test results are recorded in `model-lock.json`. Upstream models use isolated environments; the CPU Docker image is not a validated all-model GPU image.
 
-## 3D command dashboard
-
-`apps/dashboard` is a full-screen 3D view of campus for the dispatcher: live incident beams, approve-and-dispatch arcs, hourly history columns and camera coverage cones. It runs on Google Photorealistic 3D Tiles when a key is set, and otherwise on a free MapLibre fallback.
-
-The hosted workspace opens the **Command center** after sign-in and loads incidents with the existing session. The sidebar also gives reviewers access to the overview and other workspace views. The [Replit hosting guide](docs/overview/replit.md) covers building and publishing the command view and officer links.
-
-```bash
-cd apps/dashboard && npm install && npm run dev   # http://localhost:5174
-```
-
-Every layer is labelled Real, Demo, Simulated or Estimate. Camera positions and officers are simulated. See [apps/dashboard/README.md](apps/dashboard/README.md).
-
-## Connect a phone
+### Connect a phone
 
 To host the dashboard and phone capture page on Replit while keeping inference on Runpod, use the checked-in `.replit` configuration and [Replit hosting instructions](docs/overview/replit.md). Only the public backend origin belongs in Replit configuration; provider tokens stay on their existing machines.
 
@@ -97,7 +113,7 @@ To host the dashboard and phone capture page on Replit while keeping inference o
 
 Transport is timestamped JPEG over WebSockets. Low-latency capture targets up to 12 FPS at a 960px long edge; detail mode targets up to 8 FPS at 1280px. Inference sampling and actual processing rates differ. Waiting, skipped samples, and model errors remain visible. The user has reported successful physical-device stream telemetry; reproducible engineering measurements are documented separately.
 
-## Download historical activity
+### Download historical activity
 
 ```bash
 uv run python scripts/data/download_activity.py
@@ -115,7 +131,7 @@ ambassador scenarios are precomputed; route comparisons run in the browser.
 Imagery basemap tiles load online. Outputs describe report activity and planning
 scenarios, not a probability of personal harm or actual DPS assignments.
 
-## Verification
+### Verification
 
 ```bash
 uv run pytest -q
