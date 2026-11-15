@@ -61,7 +61,7 @@ export default function IncidentReview({id,onBack}:{id:string,onBack:()=>void}){
   const [detail,setDetail]=useState<Data|null>(null),[error,setError]=useState(''),[note,setNote]=useState(''),[copy,setCopy]=useState('review');
   const [time,setTime]=useState(0),[duration,setDuration]=useState(0),[playing,setPlaying]=useState(false),[focused,setFocused]=useState(false);
   const original=useRef<HTMLVideoElement>(null),derived=useRef<HTMLVideoElement>(null);
-  useEffect(()=>{let active=true;const load=()=>api('/incidents/'+id).then(d=>active&&setDetail(d)).catch(e=>active&&setError(e.message));load();const interval=setInterval(load,4000);return()=>{active=false;clearInterval(interval)}},[id]);
+  useEffect(()=>{let active=true;setDetail(null);setError('');setTime(0);setDuration(0);setPlaying(false);const load=()=>api('/incidents/'+id).then(d=>active&&setDetail(d)).catch(e=>active&&setError(e.message));load();const interval=setInterval(load,4000);return()=>{active=false;clearInterval(interval)}},[id]);
   if(!detail)return <p>{error||'Loading incident…'}</p>;
   const i=detail.incident,r=i.record,events=r.observable_events||[],offset=r.clip_offset||0;
   const manual=r.trigger_origin==='reviewer',dismissed=i.review_status==='dismissed';

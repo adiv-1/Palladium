@@ -70,13 +70,15 @@ function Capture(){
 }
 
 
+function incidentFromLocation(){const id=new URLSearchParams(location.hash.slice(1)).get('incident');return id&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)?id:null}
 function App(){
   const [bookmarkNotice,setBookmarkNotice]=useState('');
   const seenIncidents=useRef(new Set<string>()),eventConnected=useRef(false),sourceRevision=useRef(0);
   const [reviewAlert,setReviewAlert]=useState<AnyRecord|null>(null),[notificationPermission,setNotificationPermission]=useState('Notification' in window?Notification.permission:'unavailable');
-  const [authed,setAuthed]=useState(false),[token,setToken]=useState(''),[sources,setSources]=useState<AnyRecord[]>([]),[incidents,setIncidents]=useState<AnyRecord[]>([]),[health,setHealth]=useState<AnyRecord>({}),[selected,setSelected]=useState<string|null>(()=>{const id=new URLSearchParams(location.hash.slice(1)).get('incident');return id&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)?id:null}),[pair,setPair]=useState(''),[error,setError]=useState(''),[uploading,setUploading]=useState(false),[connected,setConnected]=useState(false),[tab,setTab]=useState(location.hash==='#learning'?'Learning repository':location.hash==='#activity'?'Campus activity':'Overview');
+  const [authed,setAuthed]=useState(false),[token,setToken]=useState(''),[sources,setSources]=useState<AnyRecord[]>([]),[incidents,setIncidents]=useState<AnyRecord[]>([]),[health,setHealth]=useState<AnyRecord>({}),[selected,setSelected]=useState<string|null>(incidentFromLocation),[pair,setPair]=useState(''),[error,setError]=useState(''),[uploading,setUploading]=useState(false),[connected,setConnected]=useState(false),[tab,setTab]=useState(location.hash==='#learning'?'Learning repository':location.hash==='#activity'?'Campus activity':'Overview');
   const refresh=async()=>{const revision=sourceRevision.current;try{const [s,i,h]=await Promise.all([api('/sources'),api('/incidents'),api('/health')]);i.forEach((incident:AnyRecord)=>seenIncidents.current.add(incident.id));setSources(old=>revision===sourceRevision.current?s:[...old,...s.filter((source:AnyRecord)=>!old.some(item=>item.id===source.id))]);setIncidents(i);setHealth(h);setAuthed(true)}catch(e:any){if(e.status===401)setAuthed(false);else setConnected(false)}};
   useEffect(()=>{refresh()},[]);
+  useEffect(()=>{const navigate=()=>setSelected(incidentFromLocation());window.addEventListener('hashchange',navigate);return()=>window.removeEventListener('hashchange',navigate)},[]);
   useEffect(()=>{if(!authed)return;let ws:WebSocket;let retry:number;let stopped=false;
     const connect=()=>{ws=new WebSocket(wsUrl('/ws/events'));ws.onopen=()=>{eventConnected.current=true;setConnected(true);refresh()};ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.type==='source'){sourceRevision.current++;setSources(old=>[m.payload,...old.filter(s=>s.id!==m.payload.id)])};if(m.type==='incident'){
       if(!seenIncidents.current.has(m.payload.id)){
