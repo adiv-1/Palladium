@@ -25,7 +25,7 @@ export const studentLink = () => `${location.origin}${location.pathname}?app=1&r
 export function Nav({active}: {active: Route}) {
   return (
     <div className="brand-nav">
-      <a className="logo" href="#/trends" aria-label="Palladium"><Logo variant="mark" size={26} /><strong>PALLADIUM</strong></a>
+      <a className="logo" href="#/trends" aria-label="Palladium"><Logo variant="mark" size={38} /><strong>PALLADIUM</strong></a>
       <nav className="tabs" aria-label="Pages">
         {TABS.map(([id, label]) => (
           <a key={id} href={`#/${id}`} className={id === active ? 'on' : ''} aria-current={id === active ? 'page' : undefined}>

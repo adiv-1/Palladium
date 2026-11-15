@@ -4,7 +4,7 @@ import {Tile3DLayer, TripsLayer} from '@deck.gl/geo-layers';
 import type {Color, Layer} from '@deck.gl/core';
 import {cameraCone, distance} from './sim';
 import type {Building, Camera, Dispatch, HistoryPoint, Incident, LngLat, Officer, Rack, Severity} from './types';
-import {KEY_CATEGORIES} from './buildings';
+import {buildingLabelLayers, type Row as LabelRow} from './buildingLabels';
 import {progress} from './dispatch';
 import {CAMPUS_CENTER, offset} from './sim';
 
@@ -45,6 +45,7 @@ type Inputs = {
   google: {key: string; onCredits: (c: string) => void} | null;
   buildings: Building[];
   focusBuildingId: string | null;
+  labelRows?: LabelRow[];
   now: number; // Date.now(), for unit routes and drop-in timing
   orbiting: boolean;
   alert?: {center: LngLat; startedAt: number; radius: number; users: {id: string; position: LngLat; inside: boolean}[]} | null;
@@ -89,10 +90,6 @@ export function buildLayers(x: Inputs): Layer[] {
     layers.push(new PolygonLayer<{alpha: number; polygon: LngLat[]}>({id: 'radar', data: wedges, getPolygon: (w) => w.polygon,
       stroked: false, getFillColor: (w) => [255, 204, 0, w.alpha], updateTriggers: {getPolygon: sweep, getFillColor: sweep}}) as unknown as Layer);
   }
-  // Footprints, clickable for building facts.
-  layers.push(new PolygonLayer<Building>({id: 'footprints', data: x.buildings.filter((b) => b.footprint.length > 3),
-    getPolygon: (b) => b.footprint, stroked: true, filled: true, getFillColor: [0, 0, 0, 1], getLineColor: [120, 130, 145, 70],
-    lineWidthMinPixels: 1, pickable: true, autoHighlight: true, highlightColor: [255, 204, 0, 60]}) as unknown as Layer);
   // Highlighted building (incident or clicked): glowing extruded outline that breathes.
   const focusBuilding = x.buildings.find((b) => b.id === x.focusBuildingId);
   if (focusBuilding && focusBuilding.footprint.length > 3) {
@@ -101,14 +98,8 @@ export function buildLayers(x: Inputs): Layer[] {
       extruded: true, wireframe: true, getElevation: h + 1, getFillColor: [255, 204, 0, 35 + 45 * pulse],
       getLineColor: [255, 214, 80, 230], material: false, updateTriggers: {getFillColor: pulse}}) as unknown as Layer);
   }
-  // Key building labels (libraries, residences, recreation, parking, health) plus the focused one.
-  const labelled = x.buildings.filter((b) => KEY_CATEGORIES.includes(b.category) || b.id === x.focusBuildingId);
-  layers.push(new TextLayer<Building>({id: 'building-labels', data: labelled,
-    getPosition: (b) => [b.position[0], b.position[1], (Number(b.tags.height) || 12) + 6] as any,
-    getText: (b) => b.name, getSize: (b) => (b.id === x.focusBuildingId ? 15 : 11),
-    getColor: (b) => (b.id === x.focusBuildingId ? [255, 214, 80, 255] : [175, 182, 194, 175]), fontFamily: 'DM Sans, sans-serif', fontWeight: 700,
-    outlineWidth: 3, outlineColor: [18, 20, 23, 255], fontSettings: {sdf: true}, characterSet: 'auto',
-    updateTriggers: {getSize: x.focusBuildingId, getColor: x.focusBuildingId}}) as unknown as Layer);
+  // Footprints (clickable) and building names, shared with the Campus map.
+  layers.push(...buildingLabelLayers(x.buildings, {focusId: x.focusBuildingId, rows: x.labelRows}));
 
   if (x.toggles.history) {
     const points = x.hour === null ? x.history : x.history.filter((p) => p.hour === x.hour);

@@ -18,9 +18,11 @@
 
 /* ---- type ---- */
 *:not(svg *):not(code):not(pre) { font-family: var(--ui) !important; text-transform: none !important; letter-spacing: 0 !important; }
-.logo strong { letter-spacing: 0.12em !important; font-weight: 600 !important; font-size: 15px !important; }
+.logo { gap: 12px !important; padding-right: 6px; }
+.logo strong { letter-spacing: 0.16em !important; font-weight: 600 !important; font-size: 21px !important; line-height: 1; color: #fff; }
 body { color: var(--text); font-feature-settings: 'cv11', 'ss01'; }
 h1, h2, h3, h4, strong, b, .brand, .logo { font-weight: 500 !important; }
+.logo strong { font-weight: 600 !important; }
 h1 { letter-spacing: -0.02em !important; }
 b, strong, .num, .chip strong, .stat-row b, .share, .eta, .rank { font-variant-numeric: tabular-nums; }
 .chip-label, .field-label, .eyebrow, .eyebrow-like, .panel h3, .facts dt, .cov-head, .type-row span, .units-head span:not(.tag), .stat-row span {

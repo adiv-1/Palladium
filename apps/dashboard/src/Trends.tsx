@@ -14,6 +14,8 @@ import {useWhatIf} from './WhatIfPanel';
 import {CAMPUS_CENTER, cameraCone, distance, makeCameras} from './sim';
 import {PolygonLayer} from '@deck.gl/layers';
 import type {Camera} from './types';
+import {buildingLabelLayers, buildingTooltip, useLabelRows} from './buildingLabels';
+const NO_BUILDINGS: Building[] = [];
 import {INCIDENT_LABEL, type Building, type IncidentType, type LngLat} from './types';
 
 // Three clearly different hues; ambassador posts are neutral white so they never read as an incident type.
@@ -89,6 +91,9 @@ export default function Trends() {
   };
 
   const t = stage.time;
+  // Building footprints sit under everything; names sit on top of everything.
+  const labelRows = useLabelRows(campus?.buildings ?? NO_BUILDINGS, stage.viewState, null, undefined, 400); // left panel covers ~400px
+  const [footprintLayer, labelLayer] = useMemo(() => (campus ? buildingLabelLayers(campus.buildings, {rows: labelRows}) : []), [campus, labelRows]);
   const layers = useMemo(() => {
     if (!campus) return [];
     const out: Layer[] = [];
@@ -153,6 +158,7 @@ export default function Trends() {
   }, [campus, points, plan, routes, selected, t, count, heat, showCams, cameras]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tooltip = ({object, layer}: PickingInfo) => {
+    if (object && layer?.id === 'footprints') return {text: buildingTooltip(object as Building)};
     if (object && layer?.id === 'cam-cones') return {text: `${(object as Camera).id} near ${(object as Camera).near} · ${(object as Camera).watchedLive ? 'watched live' : 'AI triaged'} · simulated position`};
     if (!object || layer?.id !== 'posts') return null;
     const post = plan?.posts[(object as any).post];
@@ -163,7 +169,7 @@ export default function Trends() {
 
   return (
     <div className="app">
-      {campus && <Stage stage={stage} layers={[...layers, ...wi.layers]} tooltip={tooltip} onClick={({object, layer}) => {
+      {campus && <Stage stage={stage} layers={[footprintLayer, ...layers, ...wi.layers, labelLayer].filter(Boolean) as Layer[]} tooltip={tooltip} onClick={({object, layer}) => {
         if (layer?.id === 'posts' && object) {const p = plan?.posts[(object as any).post]; if (p) select(p);}
       }} />}
       <header className="strip">

@@ -9,6 +9,7 @@ import {existingIncidents, fromSafeSC, login, review, subscribe, type CascadeSta
 import {BottomBar, ConnectDialog, IncidentQueue, Legend, StatusStrip} from './Panels';
 import {BuildingCard, IncidentDetail, UnitsPanel} from './DispatchPanels';
 import {buildingAt, parseBuildings} from './buildings';
+import {buildingTooltip, useLabelRows} from './buildingLabels';
 import {acknowledge, arrive, AUTO_ACK_MS, cancel, clearUnit, createDispatch, POLICY, proposeUnits, remainingSeconds, resolve, tick, type DispatchState} from './dispatch';
 import {dashboardRoom, openBus, type Assignment, type Bus, type BusMessage} from './bus';
 import {INCIDENT_LABEL} from './types';
@@ -491,8 +492,10 @@ export default function App({embedded}: {embedded: boolean}) {
   const costToday = (aiCameras / 40) * 0.6 * ((Date.now() - midnight.getTime()) / 3.6e6);
 
   const google = mapMode === 'google' && GOOGLE_KEY ? {key: GOOGLE_KEY, onCredits: setCredits} : null;
+  const focusBuildingId = selectedBuildingId ?? selected?.buildingId ?? null;
+  const labelRows = useLabelRows(buildings, viewState, focusBuildingId, '.command-canvas');
   const layers = buildLayers({time, incidents, selectedId, officers, cameras, racks, history, hour, dispatches: arcs, toggles, google,
-    buildings, focusBuildingId: selectedBuildingId ?? selected?.buildingId ?? null, now, orbiting: mode === 'orbit',
+    buildings, focusBuildingId, labelRows, now, orbiting: mode === 'orbit',
     alert: alertState ? {center: alertState.msg.center, startedAt: alertState.startedAt, radius: alertState.msg.radius, users: alertState.users} : null,
     extra: intercept ? interceptLayers(intercept.plan, intercept.startedAt, time, intercept.approved) : undefined,
     trails: Object.entries(trailsRef.current).map(([id, path]) => ({id, path}))});
@@ -503,7 +506,7 @@ export default function App({embedded}: {embedded: boolean}) {
     if (layer.id === 'officers') return {text: `${object.callsign} · ${object.mode} · ${object.status} · simulated unit`};
     if (layer.id === 'camera-cones') return {text: `${object.id} near ${object.near} · ${object.watchedLive ? 'watched live' : 'AI triaged'} · simulated position`};
     if (layer.id === 'beams') return {text: `${object.place}: ${object.observation}`};
-    if (layer.id === 'footprints') return {text: `${object.name}${object.tags?.short_name ? ` (${object.tags.short_name})` : ''}`};
+    if (layer.id === 'footprints') return {text: buildingTooltip(object as Building)};
     return null;
   };
 
