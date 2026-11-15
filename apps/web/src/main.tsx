@@ -4,6 +4,8 @@ import {Activity,ArrowUpRight,Bell,Camera,Check,ChevronLeft,Clock,Eye,FileVideo,
 import {QRCodeSVG} from 'qrcode.react';
 import './style.css';
 import LiveMonitor from './LiveMonitor';
+import {publishLiveVideo} from './liveVideo';
+import {recordEvidence,type RecordingHandle} from './nativeRecording';
 import ReviewPage from './IncidentReview';
 import StorageStatus from './StorageStatus';
 import LearningRepository,{LearningPermission} from './LearningRepository';
@@ -19,18 +21,21 @@ const wsUrl=(path:string)=>`${location.protocol==='https:'?'wss:':'ws:'}//${loca
 const media=(id:string,kind:string)=>`/api/incidents/${id}/media/${kind}`;
 
 function Capture(){
-  const video=useRef<HTMLVideoElement>(null),socket=useRef<WebSocket|null>(null),stream=useRef<MediaStream|null>(null),timer=useRef<number>(0),running=useRef(false),wake=useRef<any>(null);
-  const [status,setStatus]=useState('Ready to connect'),[frames,setFrames]=useState(0),[error,setError]=useState(''),[active,setActive]=useState(false),[facing,setFacing]=useState('environment'),[quality,setQuality]=useState('fast');
-  const stop=()=>{running.current=false;clearTimeout(timer.current);socket.current?.close();stream.current?.getTracks().forEach(t=>t.stop());wake.current?.release();setActive(false)};
-  useEffect(()=>()=>stop(),[]);
+  const video=useRef<HTMLVideoElement>(null),socket=useRef<WebSocket|null>(null),stream=useRef<MediaStream|null>(null),timer=useRef<number>(0),running=useRef(false),wake=useRef<any>(null),liveVideo=useRef<(()=>void)|null>(null),recording=useRef<RecordingHandle|null>(null);
+  const [status,setStatus]=useState('Ready to connect'),[frames,setFrames]=useState(0),[error,setError]=useState(''),[active,setActive]=useState(false),[facing,setFacing]=useState('environment'),[quality,setQuality]=useState('fast'),[captureInfo,setCaptureInfo]=useState(''),[liveStatus,setLiveStatus]=useState(''),[recordingStatus,setRecordingStatus]=useState('');
+  const stop=async()=>{running.current=false;clearTimeout(timer.current);const ws=socket.current;socket.current=null;liveVideo.current?.();liveVideo.current=null;const native=recording.current;recording.current=null;const flushed=native?.stop();stream.current?.getTracks().forEach(t=>t.stop());wake.current?.release();setActive(false);await flushed;if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'stop'}));else ws?.close()};
+  useEffect(()=>()=>{void stop()},[]);
   async function start(){
-    stop();setError('');setStatus('Opening camera…');
+    await stop();setError('');setStatus('Opening camera…');
     try{
       if(!window.isSecureContext)throw Error('Camera access needs HTTPS. Open the secure pairing URL from the dashboard.');
       if(!navigator.mediaDevices?.getUserMedia)throw Error('This browser does not support camera capture. Use Safari or Chrome.');
       const token=location.hash.slice(1);if(!token)throw Error('Open the pairing link from the SafeSC dashboard first.');
-      stream.current=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:15}},audio:false});
+      stream.current=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing},width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:60,max:60}},audio:false});
+      const camera=stream.current.getVideoTracks()[0];
+      const actual=camera.getSettings();setCaptureInfo(`${actual.width||'?'} × ${actual.height||'?'} · ${actual.frameRate?.toFixed(0)||'?'} capture FPS`);
       video.current!.srcObject=stream.current;await video.current!.play();
+      liveVideo.current=publishLiveVideo(stream.current,token,setLiveStatus);
       const ws=new WebSocket(wsUrl('/ws/capture'));socket.current=ws;running.current=true;setActive(true);
       const canvas=document.createElement('canvas');let fps=12,encoding=false,inFlight=0;
       const send=()=>{
@@ -46,8 +51,8 @@ function Capture(){
           inFlight++;ws.send(JSON.stringify({type:'frame',timestamp}));ws.send(bytes);
         }finally{encoding=false}},'image/jpeg',quality==='fast'?.72:.85);
       };
-      ws.onopen=()=>{setStatus('Pairing with SafeSC…');ws.send(JSON.stringify({token}))};
-      ws.onmessage=e=>{if(ws!==socket.current)return;const m=JSON.parse(e.data);if(m.type==='ready'){fps=Math.min(m.fps,quality==='fast'?12:8);setStatus('Connected · streaming');send()}
+      ws.onopen=()=>{setStatus('Pairing with SafeSC…');ws.send(JSON.stringify({token,native_recording:typeof MediaRecorder!=='undefined'}))};
+      ws.onmessage=e=>{if(ws!==socket.current)return;const m=JSON.parse(e.data);if(m.type==='ready'){fps=Math.min(m.fps,quality==='fast'?12:8);setStatus('Connected · streaming');if(m.native_recording)recording.current=recordEvidence(stream.current!,m.source_id,token,setRecordingStatus);else setRecordingStatus('Evidence clips use sampled frames · smooth native recording is not enabled');send()}
         if(m.type==='ack'){inFlight=Math.max(0,inFlight-1);setFrames(m.index);setStatus(m.model_status==='error'?'Streaming · model unavailable':m.model_status==='waiting_for_gpu'?'Streaming · analysis queued':m.model_status==='loading'?'Streaming · analysis starting':'Connected · streaming')}
         if(m.type==='error'){setError(m.message);stop()}};
       ws.onclose=e=>{if(ws===socket.current&&running.current){setStatus('Disconnected');setError(e.reason||'Connection closed. Tap Start camera to reconnect.');stop()}};
@@ -57,22 +62,23 @@ function Capture(){
   }
   return <div className="capture-page"><div className="brand"><Shield size={26}/><strong>Safe<span>SC</span></strong><small>CAMERA LINK</small></div><h1>Your phone.<br/>A clearer view.</h1><p>Secure camera link to your SafeSC review workspace. Audio is off.</p>
     <div className="phone-preview"><video ref={video} autoPlay playsInline muted/>{!active&&<Camera size={48}/>}<span className="phone-status"><i className={active?'dot green':'dot'}/>{status}</span></div>
-    <div className="capture-stats"><span>{frames} frames acknowledged</span><span>{facing==='environment'?'Rear':'Front'} camera · {quality==='fast'?'Low latency':'More detail'}</span></div>
+    <div className="capture-stats"><span>{frames} evidence frames acknowledged</span><span>{captureInfo||`${facing==='environment'?'Rear':'Front'} camera · target 1080p / 60 FPS`}</span></div>
+    {liveStatus&&<p className="fine" role="status">{liveStatus}</p>}{recordingStatus&&<p className="fine" role="status">{recordingStatus}</p>}
     {error&&<div className="error" role="alert">{error}</div>}
-    {!active?<><select aria-label="Camera" value={facing} onChange={e=>setFacing(e.target.value)}><option value="environment">Rear camera</option><option value="user">Front camera</option></select><select aria-label="Stream quality" value={quality} onChange={e=>setQuality(e.target.value)}><option value="fast">Low latency · 960px · up to 12 FPS</option><option value="detail">More detail · 1280px · up to 8 FPS</option></select><button className="primary wide" onClick={start}><Camera size={18}/>Start camera</button></>:<button className="danger wide" onClick={stop}>Stop streaming</button>}
-    <p className="fine">Keep this page open and the phone awake. Landscape gives the clearest event view. Works over Wi-Fi or cellular. If the connection drops, reconnect here; a new stream starts at zero.</p></div>
+    {!active?<><select aria-label="Camera" value={facing} onChange={e=>setFacing(e.target.value)}><option value="environment">Rear camera</option><option value="user">Front camera</option></select><select aria-label="Analysis sample quality" value={quality} onChange={e=>setQuality(e.target.value)}><option value="fast">Analysis samples · 960px · up to 12 FPS</option><option value="detail">Analysis samples · 1280px · up to 8 FPS</option></select><button className="primary wide" onClick={start}><Camera size={18}/>Start camera</button></>:<button className="danger wide" onClick={stop}>Stop streaming</button>}
+    <p className="fine">The dashboard receives the camera video directly with a 1080p / 60 FPS target. Actual quality depends on device and network. Native video is recorded separately for smoother new incident clips; analysis uses the sampled frames above. If native recording cannot keep up, the status reports a sampled-evidence fallback. Keep this page open and the phone awake. Landscape gives the clearest event view. Works over Wi-Fi or cellular. If the connection drops, reconnect here; a new stream starts at zero.</p></div>
 }
 
 
 function App(){
   const [bookmarkNotice,setBookmarkNotice]=useState('');
-  const seenIncidents=useRef(new Set<string>());
+  const seenIncidents=useRef(new Set<string>()),eventConnected=useRef(false),sourceRevision=useRef(0);
   const [reviewAlert,setReviewAlert]=useState<AnyRecord|null>(null),[notificationPermission,setNotificationPermission]=useState('Notification' in window?Notification.permission:'unavailable');
-  const [authed,setAuthed]=useState(false),[token,setToken]=useState(''),[sources,setSources]=useState<AnyRecord[]>([]),[incidents,setIncidents]=useState<AnyRecord[]>([]),[health,setHealth]=useState<AnyRecord>({}),[selected,setSelected]=useState<string|null>(null),[pair,setPair]=useState(''),[error,setError]=useState(''),[uploading,setUploading]=useState(false),[connected,setConnected]=useState(false),[tab,setTab]=useState(location.hash==='#learning'?'Learning repository':location.hash==='#activity'?'Campus activity':'Overview');
-  const refresh=async()=>{try{const [s,i,h]=await Promise.all([api('/sources'),api('/incidents'),api('/health')]);i.forEach((incident:AnyRecord)=>seenIncidents.current.add(incident.id));setSources(s);setIncidents(i);setHealth(h);setAuthed(true)}catch(e:any){if(e.status===401)setAuthed(false);else setConnected(false)}};
+  const [authed,setAuthed]=useState(false),[token,setToken]=useState(''),[sources,setSources]=useState<AnyRecord[]>([]),[incidents,setIncidents]=useState<AnyRecord[]>([]),[health,setHealth]=useState<AnyRecord>({}),[selected,setSelected]=useState<string|null>(()=>{const id=new URLSearchParams(location.hash.slice(1)).get('incident');return id&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)?id:null}),[pair,setPair]=useState(''),[error,setError]=useState(''),[uploading,setUploading]=useState(false),[connected,setConnected]=useState(false),[tab,setTab]=useState(location.hash==='#learning'?'Learning repository':location.hash==='#activity'?'Campus activity':'Overview');
+  const refresh=async()=>{const revision=sourceRevision.current;try{const [s,i,h]=await Promise.all([api('/sources'),api('/incidents'),api('/health')]);i.forEach((incident:AnyRecord)=>seenIncidents.current.add(incident.id));setSources(old=>revision===sourceRevision.current?s:[...old,...s.filter((source:AnyRecord)=>!old.some(item=>item.id===source.id))]);setIncidents(i);setHealth(h);setAuthed(true)}catch(e:any){if(e.status===401)setAuthed(false);else setConnected(false)}};
   useEffect(()=>{refresh()},[]);
   useEffect(()=>{if(!authed)return;let ws:WebSocket;let retry:number;let stopped=false;
-    const connect=()=>{ws=new WebSocket(wsUrl('/ws/events'));ws.onopen=()=>setConnected(true);ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.type==='source')setSources(old=>[m.payload,...old.filter(s=>s.id!==m.payload.id)]);if(m.type==='incident'){
+    const connect=()=>{ws=new WebSocket(wsUrl('/ws/events'));ws.onopen=()=>{eventConnected.current=true;setConnected(true);refresh()};ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.type==='source'){sourceRevision.current++;setSources(old=>[m.payload,...old.filter(s=>s.id!==m.payload.id)])};if(m.type==='incident'){
       if(!seenIncidents.current.has(m.payload.id)){
         seenIncidents.current.add(m.payload.id);setReviewAlert(m.payload);
         if('Notification' in window&&Notification.permission==='granted'&&document.hidden){
@@ -81,8 +87,8 @@ function App(){
         }
       }
       setIncidents(old=>[m.payload,...old.filter(i=>i.id!==m.payload.id)])
-    }};ws.onclose=()=>{setConnected(false);if(!stopped)retry=window.setTimeout(connect,2000)}};connect();
-    const poll=setInterval(()=>{refresh()},2500);return()=>{stopped=true;clearInterval(poll);clearTimeout(retry);ws?.close()};
+    }};ws.onclose=()=>{eventConnected.current=false;setConnected(false);if(!stopped)retry=window.setTimeout(connect,2000)}};connect();
+    const poll=setInterval(()=>{if(eventConnected.current)api('/health').then(setHealth).catch(()=>{});else refresh()},2500);return()=>{stopped=true;eventConnected.current=false;clearInterval(poll);clearTimeout(retry);ws?.close()};
   },[authed]);
   async function pairPhone(){try{setError('');const r=await post('/sources',{name:'Mobile camera',kind:'phone'});const capture=new URL('/capture',window.location.origin);capture.hash=new URL(r.capture_url,window.location.origin).hash;setPair(capture.href);refresh()}catch(e){setError(String(e))}}
   async function upload(file:File){setUploading(true);setError('');try{const body=new FormData();body.append('file',file);await api('/upload',{method:'POST',body});refresh()}catch(e){setError(String(e))}finally{setUploading(false)}}

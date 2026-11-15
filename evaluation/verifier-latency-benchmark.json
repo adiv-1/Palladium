@@ -1,0 +1,51 @@
+{
+  "kind": "isolated synthetic verifier latency benchmark",
+  "measured_date_utc": "2026-11-15",
+  "hardware": "Existing Runpod NVIDIA A40",
+  "model": "Qwen/Qwen3-VL-4B-Instruct",
+  "adapter": "Existing configured owner-approved research adapter; unchanged between runs",
+  "input": "Four generated 320x240 solid-color JPEGs, source times 0/0.3/0.6/0.9; no real video or incident records",
+  "guards": [
+    "No streaming Source records",
+    "No queued/running GPU jobs",
+    "Initial GPU memory below 2000 MiB",
+    "Separate process; production API/model processes not restarted or altered"
+  ],
+  "generation": {
+    "do_sample": false,
+    "max_new_tokens": 256,
+    "input_tokens": 1221,
+    "generated_tokens": 31,
+    "schema": "Unchanged current strict evidence schema, fresh parser and frame enum every pass"
+  },
+  "baseline_warm": {
+    "total_seconds": 5.246577210025862,
+    "prepare_seconds": 0.017060055979527533,
+    "constraint_setup_seconds": 3.736121174064465,
+    "generate_decode_seconds": 1.4933959799818695,
+    "status": "accepted"
+  },
+  "cached_warm": {
+    "total_seconds": 1.6221165870083496,
+    "prepare_seconds": 0.20808227499946952,
+    "constraint_setup_seconds": 0.0003605580423027277,
+    "generate_decode_seconds": 1.4136737539665774,
+    "status": "accepted"
+  },
+  "relative_warm_wall_time_reduction": 0.6908238415116446,
+  "one_time_vocabulary_setup_seconds": 4.912765261018649,
+  "implementation": "Cache only tokenizer vocabulary/trie data per tokenizer identity; rebuild parser/enforcer for every evidence schema. Prebuild vocabulary during model warmup.",
+  "limitations": [
+    "One warm synthetic ordinary-activity comparison in separate processes; not a representative throughput benchmark.",
+    "Uncached first run was 6.61 seconds; cached process first run before explicit warmup was 8.06 seconds, paying one-time vocabulary setup.",
+    "Generation speed was approximately unchanged; measured improvement removes repeated CPU vocabulary setup.",
+    "Does not measure live phone alert latency, positive action recall, false alerts, or two-pass confirmation duration.",
+    "Production recent positive passes took roughly 12.89 + 13.52 seconds before this optimization; no claim those full totals improve by 69 percent."
+  ],
+  "separate_temporal_coverage_fix": {
+    "problem": "A fixed 10-second evidence-pool tail could drop an action received while a preceding primary+confirmation occupied the GPU for longer than 10 seconds.",
+    "change": "Retain since the previous verification dispatch plus one second of context, bounded by MAX_INFERENCE_LAG_SECONDS and the existing rolling-buffer memory limit. Continue selecting the same four original motion/context frames with unchanged verification and temporal gates.",
+    "regression": "One synthetic motion peak at t=5 remains selected when the next verification is available at t=25; context older than the configured 60-second lag is still excluded.",
+    "limitation": "This is a deterministic frame-retention regression, not measured model recall on a physical punch. Four-frame sampling and the models may still miss an action."
+  }
+}

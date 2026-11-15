@@ -31,3 +31,39 @@ The rolling buffer allows up to 60 seconds of model lag, bounded by its 128 MiB 
 [Actual diagnostic results](../../evaluation/event-live-diagnostic.json): full previously evaluated academic videos were replayed through the real phone protocol, using the selected research adapter, with no manual bookmark or simulated detector. Contact produced an automatic 19.849-second original; the final object-taking check produced a 39.004-second original. Both originals included their annotated activity, were downloadable, and matched stored SHA-256 values. Replit displayed the red notices, 0.80 score / 0.75 threshold and incident-review links. The diagnostic stream requested original-first review, so the separate Qwen clip job ran while optional RelayVSR/ReLift jobs were not repeated for these test clips; normal phone sources still request those copies by default. FastLLVE remained enabled for dark input.
 
 This was not perfect detection: one of two ordinary test videos also produced a review alert. The successful notices arrived approximately 27 and 37 seconds after their last cited frames. This reused diagnostic is neither an independent accuracy estimate nor a physical-phone evaluation. Initial failures and clipped follow-through were preserved and fixed rather than counted as success. The two newly trained follow-ups were weaker, so the previously owner-approved research weights remain selected. A fresh phone angle, lighting and staged gesture still need their own test. Leave capture running for at least 45 seconds after a staged action; act without contact and keep all participants visible. Never treat absence of an alert as evidence that nothing happened.
+
+## Observation latency and short-upload corrections
+
+The November 14 follow-up separates capture completion from analysis completion.
+When camera input ends, the UI shows that received frames are still being
+processed instead of continuing to say it is listening. The circular indicator
+uses actual model phases and the verifier pass start time; it does not imply a
+percentage or a completed decision.
+
+The Qwen constrained decoder now caches its tokenizer vocabulary during model
+warmup. Evidence schemas, parser state and valid frame-ID constraints remain
+fresh for each pass. On the same A40 and approved adapter, one warm synthetic
+ordinary-activity check measured 5.25 seconds before caching and 1.62 seconds
+afterward; approximately 3.74 seconds was repeated CPU vocabulary setup. These
+measurements do not establish the same reduction for positive events or the
+complete two-pass alert path. Details are in
+[`evaluation/verifier-latency-benchmark.json`](../../evaluation/verifier-latency-benchmark.json).
+
+The streaming adapter preserves all validated completed sentences and exact
+completed-round text, and gives a fresh in-flight caption a bounded opportunity
+to finish when capture ends. It does not turn unfinished fragments into facts.
+The next check retains the original context since the preceding dispatch, within
+the existing memory/lag bounds, rather than discarding everything older than ten
+seconds. A final upload check uses the actual retained stream end and includes
+its original endpoint, preventing an early motion peak from suppressing review
+of the tail. Four-frame sparse sampling can still miss actions.
+
+Uploaded phone videos are analyzed in their container display orientation;
+source bytes and their hashes remain unchanged. Review styling is neutral slate
+with amber follow-up emphasis. Previously recorded low-frame-rate evidence is
+not relabeled or interpolated into high-frame-rate original footage.
+
+Native encoded recording is experimental and disabled by default until its full
+browser-to-incident test passes. `ENABLE_NATIVE_RECORDING=false` preserves the
+existing sampled-evidence path while the live WebRTC stream remains independent.
+A standalone 60 FPS recorder result alone is insufficient to enable this path.

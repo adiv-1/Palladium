@@ -1,0 +1,117 @@
+{
+  "kind": "Synthetic browser WebRTC transport verification",
+  "physical_phone_tested": true,
+  "relay_tested": false,
+  "gpu_inference_benchmarked": false,
+  "local_gateway": {
+    "input": "Chrome synthetic 1920x1080 60fps Y4M camera; localhost peers through Node gateway signaling",
+    "physical_phone_tested": false,
+    "capture": "189 evidence frames acknowledged\n1920 \u00d7 1080 \u00b7 60 capture FPS",
+    "phoneStatus": [
+      "Direct video connected \u00b7 target 1080p / 60 FPS"
+    ],
+    "viewer": "Possible incident \u00b7 review required\n56.1 display FPS \u00b7 1920 \u00d7 1080\nDIRECT CAMERA VIDEO \u00b7 Mobile camera\n\n60 FPS target \u00b7 60.1 decoded FPS \u00b7 11.8 Mbps \u00b7 0 decode drops \u00b7 42 presentation drops \u00b7 8 ms jitter buffer \u00b7 0 ms network round trip",
+    "video": {
+      "width": 1920,
+      "height": 1080,
+      "quality": {
+        "total": 916,
+        "dropped": 42
+      }
+    },
+    "errors": [],
+    "reconnected": true
+  },
+  "hosted_signaling": {
+    "input": "Chrome synthetic 1920x1080 60fps Y4M camera; hosted Runpod HTTPS signaling; analysis socket stubbed to avoid GPU inference; real WebRTC media",
+    "physical_phone_tested": false,
+    "capture": "191 evidence frames acknowledged\n1920 \u00d7 1080 \u00b7 60 capture FPS",
+    "phoneStatus": [
+      "Direct video connected \u00b7 target 1080p / 60 FPS"
+    ],
+    "viewer": "Direct camera video\n56.0 display FPS \u00b7 1920 \u00d7 1080\nDIRECT CAMERA VIDEO \u00b7 Mobile camera\n\n60 FPS target \u00b7 59.9 decoded FPS \u00b7 11.0 Mbps \u00b7 0 decode drops \u00b7 61 presentation drops \u00b7 9 ms jitter buffer \u00b7 1 ms network round trip",
+    "video": {
+      "width": 1920,
+      "height": 1080,
+      "quality": {
+        "total": 901,
+        "dropped": 66
+      }
+    },
+    "errors": [],
+    "reconnected": true
+  },
+  "limitations": [
+    "Both synthetic camera and viewer ran on the same computer. This does not measure cellular or cross-network quality.",
+    "Network RTT and jitter buffer do not measure glass-to-glass latency.",
+    "Hosted analysis WebSocket was stubbed to avoid loading GPU models or creating test incidents. Evidence intake is covered by protocol tests separately.",
+    "Headless Chrome presented approximately56FPS despite receiving60FPS; sustained physical-phone1080p60 is unverified.",
+    "Replit gateway/UI require separate republishing. Updated dashboard is available directly from existing Runpod HTTPS worker."
+  ],
+  "physical_phone_before_relay": {
+    "device": "iPhone 17",
+    "browser": "Chrome",
+    "network": "library Wi-Fi",
+    "reported": "Faster but not fast enough; periodically switches view",
+    "screenshot_metrics": {
+      "fallback_display_fps": 3.8,
+      "fallback_roundtrip_ms": 269,
+      "direct_decoded_fps": 0
+    },
+    "assessment": "Direct video did not deliver usable frames; JPEG fallback was displayed. This is not a successful physical 60fps result.",
+    "remediation": "Readiness/fallback flicker fix and private TLS relay deployed; physical iPhone retry pending."
+  },
+  "private_tls_relay": {
+    "input": "Chrome synthetic 1920x1080 60fps Y4M camera; hosted Runpod HTTPS signaling; forced private TLS TURN on both peers; analysis socket stubbed; real1080p60 WebRTC media",
+    "physical_phone_tested": false,
+    "capture": "175 evidence frames acknowledged\n1920 \u00d7 1080 \u00b7 60 capture FPS",
+    "phoneStatus": [
+      "Direct video connected \u00b7 target 1080p / 60 FPS"
+    ],
+    "viewer": "Live camera video \u00b7 ICE connected\n59.0 display FPS \u00b7 1920 \u00d7 1080\nLIVE CAMERA VIDEO \u00b7 Mobile camera\n\n60 FPS target \u00b7 Private relay / TLS \u00b7 60.0 decoded FPS \u00b7 9.2 Mbps \u00b7 0 decode drops \u00b7 87 presentation drops \u00b7 9 ms jitter buffer \u00b7 11 ms network round trip",
+    "video": {
+      "width": 1920,
+      "height": 1080,
+      "quality": {
+        "total": 780,
+        "dropped": 90
+      }
+    },
+    "errors": [],
+    "connections": [
+      {
+        "state": "connected",
+        "local": "relay",
+        "remote": "relay",
+        "relayProtocol": "tls"
+      }
+    ],
+    "reconnected": true
+  },
+  "private_relay_deployment": {
+    "region": "Los Angeles",
+    "plan": "vc2-1c-1gb",
+    "approved_server_usd_per_month": 5,
+    "included_bandwidth_gb": 1024,
+    "certificate_validation": "Trusted public IP certificate; TLS443 verified",
+    "renewal_simulation": "passed",
+    "demo_ice_policy": "relay",
+    "backend_deployed": true,
+    "moss_and_verifier_preloaded": true
+  },
+  "physical_phone_after_relay": {
+    "device": "iPhone 17",
+    "browser": "Chrome",
+    "network": "library Wi-Fi",
+    "camera_encoded_fps": 60,
+    "dashboard_decoded_fps": 60.02198,
+    "dimensions": [
+      1920,
+      1080
+    ],
+    "peer_connection_state": "connected",
+    "models_warm": true,
+    "validation": "Live aggregate camera/viewer counters from authenticated signaling diagnostics; no video or scene descriptions retained",
+    "physical_presentation_fps": "Not independently confirmed"
+  }
+}

@@ -71,7 +71,7 @@ def init(recover=True):
     with Session(engine) as s:
         for job in s.exec(select(Job).where(Job.status=='running')):
             job.status='failed'; job.error='Worker restarted; retry explicitly'; s.add(job)
-        for src in s.exec(select(Source).where(Source.status=='streaming')):
+        for src in s.exec(select(Source).where(Source.status.in_(['streaming','processing','warming','waiting_for_gpu']))):
             src.status='disconnected'; s.add(src)
         s.commit()
 

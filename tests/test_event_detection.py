@@ -137,3 +137,105 @@ def test_augmentation_never_changes_held_out_inputs_or_splits(tmp_path):
         assert r['group_id']==r['split']
         if r['augmentation']['model_time_augmented']:
             assert set(r['target']['supporting_frames'])<=set(r['frame_indices'])
+
+def test_constraint_cache_reuses_vocabulary_but_never_evidence_parser(monkeypatch):
+    import sys
+    from ml.verifier import StructuredVisualVerifier
+    builds=[];parsers=[]
+    def vocabulary(tokenizer):
+        result=object();builds.append((tokenizer,result));return result
+    def parser(schema):
+        value={'schema':copy.deepcopy(schema)};parsers.append(value);return value
+    monkeypatch.setitem(sys.modules,'lmformatenforcer',SimpleNamespace(JsonSchemaParser=parser))
+    monkeypatch.setitem(sys.modules,'lmformatenforcer.integrations.transformers',SimpleNamespace(
+        build_token_enforcer_tokenizer_data=vocabulary,
+        build_transformers_prefix_allowed_tokens_fn=lambda data,state:(data,state)))
+    verifier=StructuredVisualVerifier.__new__(StructuredVisualVerifier)
+    verifier.processor=SimpleNamespace(tokenizer=object())
+    first=verifier.constraint_prefix({'ids':[1,2]})
+    second=verifier.constraint_prefix({'ids':[3,4]})
+    assert len(builds)==1 and first[0] is second[0]
+    assert first[1] is not second[1]
+    assert first[1]['schema']=={'ids':[1,2]} and second[1]['schema']=={'ids':[3,4]}
+    verifier.processor.tokenizer=object()
+    third=verifier.constraint_prefix({'ids':[5,6]})
+    assert len(builds)==2 and third[0] is not first[0]
+
+@pytest.mark.asyncio
+async def test_brief_action_during_slow_verification_remains_in_next_evidence(monkeypatch):
+    """One action at t=5 survives a preceding check finishing at t=25."""
+    from apps.api.video import decode
+    monkeypatch.setattr(settings,'enable_tracking',False)
+    monkeypatch.setattr(settings,'enhancement_model','bypass')
+    monkeypatch.setattr(settings,'verification_frame_count',4)
+    monkeypatch.setattr(settings,'max_inference_lag_seconds',60)
+    class Detector:
+        last_verified=1
+        async def observe(self,*args):pass
+    session=VideoSession(Source(name='Brief action while GPU occupied',kind='phone'))
+    session.detector=Detector()
+    jpeg=encode(np.full((48,64,3),90,np.uint8))
+    for i in range(251):
+        session.buffer.append(Frame(i*.1,i,jpeg,motion=100 if i==50 else 0))
+    latest=session.buffer.frames[-1]
+    await session.observe(latest,decode(jpeg),{'state':'well_lit'})
+    evidence=session.detector.evidence_frames
+    assert len(evidence)==4
+    assert 50 in [f.index for f in evidence]
+    assert [f.timestamp for f in evidence]==sorted(f.timestamp for f in evidence)
+    assert all(f in session.buffer.frames for f in evidence)
+    # Preserve the configured stale-evidence bound rather than growing a backlog.
+    for i in range(251,801):session.buffer.append(Frame(i*.1,i,jpeg))
+    await session.observe(session.buffer.frames[-1],decode(jpeg),{'state':'well_lit'})
+    assert session.detector.evidence_pool[0].timestamp==20
+    assert all(f.timestamp>=20 for f in session.detector.evidence_frames)
+
+@pytest.mark.asyncio
+async def test_short_clip_final_verifier_uses_buffer_tail_after_slow_model_start(monkeypatch):
+    """The clip may finish while its first inference call is still connecting."""
+    monkeypatch.setattr(settings,'verification_frame_count',4)
+    init()
+    class SlowStartDetector:
+        last_verified=-1e9
+        evidence_frames=[]
+        evidence_pool=[]
+        async def finish(self):self.final_frames=list(self.evidence_frames)
+        async def close(self):pass
+        def drain(self):return []
+    session=VideoSession(save(Source(name='Short input completed during model startup',kind='upload')))
+    detector=SlowStartDetector();session.detector=detector
+    jpeg=encode(np.full((48,64,3),100,np.uint8))
+    for i in range(41):session.buffer.append(Frame(i*.1,100+i,jpeg))
+    # Only the first frame reached observe() while the rest accumulated in RAM.
+    detector.evidence_frames=[session.buffer.frames[0]]
+    detector.evidence_pool=[session.buffer.frames[0]]
+    await session.close()
+    assert len(detector.final_frames)==4
+    assert detector.final_frames[0].index==100
+    assert detector.final_frames[-1].index==140
+    assert detector.final_frames[-1].timestamp==4
+    assert all(f in session.buffer.frames for f in detector.final_frames)
+    assert session.source.telemetry['stream_ended'] is True
+    assert session.source.telemetry['capture_active'] is False
+
+@pytest.mark.asyncio
+async def test_final_window_uses_stream_end_not_early_motion_selected_end(monkeypatch):
+    monkeypatch.setattr(settings,'verification_frame_count',4)
+    detector=MossDetector('ws://unused');detector.use_verifier=True
+    detector.last_verified=3.5
+    detector.evidence_pool=[Frame(i*.1,i,b'',motion=100 if i==10 else 0) for i in range(41)]
+    detector.evidence_frames=select_evidence(detector.evidence_pool,4)
+    assert detector.evidence_frames[-1].timestamp<detector.last_verified
+    calls=[]
+    async def verify(frames,notes,tracks,pool=None,kind='live_window'):
+        calls.append((list(frames),kind))
+    monkeypatch.setattr(detector,'verify_window',verify)
+    await detector.finish()
+    assert len(calls)==1 and calls[0][1]=='final_window'
+    frames=calls[0][0]
+    assert len(frames)==4
+    assert frames[-1].index==40 and frames[-1].timestamp==4
+    assert all(f in detector.evidence_pool for f in frames)
+    assert detector.last_verified==4
+    await detector.finish()
+    assert len(calls)==1 # close() calling finish() again does not duplicate work.

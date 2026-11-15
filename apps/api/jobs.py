@@ -9,7 +9,7 @@ import numpy as np
 from .config import settings
 from .db import Job, Incident, rows, get, save, now, engine, Source
 from .runtime import sessions, hub
-from .video import digest, read_video, write_clip, decode, encode, Frame
+from .video import digest, read_video, write_clip, decode, encode, Frame, align_frame_timing
 
 gpu_busy=False
 
@@ -92,7 +92,15 @@ async def run(job):
         if resize:transforms.append(resize)
         executions.append(await command([repo/'.venv/bin/python','inference.py','--input',working,'--output',output],repo))
         labeled=folder/f'review-{job.id}.mp4'
-        await asyncio.to_thread(write_clip,list(read_video(output)),labeled,'AI-ENHANCED REVIEW COPY')
+        def label_with_source_timing():
+            source_frames=list(read_video(working));generated=list(read_video(output))
+            if len(source_frames)!=len(generated):
+                raise RuntimeError('Enhancement frame count differs from input; original retained without inventing frame alignment')
+            aligned=align_frame_timing(source_frames,generated)
+            write_clip(aligned,labeled,'AI-ENHANCED REVIEW COPY')
+            return {'operation':'Preserve original frame timing on enhanced copy','frames':len(aligned),
+                'duration_seconds':aligned[-1].timestamp-aligned[0].timestamp,'interpolated_frames':False}
+        transforms.append(await asyncio.to_thread(label_with_source_timing))
         files['review']=labeled.name
         transforms.append({'operation':'RelayVSR','output_sha256':digest(labeled)})
     elif job.kind=='relift_export':
@@ -118,7 +126,7 @@ async def run(job):
                 frames=list(read_video(input_path))
                 indices=np.linspace(0,len(frames)-1,min(len(frames),settings.relift_frame_limit)).round().astype(int)
                 chosen=[frames[i] for i in indices]
-                mapping=[incident.record['frame_timestamps'][i] for i in indices] if name=='original' else [{'index':f.index,'timestamp':f.timestamp} for f in chosen]
+                mapping=[(incident.record.get('native_frame_timestamps') or incident.record['frame_timestamps'])[i] for i in indices] if name=='original' else [{'index':f.index,'timestamp':f.timestamp+incident.record.get('clip_offset',0)+incident.record.get('artifact_time_offsets',{}).get('enhanced',0)} for f in chosen]
                 working=folder/f'relift-input-{name}-{job.id}.mp4';write_clip(chosen,working)
                 output.mkdir(exist_ok=True);(output/'input-map.json').write_text(json.dumps(mapping))
                 return working,mapping

@@ -1,0 +1,47 @@
+/* Review uses a neutral evidence workspace; color is reserved for decisions. */
+.incident-review{color:#202936;--review-ink:#202936;--review-muted:#667180;--review-border:#dce1e7}
+.incident-review .review-takeaway{background:linear-gradient(125deg,#f0f2f5,#fafbfc);border-color:var(--review-border);box-shadow:0 3px 16px #20293605}
+.incident-review h1,.incident-review h2,.incident-review h3{color:var(--review-ink)}
+.incident-review .eyebrow,.incident-review .takeaway-facts strong{color:#75808e}
+.incident-review p,.incident-review .fine,.incident-review details,.incident-review .artifact-purpose,.incident-review .takeaway-facts>span{color:var(--review-muted)}
+.incident-review .review-takeaway>p{color:#596575}
+.incident-review .takeaway-uncertainty{border-color:var(--review-border)}
+.incident-review .takeaway-uncertainty strong{color:#4c5766}
+.incident-review .takeaway-uncertainty p{color:#6a7481}
+.incident-review .panel,.incident-review .clip-brief{border-color:var(--review-border);box-shadow:0 2px 10px #20293603}
+.incident-review .pill.review-neutral{background:#e8ecf1;color:#536172}
+.incident-review .pill.amber{background:#fff0d7;color:#936015}
+.incident-review .panel-title,.incident-review .panel-title svg{color:#788391}
+.incident-review .panel-title h3{color:#3c4755}
+.incident-review button{color:#455263;border-color:#d4dbe3}
+.incident-review button:hover{border-color:#8793a3;box-shadow:0 2px 8px #20293609}
+.incident-review .primary{background:#303d50;border-color:#303d50;color:white}
+.incident-review .review-follow-up{color:#8e4c13;background:#fff0db;border-color:#e4bb83}
+.incident-review .review-follow-up:hover{background:#ffe6c2;border-color:#c79450}
+.incident-review .text-button{color:#6d7887}
+.incident-review .clip-brief{background:#fff;border-top:3px solid #8996a6}
+.incident-review .clip-brief-label{color:#6c798b}
+.incident-review .clip-next-step{background:#f1f3f6;border:1px solid #e4e8ed}
+.incident-review .clip-next-step strong{color:#465568}
+.incident-review .clip-next-step p{color:#667384}
+.incident-review .brief-pending{border-color:#ced5de;background:#fafbfc}
+.incident-review .brief-pending>svg{color:#8793a2;flex-shrink:0}
+.incident-review .evidence-player{display:flex;flex-direction:column;padding:22px;background:#fff}
+.incident-review .evidence-player>.artifact-purpose{min-height:44px}
+.incident-review .review-video-stage{background:#111720;height:clamp(380px,37vw,560px);flex-shrink:0;border:1px solid #232c39;box-shadow:inset 0 0 0 1px #ffffff04;margin-top:auto}
+.incident-review .evidence-player>.fine,.incident-review .evidence-player>.artifact-limit{min-height:62px;margin:14px 0 0;font-size:12px;line-height:1.65}
+.incident-review .artifact-tabs button.selected{background:#eaf0f7;border-color:#8295ae;color:#314c70}
+.incident-review .artifact-limit{border-color:#c6ced9}
+.incident-review .artifact-state{background:#f2f4f7;color:#576475;height:clamp(380px,37vw,560px);flex-shrink:0;margin-top:auto;border:1px solid #e4e8ed}
+.incident-review .artifact-state svg{color:#8491a2}
+.incident-review .shared-playback{border-color:var(--review-border);background:#f9fafc}
+.incident-review input[type=range]{accent-color:#5a6b83}
+.incident-review .shared-playback>span,.incident-review .geometry-controls span{color:#667384}
+.incident-review .review-technical>summary{color:#526174}
+.incident-review .observation{border-color:#b1bdcd}
+.incident-review .observation button{color:#435d80}
+.incident-review input:focus,.incident-review textarea:focus,.incident-review select:focus{outline:2px solid #a7b6ca;outline-offset:1px}
+.incident-review .evidence-player-grid.original-focused .review-video-stage{height:70vh;min-height:480px}
+@media(max-width:900px){.incident-review .review-video-stage,.incident-review .artifact-state{height:480px}.incident-review .evidence-player>.fine,.incident-review .evidence-player>.artifact-limit{min-height:0}}
+@media(max-width:520px){.incident-review .review-takeaway{padding:20px}.incident-review .evidence-player{padding:15px}.incident-review .review-video-stage,.incident-review .artifact-state{height:420px}.incident-review .brief-pending{flex-wrap:wrap}}
+.incident-review .recording-quality{display:block;font-size:11px;color:#778292;margin-top:5px}.incident-review .evidence-player .panel-title{flex-wrap:wrap}.incident-review .evidence-player .panel-title .pill{font-size:8px}

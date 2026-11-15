@@ -93,6 +93,12 @@ class MossDetector:
         self.caption_text='';self.caption_finished=True;self.observer_notes=deque(maxlen=30);self.caption_sequence=0
         self.evidence_pool=[]
         self.verification_summaries=deque(maxlen=30)
+        self.verification_progress=None
+        self.observer_drain_done=False
+        self.on_update=None
+    def notify_update(self):
+        # Runtime pushes completed output immediately, even when capture is idle.
+        if self.on_update is not None:self.on_update()
     def record_verification(self,detection,frames,kind):
         self.pending.append(detection)
         self.response_audit.append({**dict(self.verifier.last_audit),'pass':kind})
@@ -100,7 +106,9 @@ class MossDetector:
             'source_end':frames[-1].timestamp,'state':detection.state,'action':detection.action,
             'confidence':detection.confidence,'supporting_frames':detection.supporting_frames,
             'runtime_seconds':self.verifier.last_audit.get('runtime_seconds'),
+            'timing':self.verifier.last_audit.get('timing'),
             'observation':detection.observable_events[0].observation if detection.observable_events else None})
+        self.notify_update()
     async def prepare_verifier(self):
         if self.use_verifier and self.verifier is None:
             from apps.api.config import settings
@@ -114,13 +122,48 @@ class MossDetector:
         self.ws=await websockets.connect(self.url,max_size=2**22,open_timeout=20)
         await self.ws.send(json.dumps({'type':'start','system_prompt':(OBJECT_PROMPT if self.spatial_enabled else OBSERVER_PROMPT) if self.use_verifier else SYSTEM_PROMPT,
             'prompt':('Describe visible objects and physical actions using the requested frame/objects/summary JSON.' if self.spatial_enabled else 'Briefly describe visible objects and physical actions. Do not infer identity or intent.') if self.use_verifier else 'Monitor observable physical events. Remain silent until evidence supports an observation.',
-            'frame_queue_size':1,'max_tokens_per_second':12,'max_new_tokens':4096,'do_sample':False}))
+            # Upstream treats this as a token/second pacing cap, not a token budget.
+            # Use its uncapped realtime-demo value so hardware sets decode speed.
+            'frame_queue_size':1,'max_tokens_per_second':86400,'max_new_tokens':4096,'do_sample':False}))
         while True:
             msg=json.loads(await asyncio.wait_for(self.ws.recv(),60))
             if msg['type']=='ready': break
             if msg['type']=='error': raise UnavailableModel(str(msg.get('error',msg)))
         self.task=asyncio.create_task(self.receive())
         self.phase='observing'
+    def emit_caption(self,raw_caption,completion):
+        from apps.api.schemas import Observation
+        raw_caption=raw_caption.strip()
+        if not raw_caption:return
+        caption=neutral_scene_note(raw_caption)
+        try:Observation(timestamp_start=0,timestamp_end=0,actors=[],observation=caption)
+        except ValueError:return
+        if self.observer_notes and caption==self.observer_notes[-1]['text']:return
+        self.caption_sequence+=1
+        self.observer_notes.append({'id':self.caption_sequence,'text':caption,
+            'raw_text':raw_caption,'completion':completion,'received_at':time.time(),'model':'MOSS-VL-Realtime',
+            'normalizations':['neutral_person_terms'] if caption!=raw_caption else []})
+    def consume_caption(self,native):
+        # Process boundaries in order: a chunk can contain several sentences or
+        # even the end of one round and start of another. Never join restarts.
+        for part in re.split(r'(<\|[^>]+\|>)',native):
+            if part in ['<|response|>','<|round_start|>']:
+                self.caption_text='';self.caption_finished=False
+            elif part in ['<|silence|>','<|round_end|>','<|im_end|>']:
+                # The model ended the round: preserve its exact validated tail,
+                # even if it omitted punctuation. A restarted partial is dropped.
+                self.emit_caption(self.caption_text,'native_round_end')
+                self.caption_text='';self.caption_finished=True
+            elif part.startswith('<|'):
+                continue
+            elif part:
+                if self.caption_finished:self.caption_text='';self.caption_finished=False
+                self.caption_text=(self.caption_text+part)[-500:]
+                while True:
+                    sentence=re.match(r'^\s*(.+?[.!?])',self.caption_text,re.S)
+                    if not sentence:break
+                    self.emit_caption(sentence[1],'sentence')
+                    self.caption_text=self.caption_text[sentence.end():]
     async def receive(self):
         try:
             async for raw in self.ws:
@@ -128,39 +171,22 @@ class MossDetector:
                 if msg['type']=='error': raise UnavailableModel(str(msg))
                 if msg['type']=='output':
                     if self.use_verifier:
+                        previous_output=(self.caption_sequence,self.object_version)
                         native=msg.get('text','')
-                        if any(marker in native for marker in ['<|response|>','<|round_start|>']):
-                            self.caption_text='';self.caption_finished=False
-                        clean=re.sub(r'<\|[^>]+\|>','',msg.get('text',''))
+                        clean=re.sub(r'<\|[^>]+\|>','',native)
                         self.observer_text=(self.observer_text+clean)[-4000:]
                         self.object_text=(self.object_text+clean)[-24000:]
-                        if clean.strip():
-                            self.last_object_output=time.monotonic()
-                            if self.caption_finished:self.caption_text='';self.caption_finished=False
-                            self.caption_text=(self.caption_text+clean)[-500:]
-                        # Native rounds can restart a partial caption. Only completed
-                        # sentences reach chat; do not join fragments across rounds.
-                        sentence=re.match(r'^\s*(.+?[.!?])',self.caption_text,re.S)
-                        if sentence and not self.spatial_enabled:
-                            from apps.api.schemas import Observation
-                            raw_caption=sentence[1].strip();caption=neutral_scene_note(raw_caption)
-                            try:
-                                Observation(timestamp_start=0,timestamp_end=0,actors=[],observation=caption)
-                                if not self.observer_notes or caption!=self.observer_notes[-1]['text']:
-                                    self.caption_sequence+=1
-                                    self.observer_notes.append({'id':self.caption_sequence,'text':caption,'received_at':time.time(),'model':'MOSS-VL-Realtime',
-                                        'normalizations':['neutral_person_terms'] if caption!=raw_caption else []})
-                            except ValueError:pass
-                            self.caption_text=self.caption_text[sentence.end():]
-                        if any(token in native for token in ['<|silence|>','<|round_end|>','<|im_end|>']):
-                            self.caption_text=''
-                            self.caption_finished=True
+                        if clean.strip():self.last_object_output=time.monotonic()
+                        if not self.spatial_enabled:self.consume_caption(native)
                         candidates=extract_objects(self.object_text,self.object_frames) if self.spatial_enabled else []
                         if candidates:
                             latest=candidates[-1]
                             if not self.object_sample or latest['frame_index']>=self.object_sample['frame_index']:
                                 self.object_sample=latest;self.object_version+=1
                             self.object_text=''
+                        # Publish visible changes, not every unrendered native token.
+                        # Partial token events would needlessly rerender the video UI.
+                        if previous_output!=(self.caption_sequence,self.object_version):self.notify_update()
                         continue
                     self.text+=msg.get('text','')
                     self.text=re.sub(r'<\|[^>]+\|>','',self.text)
@@ -199,8 +225,11 @@ class MossDetector:
                         self.error='Model output rejected: incomplete JSON at end of response'
                         self.text=''
                     self.text=self.text[-65536:]
+                    self.notify_update()
         except asyncio.CancelledError: raise
-        except Exception as e: self.error=f'MOSS stream failed: {type(e).__name__}: {e}'
+        except Exception as e:
+            self.error=f'MOSS stream failed: {type(e).__name__}: {e}'
+            self.notify_update()
     async def observe(self,frames,timestamps,tracks):
         if not self.ws: await self.connect()
         if self.task.done(): raise UnavailableModel(self.error or 'MOSS disconnected')
@@ -240,11 +269,16 @@ class MossDetector:
             if idle and len(self.evidence_frames)>=4 and timestamps[-1]-self.last_verified>=settings.verification_interval_seconds:
                 self.last_verified=timestamps[-1]
                 self.verification_task=asyncio.create_task(self.verify_window(list(self.evidence_frames),'',list(tracks),list(self.evidence_pool)))
-    async def verify_window(self,frames,notes,tracks,pool=None):
+    async def verify_window(self,frames,notes,tracks,pool=None,kind='live_window'):
         try:
+            self.verification_progress={'pass':kind,'started_at':time.time(),
+                'source_start':frames[0].timestamp,'source_end':frames[-1].timestamp}
+            self.phase='loading_verifier' if self.verifier is None else 'verifying'
+            self.notify_update()
             await self.prepare_verifier();self.phase='verifying'
+            self.notify_update()
             detection=await asyncio.to_thread(self.verifier.verify_frames,frames,notes,tracks)
-            self.record_verification(detection,frames,'live_window');self.error=None
+            self.record_verification(detection,frames,kind);self.error=None
             from apps.api.config import settings
             if detection.state in ['REVIEW_REQUIRED','HIGH_PRIORITY_REVIEW'] and detection.confidence>=settings.alert_confidence_threshold:
                 fresh=[f for f in pool or [] if f.index not in set(detection.supporting_frames)]
@@ -254,6 +288,9 @@ class MossDetector:
                     from apps.api.video import select_evidence
                     confirm=select_evidence(fresh,min(4,len(fresh)))
                     self.phase='confirming_event'
+                    self.verification_progress={'pass':'event_context_confirmation','started_at':time.time(),
+                        'source_start':confirm[0].timestamp,'source_end':confirm[-1].timestamp}
+                    self.notify_update()
                     checked=await asyncio.to_thread(self.verifier.verify_frames,confirm,'',tracks)
                     self.record_verification(checked,confirm,'event_context_confirmation')
         except Exception as error:
@@ -261,14 +298,34 @@ class MossDetector:
             audit=dict(self.verifier.last_audit) if self.verifier else {}
             self.response_audit.append({**audit,'status':'rejected','error':str(error)})
         self.phase='observing'
+        self.verification_progress=None
+        self.notify_update()
+    async def drain_observer(self,timeout=2):
+        # Upstream stop closes output immediately; it has no flush message. Give
+        # a fresh in-flight native caption a bounded chance to finish instead.
+        if self.observer_drain_done:return
+        self.observer_drain_done=True
+        if not self.use_verifier or self.caption_finished or not self.caption_text.strip():return
+        deadline=time.monotonic()+timeout
+        while not self.caption_finished and time.monotonic()<deadline:
+            if time.monotonic()-self.last_object_output>=2:break
+            if self.task is not None and self.task.done():break
+            await asyncio.sleep(min(.025,max(0,deadline-time.monotonic())))
     async def finish(self):
         if self.verification_task:await self.verification_task
-        frames=getattr(self,'evidence_frames',[])
-        # A short upload can end while its first verification is still running.
-        # Inspect the latest retained context once instead of dropping that tail.
-        if self.use_verifier and len(frames)>=4 and frames[-1].timestamp-self.last_verified>.25:
-            self.last_verified=frames[-1].timestamp
-            await self.verify_window(list(frames),self.observer_text,[],list(self.evidence_pool))
+        frames=list(getattr(self,'evidence_frames',[]))
+        pool=list(getattr(self,'evidence_pool',[]))
+        # Dispatch time and motion-selected evidence time are different clocks:
+        # an early motion peak can end before the final unprocessed stream tail.
+        # Eligibility must use the actual retained stream end, and the final
+        # four-frame pass must include that original endpoint explicitly.
+        latest=pool[-1] if pool else (frames[-1] if frames else None)
+        if self.use_verifier and len(frames)>=4 and latest.timestamp-self.last_verified>.25:
+            if frames[-1].index!=latest.index:
+                frames=frames[:-1]+[latest]
+            self.last_verified=latest.timestamp
+            await self.verify_window(frames,self.observer_text,[],pool,kind='final_window')
+        await self.drain_observer()
     def drain(self):
         result=list(self.pending); self.pending.clear(); return result
     async def close(self):

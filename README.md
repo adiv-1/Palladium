@@ -8,7 +8,7 @@ SafeSC connects a phone camera or uploaded video to a streaming vision pipeline,
 
 ## What works today
 
-- Phone capture through an expiring QR pairing link, HTTPS/WebSockets, rear/front camera selection, and frame acknowledgements. Audio is off.
+- Phone capture through an expiring QR pairing link, a native WebRTC dashboard video path targeting 1080p/60 FPS, separate acknowledged evidence frames, and rear/front camera selection. Audio is off. See [streaming setup and measurements](docs/overview/live-video.md).
 - MOSS-VL-Realtime NF4 observation with a separate Qwen3-VL-4B visual verifier and strict structured-output validation.
 - Lighting assessment, gated FastLLVE enhancement, and temporal incident gating. No YOLO/ByteTrack overlay is enabled in this deployment.
 - Preserved original incident windows, SHA-256 hashes, reviewer bookmarks, append-only decisions, and model provenance.

@@ -27,11 +27,15 @@ def background(coro):
 @asynccontextmanager
 async def lifespan(app):
     from .archive import archive_worker
-    init(); background(worker()); background(retention()); background(archive_worker())
+    from .recording import reset_spool, retention as recording_retention
+    await asyncio.to_thread(reset_spool)
+    init(); background(worker()); background(retention()); background(archive_worker()); background(recording_retention())
     yield
     for task in list(tasks): task.cancel()
     await asyncio.gather(*tasks,return_exceptions=True)
     for session in list(sessions.values()): await session.close()
+    from .recording import cleanup_all
+    await cleanup_all()
     from ml.service import model_service
     from ml.verifier import release_verifier
     await model_service.stop()
@@ -41,6 +45,11 @@ app=FastAPI(title='SafeSC',lifespan=lifespan)
 def authenticated(request: Request):
     token=request.cookies.get('safesc_token') or request.headers.get('Authorization','').removeprefix('Bearer ')
     if not token or not hmac.compare_digest(token,settings.app_token): raise HTTPException(401,'Sign in to SafeSC')
+
+from .live import router as live_router
+app.include_router(live_router)
+from .recording import router as recording_router
+app.include_router(recording_router)
 
 from .activity import router as activity_router
 app.include_router(activity_router, dependencies=[Depends(authenticated)])
@@ -72,7 +81,7 @@ async def health():
         'visual_verifier':settings.observation_verifier_model,'visual_verifier_loaded':verifier_is_loaded(),
         'verifier_research_mode':settings.verifier_research_mode,'verifier_artifact':verifier_metadata(),
         'tracking_enabled':settings.enable_tracking,'relayvsr_enabled':settings.enable_relay_vsr,
-        'clip_review_enabled':settings.enable_clip_review,'preview_transport':'latest-frame-websocket',
+        'clip_review_enabled':settings.enable_clip_review,'preview_transport':'webrtc-camera-with-jpeg-fallback',
         'alert_threshold':settings.alert_confidence_threshold,'verification_frame_count':settings.verification_frame_count,
         'max_inference_lag_seconds':settings.max_inference_lag_seconds,
         'incident_windows':{'pre_seconds':settings.pre_event_seconds,'post_seconds':settings.post_event_seconds,'object_post_seconds':settings.object_post_event_seconds},
@@ -259,8 +268,8 @@ async def capture(ws:WebSocket):
         pairing=pairings.get(hello.get('token',''))
         if not pairing or pairing['expires']<time.time(): await ws.close(4401,'Pairing expired'); return
         if sessions or upload_in_progress: await ws.close(4409,'Another stream is active'); return
-        source=get(Source,pairing['source_id']); session=VideoSession(source); sessions[source.id]=session
-        await ws.send_json({'type':'ready','fps':settings.capture_fps,'source_id':source.id})
+        source=get(Source,pairing['source_id']); session=VideoSession(source); session.native_recording_expected=settings.enable_native_recording and hello.get('native_recording') is True; sessions[source.id]=session
+        await ws.send_json({'type':'ready','fps':settings.capture_fps,'source_id':source.id,'native_recording':settings.enable_native_recording})
         index=0; first=None
         while True:
             meta=await asyncio.wait_for(ws.receive_json(),30)
@@ -271,7 +280,8 @@ async def capture(ws:WebSocket):
             raw=await asyncio.wait_for(ws.receive_bytes(),10)
             if len(raw)>2*1024*1024: raise ValueError('Frame exceeds 2 MB')
             stamp=float(meta['timestamp'])
-            if first is None: first=stamp
+            if first is None:
+                first=stamp; session.capture_epoch=first
             stamp-=first
             if not math.isfinite(stamp) or stamp<0 or stamp>86400: raise ValueError('Invalid timestamp')
             await session.push(Frame(stamp,index,raw)); index+=1

@@ -130,3 +130,150 @@ async def test_moss_chat_uses_actual_native_responses_not_fixtures():
     assert len(detector.observer_notes)==2
     assert detector.observer_notes[1]['text']=='A person stands.'
     assert detector.object_sample is None
+
+@pytest.mark.asyncio
+async def test_model_output_is_published_without_waiting_for_another_camera_frame():
+    """A paused camera must not hold a completed MOSS sentence hostage."""
+    from apps.api.runtime import hub
+    from ml.adapters import MossDetector
+    source=Source(name='Immediate observer output',kind='phone')
+    session=VideoSession(source)
+    session.latest_frame=frame(7,0)
+    detector=MossDetector('ws://unused')
+    detector.use_verifier=True;detector.spatial_enabled=False
+    detector.on_update=session.model_updated;session.detector=detector
+    class Socket:
+        def __aiter__(self):
+            async def generate():
+                yield json.dumps({'type':'output','text':'<|response|>A person stands.<|silence|>'})
+            return generate()
+    detector.ws=Socket()
+    queue=asyncio.Queue();hub.listeners.add(queue)
+    try:
+        await detector.receive()
+        event=await asyncio.wait_for(queue.get(),.5)
+        assert event['type']=='source'
+        note=event['payload']['telemetry']['moss_chat'][0]
+        assert note['text']=='A person stands.'
+        assert note['received_stream_time']==7
+        assert session.count==0 # No push was necessary to publish the native output.
+    finally:
+        hub.listeners.discard(queue)
+        if session.model_update_task:await session.model_update_task
+
+@pytest.mark.asyncio
+async def test_native_token_bursts_coalesce_and_stream_errors_reach_reviewers():
+    from apps.api.runtime import hub
+    from ml.adapters import MossDetector
+    session=VideoSession(Source(name='Observer failure',kind='phone'))
+    detector=MossDetector('ws://unused');detector.on_update=session.model_updated;session.detector=detector
+    class Socket:
+        def __aiter__(self):
+            async def generate():
+                yield json.dumps({'type':'output','text':'{'} )
+                yield json.dumps({'type':'output','text':'"state":'} )
+                yield json.dumps({'type':'error','error':'model disconnected'})
+            return generate()
+    detector.ws=Socket()
+    queue=asyncio.Queue();hub.listeners.add(queue)
+    try:
+        await detector.receive()
+        event=await asyncio.wait_for(queue.get(),.5)
+        assert event['payload']['telemetry']['model_status']=='error'
+        assert 'model disconnected' in event['payload']['telemetry']['error']
+        assert queue.empty()
+    finally:
+        hub.listeners.discard(queue)
+        if session.model_update_task:await session.model_update_task
+
+@pytest.mark.asyncio
+async def test_moss_transport_does_not_artificially_pace_native_tokens(monkeypatch):
+    from unittest.mock import AsyncMock
+    from ml.adapters import MossDetector
+    from ml.service import model_service
+    import ml.adapters as adapters
+    sent=[]
+    class Socket:
+        async def send(self,raw):sent.append(json.loads(raw))
+        async def recv(self):return json.dumps({'type':'ready'})
+        async def close(self):pass
+        def __aiter__(self):
+            async def generate():
+                await asyncio.Event().wait()
+                yield ''
+            return generate()
+    monkeypatch.setattr(model_service,'ensure',AsyncMock())
+    monkeypatch.setattr(adapters.websockets,'connect',AsyncMock(return_value=Socket()))
+    detector=MossDetector('ws://unused')
+    try:
+        await detector.connect()
+        assert sent[0]['max_tokens_per_second']==86400
+        assert sent[0]['frame_queue_size']==1
+        assert sent[0]['do_sample'] is False
+    finally:await detector.close()
+
+
+@pytest.mark.asyncio
+async def test_native_partial_tokens_do_not_flood_video_rendering():
+    from ml.adapters import MossDetector
+    detector=MossDetector('ws://unused');detector.use_verifier=True
+    updates=[];detector.on_update=lambda:updates.append(detector.caption_sequence)
+    class Socket:
+        def __aiter__(self):
+            async def generate():
+                for token in ['<|response|>','A ','person ','stands','.','<|silence|>']:
+                    yield json.dumps({'type':'output','text':token})
+            return generate()
+    detector.ws=Socket()
+    await detector.receive()
+    assert updates==[1]
+    assert detector.observer_notes[-1]['text']=='A person stands.'
+
+@pytest.mark.asyncio
+async def test_native_caption_chunks_preserve_all_sentences_and_completed_round_tail():
+    from ml.adapters import MossDetector
+    class Socket:
+        def __aiter__(self):
+            async def generate():
+                for text in [
+                    '<|response|>A person stands. A person turns. A person walks.<|round_end|>',
+                    '<|response|>A person raises an arm<|round_end|>',
+                    '<|response|>A person walks with',
+                    '<|round_start|><|response|>A person sits.<|silence|>',
+                    '<|response|>A person commits theft<|round_end|>'
+                ]:yield json.dumps({'type':'output','text':text})
+            return generate()
+    detector=MossDetector('ws://unused');detector.use_verifier=True;detector.spatial_enabled=False;detector.ws=Socket()
+    await detector.receive()
+    assert [n['text'] for n in detector.observer_notes]==[
+        'A person stands.','A person turns.','A person walks.','A person raises an arm','A person sits.']
+    assert detector.observer_notes[3]['raw_text']=='A person raises an arm'
+    assert detector.observer_notes[3]['completion']=='native_round_end'
+    assert all('walks with' not in n['text'] and 'theft' not in n['text'] for n in detector.observer_notes)
+
+@pytest.mark.asyncio
+async def test_short_clip_shutdown_drains_fresh_inflight_native_caption():
+    import time
+    from ml.adapters import MossDetector
+    detector=MossDetector('ws://unused');detector.use_verifier=True;detector.spatial_enabled=False
+    detector.consume_caption('<|response|>A person raises')
+    detector.last_object_output=time.monotonic()
+    async def finish_round():
+        await asyncio.sleep(.02)
+        detector.consume_caption(' an arm<|round_end|>')
+    detector.task=asyncio.create_task(finish_round())
+    await detector.finish()
+    assert detector.observer_notes[0]['text']=='A person raises an arm'
+    await detector.task
+    assert detector.observer_drain_done
+
+@pytest.mark.asyncio
+async def test_short_clip_native_drain_is_bounded_and_does_not_emit_partial():
+    import time
+    from ml.adapters import MossDetector
+    detector=MossDetector('ws://unused');detector.use_verifier=True
+    detector.consume_caption('<|response|>A person reaches toward')
+    detector.last_object_output=time.monotonic()
+    await asyncio.wait_for(detector.drain_observer(timeout=.025),.2)
+    assert not detector.observer_notes
+    assert detector.observer_drain_done

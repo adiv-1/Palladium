@@ -1,5 +1,6 @@
 from pathlib import Path
 import secrets
+from typing import Literal
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -8,6 +9,10 @@ class Settings(BaseSettings):
     data_dir: Path = Path('data')
     app_token: str = ''
     public_url: str = 'http://localhost:8000'
+    webrtc_ice_servers: str = '[{"urls":"stun:stun.l.google.com:19302"}]'
+    webrtc_ice_transport_policy: Literal['all','relay'] = 'all'
+    turn_urls: str = ''
+    turn_shared_secret: SecretStr = SecretStr('')
     streaming_model: str = 'moss'
     moss_ws_url: str = 'ws://127.0.0.1:8001/v1/realtime'
     moss_service_command: str = ''
@@ -27,6 +32,7 @@ class Settings(BaseSettings):
     object_post_event_seconds: float = Field(30,ge=0,le=60)
     sample_fps: float = Field(2, ge=0.2, le=10)
     capture_fps: float = Field(12, ge=1, le=15)
+    enable_native_recording: bool = False
     dark_luminance_threshold: float = 45
     light_luminance_threshold: float = 70
     alert_confidence_threshold: float = 0.75
