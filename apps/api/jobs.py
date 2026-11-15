@@ -9,44 +9,79 @@ import numpy as np
 from .config import settings
 from .db import Job, Incident, rows, get, save, now, engine, Source
 from .runtime import sessions, hub
+from .training_control import TrainingCancelled
 from .video import digest, read_video, write_clip, decode, encode, Frame, align_frame_timing
 
 gpu_busy=False
+live_warmup=False
 
 class ModelCommandError(RuntimeError):
     def __init__(self,message,metrics):super().__init__(message);self.metrics=metrics
 
-async def command(argv,cwd=None):
+async def terminate_process_group(process,grace=3):
+    """Terminate the dedicated subprocess group, including surviving children."""
+    if getattr(process,'_safesc_group_stopped',False):return
+    try:os.killpg(process.pid,signal.SIGTERM)
+    except ProcessLookupError:pass
+    waiter=asyncio.create_task(process.wait())
+    try:await asyncio.wait_for(asyncio.shield(waiter),grace)
+    except asyncio.TimeoutError:pass
+    # A parent can exit before its CUDA-owning children; kill the group as well.
+    try:os.killpg(process.pid,signal.SIGKILL)
+    except ProcessLookupError:pass
+    await waiter
+    process._safesc_group_stopped=True
+
+async def command(argv,cwd=None,*,cancel_event=None,progress_reader=None):
+    from .training_control import TrainingCancelled
     started=time.monotonic();start_time=now();peak=0
+    if cancel_event and cancel_event.is_set():raise TrainingCancelled('Training cancelled before process launch')
     process=await asyncio.create_subprocess_exec(*map(str,argv),cwd=cwd,
         stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.STDOUT,start_new_session=True)
-    async def measure():
+    tail=bytearray()
+    async def consume():
+        while chunk:=await process.stdout.read(16384):
+            tail.extend(chunk)
+            if len(tail)>65536:del tail[:-65536]
+        await process.wait()
+    async def monitor():
         nonlocal peak
-        while process.returncode is None:
-            probe=None
-            try:
-                probe=await asyncio.create_subprocess_exec('nvidia-smi','--query-gpu=memory.used','--format=csv,noheader,nounits',stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.DEVNULL)
-                output,_=await asyncio.wait_for(probe.communicate(),4)
-                peak=max(peak,float(output.decode().strip().splitlines()[0]))
-            except (OSError,ValueError,IndexError,asyncio.TimeoutError):pass
-            finally:
-                if probe and probe.returncode is None:
-                    probe.kill();await probe.wait()
-            await asyncio.sleep(.5)
-    sampler=asyncio.create_task(measure())
+        last_measure=0
+        while not output.done():
+            if cancel_event and cancel_event.is_set():
+                await terminate_process_group(process)
+                raise TrainingCancelled('Training cancelled; subprocess and children were stopped')
+            if progress_reader:progress_reader()
+            if time.monotonic()-last_measure>=.5:
+                probe=None
+                try:
+                    probe=await asyncio.create_subprocess_exec('nvidia-smi','--query-gpu=memory.used','--format=csv,noheader,nounits',stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.DEVNULL)
+                    gpu_output,_=await asyncio.wait_for(probe.communicate(),1)
+                    peak=max(peak,float(gpu_output.decode().strip().splitlines()[0]))
+                except (OSError,ValueError,IndexError,asyncio.TimeoutError):pass
+                finally:
+                    if probe and probe.returncode is None:probe.kill();await probe.wait()
+                last_measure=time.monotonic()
+            await asyncio.sleep(.1)
+    output=asyncio.create_task(consume());watch=asyncio.create_task(monitor())
     try:
-        stdout,_=await asyncio.wait_for(process.communicate(),1800)
+        done,_=await asyncio.wait([output,watch],timeout=1800,return_when=asyncio.FIRST_COMPLETED)
+        if not done:raise asyncio.TimeoutError('Model subprocess exceeded 30 minutes')
+        if watch in done:watch.result()
+        await output
+        if cancel_event and cancel_event.is_set():raise TrainingCancelled('Training cancelled before result publication')
+        if progress_reader:progress_reader()
         metrics={'start_time':start_time,'end_time':now(),'runtime_seconds':time.monotonic()-started,
             'sampled_device_peak_vram_mb':peak,'exit_code':process.returncode,'device':'cuda:0',
-            'memory_note':'Total device memory sampled at 0.5-second intervals, including any persistent CUDA context'}
-        if process.returncode: raise ModelCommandError(f'{Path(str(argv[0])).name} failed: {stdout.decode(errors="replace")[-3000:]}',metrics)
+            'memory_note':'Total device memory sampled during subprocess execution'}
+        if process.returncode:raise ModelCommandError(f'{Path(str(argv[0])).name} failed: {tail.decode(errors="replace")[-3000:]}',metrics)
         return metrics
     except BaseException:
-        if process.returncode is None:
-            os.killpg(process.pid,signal.SIGKILL); await process.wait()
+        await terminate_process_group(process)
         raise
     finally:
-        sampler.cancel();await asyncio.gather(sampler,return_exceptions=True)
+        watch.cancel();output.cancel()
+        await asyncio.gather(watch,output,return_exceptions=True)
 
 from .trajectories import export_trajectories
 
@@ -173,7 +208,7 @@ async def worker():
     global gpu_busy
     while True:
         # Heavy jobs wait until no active ingestion/model session. Never evict a live detector midstream.
-        jobs=sorted([j for j in rows(Job) if j.status=='queued' and (not sessions or j.kind=='relift_export')],key=lambda j:(j.priority,j.id))
+        jobs=sorted([j for j in rows(Job) if j.status=='queued' and (not sessions or j.kind=='relift_export') and (not live_warmup or j.kind=='relift_export')],key=lambda j:(j.priority,j.id))
         if jobs:
             job=jobs[0];requires_gpu=job.kind!='relift_export'
             gpu_busy=requires_gpu
@@ -186,6 +221,8 @@ async def worker():
                     from ml.verifier import release_verifier
                     await asyncio.to_thread(release_verifier)
                 job.result=await run(job); job.status='completed'; job.error=None
+            except TrainingCancelled as e:
+                job.status='cancelled';job.error=None;job.result={'status':'cancelled','reason':str(e),'deployed':False}
             except asyncio.CancelledError:
                 job.status='failed'; job.error='Worker interrupted'; raise
             except Exception as e:

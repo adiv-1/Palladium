@@ -2,6 +2,7 @@
 import asyncio
 import hashlib
 import json
+import os
 import shutil
 from datetime import datetime,timezone,timedelta
 from pathlib import Path
@@ -71,6 +72,9 @@ class LearningRun(SQLModel,table=True):
 class TrainingRequest(BaseModel):
     steps:int=InputField(80,ge=20,le=120)
     learning_rate:float=InputField(0.00001,gt=0,le=0.0001)
+
+class AutomationInput(BaseModel):
+    enabled:bool=InputField(strict=True)
 
 class PermissionInput(BaseModel):
     permission:Literal['unknown','permitted','academic_research','denied']
@@ -209,7 +213,7 @@ def expire_learning():
     protected=set()
     snapshots={s.id:s for s in rows(DatasetSnapshot)}
     for run in rows(LearningRun):
-        if run.status in ['queued','running'] and run.snapshot_id in snapshots:
+        if run.status in ['queued','running','preparing','cancelling'] and run.snapshot_id in snapshots:
             protected.update(e['asset_id'] for e in json.loads(Path(snapshots[run.snapshot_id].path).read_text())['examples'])
     for asset in rows(LearningAsset):
         if asset.expires_at<=now() and asset.id not in protected:
@@ -224,9 +228,11 @@ def assets():
 
 @router.get('/summary')
 def summary():
+    from .training_control import live_return
+    from .learning_pipeline import get_automation_policy
     data=assets()
     return {'total':len(data),'eligible':sum(a['eligible'] for a in data),'pending':sum(not a['annotation'] or a['annotation']['status']=='pending' for a in data),
-        'automatic_training':False,'retention_days':30,'snapshots':rows(DatasetSnapshot),'runs':rows(LearningRun)}
+        'automatic_training':get_automation_policy()['enabled'],'automatic_activation':False,'workflow_control':True,'live_return':dict(live_return),'retention_days':30,'snapshots':rows(DatasetSnapshot),'runs':rows(LearningRun)}
 
 @router.post('/sources/{source_id}/permission')
 def source_permission(source_id:str,payload:PermissionInput):
@@ -252,12 +258,26 @@ def retain(incident_id:str):
         return asset_record(asset)
     except ValueError as e:raise HTTPException(409,str(e))
 
+@router.get('/automation')
+def automation_policy():
+    from .learning_pipeline import get_automation_policy
+    return get_automation_policy()
+
+@router.post('/automation')
+def automation_policy_set(payload:AutomationInput):
+    from .learning_pipeline import set_automation_policy
+    return set_automation_policy(payload.enabled)
+
 @router.post('/assets/{asset_id}/annotations')
-def annotation_create(asset_id:str,payload:AnnotationInput):
+async def annotation_create(asset_id:str,payload:AnnotationInput):
     asset=get(LearningAsset,asset_id)
     if not asset:raise HTTPException(404)
-    try:return annotate(asset,payload)
+    try:result=annotate(asset,payload)
     except ValueError as e:raise HTTPException(422,str(e))
+    from .learning_pipeline import maybe_queue_after_annotation
+    from .main import background
+    background(maybe_queue_after_annotation(asset,result))
+    return result
 
 @router.get('/assets/{asset_id}/annotations')
 def annotation_history(asset_id:str):return [a for a in rows(LearningAnnotation) if a.asset_id==asset_id]
@@ -309,53 +329,101 @@ def run_examples(run_id):
 @router.post('/train')
 async def queue_training(payload:TrainingRequest):
     from .db import Job
-    if any(r.status in ['queued','running'] for r in rows(LearningRun)):
+    from .training_control import ACTIVE, TrainingCancelled, raise_if_cancelled, update_workflow, record_lock
+    if any(r.status in ACTIVE for r in rows(LearningRun)):
         raise HTTPException(409,'A training run is already queued or running')
-    parents=sorted([r for r in rows(LearningRun) if r.status=='completed' and r.record.get('data_relative_path')],key=lambda r:r.created_at,reverse=True)
-    if not parents:raise HTTPException(409,'Prepare an approved training dataset first')
-    parent=parents[0];snapshot=get(DatasetSnapshot,parent.snapshot_id)
-    if not snapshot:raise HTTPException(409,'Dataset snapshot is missing')
     try:
-        validate_snapshot_current(json.loads(Path(snapshot.path).read_text()))
-        root,_=run_examples(parent.id)
-        if not settings.verifier_adapter:raise ValueError('An evaluated parent adapter is required')
-        run=LearningRun(snapshot_id=snapshot.id,status='prepared')
-        output=folder()/'datasets'/run.id
-        from scripts.augment_event_training import augment
-        provenance=await asyncio.to_thread(augment,root,output)
-    except ValueError as e:raise HTTPException(409,str(e))
-    run.status='queued';run.record={'model':'Qwen3-VL-4B LoRA event follow-up','parent_run_id':parent.id,
-        'data_relative_path':str(output.relative_to(folder())),'records_sha256':provenance['records_sha256'],
-        'steps':payload.steps,'learning_rate':payload.learning_rate,'resume_adapter':settings.verifier_adapter,
-        'unique_training_videos':provenance['training_source_videos'],
-        'training_examples':provenance['training_examples_including_variants'],
-        'summary':'Owner-requested training queued; weights are not automatically activated.'}
-    save(run);job=save(Job(incident_id=run.id,kind='learning_train',priority=1))
-    return {'run':run,'job':job}
+        from .learning_pipeline import prepare_training_run
+        run=await asyncio.to_thread(prepare_training_run,payload)
+        with record_lock:
+            raise_if_cancelled(run.id)
+            run=get(LearningRun,run.id)
+            run.status='queued';save(run)
+            update_workflow(run.id,'queued','queued','Reviewed dataset prepared; waiting for the GPU to become idle.')
+            job=save(Job(incident_id=run.id,kind='learning_train',priority=1))
+        return {'run':get(LearningRun,run.id),'job':job}
+    except TrainingCancelled:
+        raise HTTPException(409,'Training preparation was cancelled; live weights are unchanged')
+    except ValueError as error:
+        raise HTTPException(409,str(error))
+
+
+@router.post('/runs/{run_id}/cancel')
+async def cancel_training(run_id:str):
+    from .training_control import cancel_run
+    try:run,requested=await cancel_run(run_id)
+    except ValueError as error:raise HTTPException(404,str(error))
+    return {'run':run,'cancellation_requested':requested}
+
+
+@router.post('/return-to-live')
+async def request_return_to_live():
+    from .training_control import return_to_live
+    try:return await return_to_live()
+    except TimeoutError as error:raise HTTPException(409,str(error))
+
 
 async def run_training_job(job):
     from .jobs import command
+    from .training_control import (TrainingCancelled,register,unregister,raise_if_cancelled,
+        mark_cancelled,update_workflow,progress_reader)
     run=get(LearningRun,job.incident_id)
     if not run:raise ValueError('Training run does not exist')
-    run.status='running';save(run)
+    cancel_event=register(run.id)
     try:
+        raise_if_cancelled(run.id)
+        run.status='running';save(run)
+        update_workflow(run.id,'preparing','running','Checking current permissions, reviewed labels, immutable dataset and source hashes.')
         snapshot=get(DatasetSnapshot,run.snapshot_id)
         validate_snapshot_current(json.loads(Path(snapshot.path).read_text()))
         root,_=run_examples(run.id);output=folder()/'candidates'/run.id
+        raise_if_cancelled(run.id)
+        update_workflow(run.id,'preparing','completed','Current permissions and reviewed dataset provenance verified.')
+        update_workflow(run.id,'loading','running','Loading the pinned verifier and candidate adapter in an isolated subprocess.')
         execution=await command([Path.cwd()/'.venv/bin/python','-m','scripts.train_learning',
             '--data',root,'--checkpoint',settings.verifier_checkpoint,'--out',output,
             '--resume-adapter',run.record['resume_adapter'],'--steps',str(run.record['steps']),
-            '--learning-rate',str(run.record['learning_rate'])])
+            '--learning-rate',str(run.record['learning_rate'])],
+            cancel_event=cancel_event,progress_reader=progress_reader(run.id,output/'progress.json'))
+        raise_if_cancelled(run.id)
         report=json.loads((output/'evaluation.json').read_text())
-        run.status='completed';run.record={**run.record,'evaluation':report,
-            'candidate_relative_path':str(output.relative_to(folder())),
+        update_workflow(run.id,'evaluating','completed','Held-out candidate evaluation and comparison finished.')
+        registry={'status':'not_configured'}
+        if os.environ.get('HF_ADAPTER_REPO'):
+            update_workflow(run.id,'publishing','running','Publishing a versioned private candidate adapter; live model remains unchanged.')
+            try:
+                await command([Path.cwd()/'.venv/bin/python','-m','scripts.publish_adapter',
+                    '--adapter',output/'adapter','--version','candidate-'+run.id,
+                    '--selection','candidate','--output',output/'registry.json'],cancel_event=cancel_event)
+                registry=json.loads((output/'registry.json').read_text())
+                update_workflow(run.id,'publishing','completed','Candidate registry publication finished; no live activation was performed.')
+            except TrainingCancelled:raise
+            except Exception:
+                registry={'status':'failed','error':'Adapter publication failed; the evaluated candidate remains stored locally.'}
+                update_workflow(run.id,'publishing','failed',registry['error'])
+        raise_if_cancelled(run.id)
+        run=get(LearningRun,run.id)
+        run.status='completed';run.record={**run.record,'evaluation':report,'registry':registry,
+            'candidate_relative_path':str(output.relative_to(folder())),'deployed':False,
             'summary':f"Trained {report['training_examples']} variants from {report['unique_training_videos']} source videos. Non-regression: {report['nonregression']}. Candidate is not automatically deployed."}
         save(run)
+        update_workflow(run.id,'completed','completed','Training and held-out evaluation finished. Selected live model was not changed.')
         return {'run_id':run.id,'status':'completed','execution':execution,
             'adapter_sha256':report['adapter_sha256'],'nonregression':report['nonregression'],
             'improved_over_parent':report['improved_over_parent'],'deployed':False}
+    except TrainingCancelled as error:
+        mark_cancelled(run.id,str(error));raise
     except BaseException as error:
-        run.status='failed';run.record={**run.record,'error':str(error) or 'Training interrupted'};save(run);raise
+        latest=get(LearningRun,run.id)
+        if latest and latest.record.get('workflow',{}).get('cancel_requested'):
+            mark_cancelled(run.id,'Training cancelled; subprocess was stopped')
+            raise TrainingCancelled('Training cancelled') from error
+        if latest:
+            latest.status='failed';latest.record={**latest.record,'error':str(error) or 'Training interrupted','deployed':False};save(latest)
+            update_workflow(run.id,'failed','failed',str(error) or 'Training interrupted')
+        raise
+    finally:
+        unregister(run.id)
 
 @router.get('/runs/{run_id}/examples')
 def examples(run_id:str):

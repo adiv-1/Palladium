@@ -11,6 +11,7 @@
     "test:gateway": "node --test apps/gateway/server.test.mjs",
     "test:activity": "node --test apps/web/src/activityRouting.test.mjs",
     "test:video": "node --test apps/web/src/liveVideo.test.mjs apps/web/src/nativeRecording.test.mjs",
-    "test:location": "node --test apps/web/src/geolocation.test.mjs apps/web/src/incidentQueue.test.mjs"
+    "test:location": "node --test apps/web/src/geolocation.test.mjs apps/web/src/incidentQueue.test.mjs",
+    "test:learning": "node --test apps/web/src/trainingWorkflowState.test.mjs"
   }
 }

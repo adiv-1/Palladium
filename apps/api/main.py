@@ -29,10 +29,15 @@ async def lifespan(app):
     from .archive import archive_worker
     from .recording import reset_spool, retention as recording_retention
     await asyncio.to_thread(reset_spool)
-    init(); background(worker()); background(retention()); background(archive_worker()); background(recording_retention())
+    init()
+    from .training_control import recover_training_runs
+    recover_training_runs()
+    background(worker()); background(retention()); background(archive_worker()); background(recording_retention())
     yield
     for task in list(tasks): task.cancel()
     await asyncio.gather(*tasks,return_exceptions=True)
+    from .training_control import shutdown as stop_training_control
+    await stop_training_control()
     for session in list(sessions.values()): await session.close()
     from .recording import cleanup_all
     await cleanup_all()
@@ -132,6 +137,9 @@ def export_reviews():
 async def source_create(payload:SourceRequest):
     if payload.kind=='rtsp' and not settings.allow_rtsp: raise HTTPException(400,'RTSP must be explicitly enabled by the operator')
     if payload.kind=='rtsp' and (not payload.url or not payload.url.startswith(('rtsp://','rtsps://'))): raise HTTPException(400,'Expected RTSP URL')
+    from .training_control import cancel_active_training
+    try:await cancel_active_training('Camera connection requested; returning GPU to live analysis')
+    except TimeoutError as error:raise HTTPException(409,str(error))
     if sessions or upload_in_progress: raise HTTPException(409,'Stop the active source before connecting another')
     source=save(Source(name=payload.name,kind=payload.kind,telemetry={'review_copies':payload.review_copies}))
     if payload.kind=='rtsp': background(replay(source,payload.url))
@@ -143,6 +151,9 @@ async def upload(file:UploadFile):
     global upload_in_progress
     if sessions or upload_in_progress: raise HTTPException(409,'Stop the active source before uploading another')
     if Path(file.filename or '').suffix.lower() not in ['.mp4','.mov','.webm']: raise HTTPException(400,'Use MP4, MOV or WebM')
+    from .training_control import cancel_active_training
+    try:await cancel_active_training('Video analysis requested; returning GPU to live analysis')
+    except TimeoutError as error:raise HTTPException(409,str(error))
     source=Source(name=Path(file.filename).name,kind='upload')
     folder=settings.data_dir/'uploads'; folder.mkdir(exist_ok=True)
     path=folder/f'{source.id}{Path(file.filename).suffix.lower()}'
@@ -282,6 +293,8 @@ async def capture(ws:WebSocket):
         pairing=pairings.get(hello.get('token',''))
         if not pairing or pairing['expires']<time.time(): await ws.close(4401,'Pairing expired'); return
         if sessions or upload_in_progress: await ws.close(4409,'Another stream is active'); return
+        from .training_control import cancel_active_training
+        await cancel_active_training('Phone started streaming; returning GPU to live analysis')
         source=get(Source,pairing['source_id']); session=VideoSession(source); session.native_recording_expected=settings.enable_native_recording and hello.get('native_recording') is True; sessions[source.id]=session
         await ws.send_json({'type':'ready','fps':settings.capture_fps,'source_id':source.id,'native_recording':settings.enable_native_recording,'geolocation':True})
         index=0; first=None
