@@ -18,6 +18,13 @@ class Frame:
 def select_evidence(frames,count=8):
     """Select real context and motion transitions; this never classifies an event."""
     if len(frames)<=count:return list(frames)
+    if count==4 and max(f.motion for f in frames)>0:
+        peak=max(range(1,len(frames)),key=lambda i:frames[i].motion)
+        at=frames[peak].timestamp
+        selected={min(range(len(frames)),key=lambda i:abs(frames[i].timestamp-t)) for t in [at-.5,at-.15,at,at+.5]}
+        for i in np.linspace(0,len(frames)-1,4).round().astype(int):
+            if len(selected)<4:selected.add(int(i))
+        return [frames[i] for i in sorted(selected)]
     chosen={0,len(frames)-1};peaks=[]
     for index in sorted(range(1,len(frames)),key=lambda i:frames[i].motion,reverse=True):
         if any(abs(frames[index].timestamp-t)<.7 for t in peaks):continue

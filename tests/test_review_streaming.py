@@ -100,6 +100,7 @@ def test_separate_clip_review_rejects_unsupplied_evidence():
         'missing_context':['The sampled frames do not establish the surrounding context.'],
         'recommendation':'review_original','recommendation_reason':'Watch the full movement in the original clip.'}
     assert validate_brief(json.dumps(report),frames).recommendation=='review_original'
+    with pytest.raises(ValueError):validate_brief(json.dumps(report),frames,origin='model')
     report['findings'][0].pop('timestamp_start');report['findings'][0].pop('timestamp_end')
     assert validate_brief(json.dumps(report),frames).findings[0].timestamp_end==1
     report['summary']='A child raises their arms.'

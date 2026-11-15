@@ -24,7 +24,7 @@ pairings={}
 
 class VideoSession:
     def __init__(self,source):
-        self.source=source; self.buffer=CircularBuffer(settings.pre_event_seconds+settings.post_event_seconds+settings.max_inference_lag_seconds+5)
+        self.source=source; self.buffer=CircularBuffer(settings.pre_event_seconds+max(settings.post_event_seconds,settings.object_post_event_seconds)+settings.max_inference_lag_seconds+5)
         self.review_copies=source.telemetry.get('review_copies',True)
         self.gate=TemporalGate(settings.alert_confidence_threshold,settings.alert_cooldown_seconds,settings.alert_agreement_seconds)
         self.light=LightingGate(settings.dark_luminance_threshold,settings.light_luminance_threshold)
@@ -95,7 +95,7 @@ class VideoSession:
                 self.enhanced[frame.index]=sampled
             if settings.streaming_model=='onestreamer': raise UnavailableModel('OneStreamer checkpoint not configured')
             previous=getattr(self.detector,'last_verified',frame.timestamp-4)
-            coverage=min(settings.max_inference_lag_seconds,max(4,frame.timestamp-max(0,previous)+1))
+            coverage=min(10,max(4,frame.timestamp-max(0,previous)+1))
             pool=self.buffer.window(max(0,frame.timestamp-coverage),frame.timestamp)
             self.detector.evidence_pool=list(pool)
             count=settings.verification_frame_count
@@ -131,16 +131,21 @@ class VideoSession:
             if current_time-event_end>settings.max_inference_lag_seconds:
                 self.gate.last_reason='evidence_too_old';continue
             eligible=self.buffer.window(max(0,event_end-settings.pre_event_seconds),event_end)
+            from hashlib import sha256
+            visual_evidence={sha256(f.jpeg).digest() for f in eligible if f.index in detection.supporting_frames}
+            if not detection.simulated and detection.state in ['REVIEW_REQUIRED','HIGH_PRIORITY_REVIEW'] and len(visual_evidence)<2:
+                self.gate.last_reason='duplicate_visual_evidence';continue
             if self.gate.consider(detection,current_time,[f.index for f in eligible]):
                 # Center evidence on the observed event, not late model completion.
                 notice_id=secrets.token_hex(8)
+                post_seconds=max(settings.post_event_seconds,settings.object_post_event_seconds) if detection.action=='object_taking' else settings.post_event_seconds
                 self.set_alert({'id':notice_id,'status':'saving_context','timestamp':event_end,
                     'received_stream_time':current_time,'action':detection.action,
                     'confidence':detection.confidence,'threshold':settings.alert_confidence_threshold,
-                    'message':detection.observable_events[0].observation,'post_seconds':settings.post_event_seconds,
+                    'message':detection.observable_events[0].observation,'post_seconds':post_seconds,
                     'label':'Possible incident — review required','origin':'temporal_review_gate',
                     'evidence_rule':'Two corroborating original-frame sets; human review required'})
-                self.pending.append({'trigger':event_end,'detection':detection,'notice_id':notice_id,
+                self.pending.append({'trigger':event_end,'detection':detection,'notice_id':notice_id,'post_seconds':post_seconds,
                     'output_audit':list(getattr(self.detector,'response_audit',[]))})
     async def push(self,frame):
         self.buffer.append(frame); self.count+=1
@@ -165,9 +170,9 @@ class VideoSession:
                 self.inference_queue.put_nowait((frame,image,lighting))
         self.collect_detections(frame.timestamp)
         for candidate in list(self.pending):
-            if frame.timestamp>=candidate['trigger']+settings.post_event_seconds:
+            if frame.timestamp>=candidate['trigger']+candidate.get('post_seconds',settings.post_event_seconds):
                 # Snapshot references now; CPU clip encoding must not stall phone ACKs.
-                frozen=self.buffer.window(max(0,candidate['trigger']-settings.pre_event_seconds),min(frame.timestamp,candidate['trigger']+settings.post_event_seconds))
+                frozen=self.buffer.window(max(0,candidate['trigger']-settings.pre_event_seconds),min(frame.timestamp,candidate['trigger']+candidate.get('post_seconds',settings.post_event_seconds)))
                 task=asyncio.create_task(self.persist_safely(candidate,frame.timestamp,frozen))
                 self.persistence_tasks.add(task);task.add_done_callback(self.persistence_tasks.discard)
                 self.pending.remove(candidate)
@@ -186,6 +191,7 @@ class VideoSession:
             'error':self.error,'tracks':self.tracks,'pending_incidents':len(self.pending),
             'moss_chat':self.chat_notes,'review_alert':self.review_alert,'review_alerts':self.review_alerts,
             'alert_gate':{'threshold':settings.alert_confidence_threshold,'reason':self.gate.last_reason},
+            'verification_windows':list(getattr(self.detector,'verification_summaries',[])),
             'recording_errors':self.persistence_errors,
             'moss_objects':{k:v for k,v in (getattr(self.detector,'object_sample',None) or {}).items() if k!='jpeg'},
             'safety_state':self.last_observation['state'] if self.last_observation else 'AWAITING_ASSESSMENT',
@@ -208,7 +214,7 @@ class VideoSession:
             await hub.publish('recording_error',{'source_id':self.source.id,'error':str(error)})
     async def persist(self,candidate,end,frozen_frames=None):
         trigger=candidate['trigger']; d=candidate['detection']
-        frames=frozen_frames if frozen_frames is not None else self.buffer.window(max(0,trigger-settings.pre_event_seconds),min(end,trigger+settings.post_event_seconds))
+        frames=frozen_frames if frozen_frames is not None else self.buffer.window(max(0,trigger-settings.pre_event_seconds),min(end,trigger+candidate.get('post_seconds',settings.post_event_seconds)))
         if not frames: return
         incident=Incident(source_id=self.source.id,start_time=frames[0].timestamp,end_time=frames[-1].timestamp,
             severity=d.state,confidence=d.confidence,simulated=d.simulated)
@@ -236,6 +242,7 @@ class VideoSession:
             'alert_gate':{'threshold':settings.alert_confidence_threshold,'rule':'two original-frame sets','score':d.confidence},
             'sampling_policy':'Original context and motion transitions; motion only selects frames, never triggers incidents',
             'review_copies_requested':self.review_copies,
+            'capture_window':{'pre_seconds':settings.pre_event_seconds,'post_seconds':candidate.get('post_seconds',settings.post_event_seconds)},
             'model_output_audit':candidate.get('output_audit',list(getattr(self.detector,'response_audit',[]))),
             'confidence_note':'Uncalibrated model score, not probability of harm',
             'inference_error':self.error,'frame_timestamps':[{'index':f.index,'timestamp':f.timestamp} for f in frames]}
@@ -278,6 +285,7 @@ class VideoSession:
             'model_status':'error' if self.error else 'completed','last_observation':self.last_observation,
             'moss_chat':self.chat_notes,'review_alert':self.review_alert,'review_alerts':self.review_alerts,
             'alert_gate':{'threshold':settings.alert_confidence_threshold,'reason':self.gate.last_reason},
+            'verification_windows':list(getattr(self.detector,'verification_summaries',[])),
             'recording_errors':self.persistence_errors,
             'safety_state':self.last_observation['state'] if self.last_observation else 'AWAITING_ASSESSMENT',
             'inference_frames':self.inference_frames}

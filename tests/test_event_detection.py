@@ -27,6 +27,8 @@ def test_generated_source_times_are_derived_from_real_frame_ids():
     parsed=validate_visual_output(json.dumps(value),frames)
     assert parsed.observable_events[0].timestamp_start==501
     assert parsed.observable_events[0].timestamp_end==502.5
+    value['observable_events'][0].update(timestamp_start=1,timestamp_end=83)
+    assert validate_visual_output(json.dumps(value),frames).observable_events[0].timestamp_start==501
     value['supporting_frames']=[999]
     with pytest.raises(ValueError):validate_visual_output(json.dumps(value),frames)
 
@@ -38,6 +40,8 @@ def test_motion_sampling_retains_brief_change_and_real_context():
     assert any(3.9<=f.timestamp<=4.1 for f in chosen)
     assert any(4.5<=f.timestamp<=4.7 for f in chosen)
     assert [f.timestamp for f in chosen]==sorted(f.timestamp for f in chosen)
+    short=select_evidence(frames,4)
+    assert len(short)==4 and 43 in [f.index for f in short]
 
 def test_event_time_agreement_survives_slow_inference_and_separates_actions():
     a=detection(1,3,[1,2]);b=detection(2,4,[3,4])
@@ -47,6 +51,25 @@ def test_event_time_agreement_survives_slow_inference_and_separates_actions():
     mixed=TemporalGate(agreement_window=6)
     assert not mixed.consider(a,20,range(10))
     assert not mixed.consider(detection(2,4,[3,4],'object_taking'),21,range(10))
+
+def test_repeated_identical_real_image_cannot_create_an_incident():
+    init();source=save(Source(name='Static-frame evidence check',kind='phone'));session=VideoSession(source)
+    jpeg=encode(np.full((48,64,3),100,np.uint8))
+    for i in range(11):session.buffer.append(Frame(i*.5,i,jpeg))
+    session.detector.pending.extend([detection(3,4,[6,8]),detection(4,5,[8,10])])
+    session.collect_detections(6)
+    assert session.review_alert is None and not session.pending
+    assert session.gate.last_reason=='duplicate_visual_evidence'
+
+@pytest.mark.asyncio
+async def test_native_work_yields_while_action_verifier_is_running():
+    class Socket:
+        async def send(self,_):raise AssertionError('Native model must not receive more GPU work during verification')
+    detector=MossDetector('ws://unused');detector.use_verifier=True;detector.ws=Socket()
+    detector.task=SimpleNamespace(done=lambda:False)
+    detector.verification_task=asyncio.get_running_loop().create_future()
+    try:await detector.observe([],[],[])
+    finally:detector.verification_task.cancel()
 
 @pytest.mark.asyncio
 async def test_event_confirmation_uses_other_original_support_frames():
@@ -68,8 +91,10 @@ async def test_event_confirmation_uses_other_original_support_frames():
     assert detector.response_audit[-1]['pass']=='event_context_confirmation'
 
 @pytest.mark.asyncio
-async def test_delayed_event_preserves_original_and_saved_chat_notice(monkeypatch):
+@pytest.mark.parametrize('action,expected_end',[('physical_contact',6),('object_taking',8)])
+async def test_delayed_event_preserves_original_and_saved_chat_notice(monkeypatch,action,expected_end):
     init();monkeypatch.setattr(settings,'post_event_seconds',1)
+    monkeypatch.setattr(settings,'object_post_event_seconds',3)
     class Quiet:
         def __init__(self):self.pending=deque()
         async def observe(self,*args):pass
@@ -79,14 +104,14 @@ async def test_delayed_event_preserves_original_and_saved_chat_notice(monkeypatc
     session=VideoSession(source);session.detector=Quiet();sessions[source.id]=session
     jpeg=encode(np.full((48,64,3),120,np.uint8))
     try:
-        for index in range(91):await session.push(Frame(index*.5,index,jpeg))
-        session.detector.pending.extend([detection(3,4,[6,8]),detection(4,5,[8,10])])
+        for index in range(91):await session.push(Frame(index*.5,index,encode(np.full((48,64,3),90+index,np.uint8))))
+        session.detector.pending.extend([detection(3,4,[6,8],action),detection(4,5,[8,10],action)])
         session.collect_detections(45)
         assert session.review_alert['received_stream_time']==45
         await session.push(Frame(45.5,91,jpeg))
     finally:await session.close()
     record=next(i for i in rows(Incident) if i.source_id==source.id)
-    assert record.start_time==0 and record.end_time==6
+    assert record.start_time==0 and record.end_time==expected_end
     assert digest(settings.data_dir/'incidents'/record.id/'original.mp4')==record.record['original_sha256']
     assert session.review_alerts[0]['status']=='saved'
     assert session.source.telemetry['review_alerts'][0]['incident_id']==record.id

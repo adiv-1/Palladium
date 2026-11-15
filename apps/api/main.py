@@ -75,6 +75,7 @@ async def health():
         'clip_review_enabled':settings.enable_clip_review,'preview_transport':'latest-frame-websocket',
         'alert_threshold':settings.alert_confidence_threshold,'verification_frame_count':settings.verification_frame_count,
         'max_inference_lag_seconds':settings.max_inference_lag_seconds,
+        'incident_windows':{'pre_seconds':settings.pre_event_seconds,'post_seconds':settings.post_event_seconds,'object_post_seconds':settings.object_post_event_seconds},
         'relift_enabled':settings.enable_relift,'bvimamba_enabled':settings.enable_bvimamba,
         'retention_hours':settings.retention_hours}
 
