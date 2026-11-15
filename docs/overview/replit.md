@@ -63,3 +63,25 @@ References: [Replit deployment types](https://docs.replit.com/features/publishin
 The authenticated deployment at https://safe-sc.replit.app passed API sign-in, anonymous API rejection, the live event WebSocket, activity metadata, the 48-asset learning library, and original learning-video retrieval. A 16-frame synthetic JPEG phone-protocol test received all 16 ACKs, with mean ACK round trip 178.84 ms, maximum 315.49 ms, and total capture runtime 4.54 seconds. The source closed cleanly. This measures receipt over the Replit route; it does not establish model latency, detection accuracy, physical-phone behavior or sustained capacity. Original video retrieval returned a full HTTP 200 response, rather than a partial 206 response. Results and deployed/source commits are recorded in [the hosting check](https://github.com/adiv-1/SafeSC/blob/reviewed-learning/evaluation/replit-hosting.json) on the full source branch.
 
 The gateway sends `Referrer-Policy: strict-origin-when-cross-origin`: OpenStreetMap requires a valid site referrer for its tiles. This sends only the public origin to tile servers, without incident paths or phone pairing fragments. The initial `no-referrer` policy caused blocked background tiles and was corrected before final visual verification.
+
+## Activity forecasting release — November 14, 2026
+
+The full-zone activity update was merged into GitHub `main`, exported to
+`replit-ui`, pulled into the existing Replit project, and republished to
+[SafeSC Campus activity](https://safe-sc.replit.app/#activity). The Runpod backend
+received the new authenticated bundle endpoint and prepared analysis without
+replacing its historical or incident database. The backend restart was performed
+only after confirming no active sources or pending jobs.
+
+Live verification returned anonymous HTTP 401 and authenticated HTTP 200 for
+the analysis bundle, containing 75,686 historical reports, 172 clipped forecast
+areas, and 56 weekday/time windows per report family. The signed-in UI was
+visually checked for satellite/aerial context, route alternatives, ambassador
+planning, and changes after selecting tomorrow. The complete minimized public
+activity snapshot, referenced source pages, checksums, and restore utility are
+now included on `main` under `public-data/activity/`.
+
+Release provenance and measured checks are recorded in
+[the activity release verification](../../evaluation/campus-activity-release.json).
+Forecasts remain exploratory three-hour seasonal estimates; pedestrian flow is
+not included in route or staffing scores.
