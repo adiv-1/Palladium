@@ -6,7 +6,7 @@ import {LearningPermission} from './LearningRepository';
 type Data=Record<string,any>;
 const media=(id:string,kind:string)=>`/api/incidents/${id}/media/${kind}`;
 async function api(path:string,body?:unknown){const r=await fetch('/api'+path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok){let message='Request failed';try{message=(await r.json()).detail}catch{}throw Error(typeof message==='string'?message:JSON.stringify(message))}return r.json()}
-const seconds=(n:number)=>`${Math.floor(Math.max(0,n)/60)}:${String(Math.floor(Math.max(0,n)%60)).padStart(2,'0')}`;
+const seconds=(n:number)=>{const tenths=Math.round(Math.max(0,n)*10);return `${Math.floor(tenths/600)}:${String(Math.floor(tenths/10)%60).padStart(2,'0')}.${tenths%10}`};
 const descriptions:Record<string,{title:string,purpose:string,limit:string}>={
   review:{title:'Detail review · RelayVSR',purpose:'Inspect visible edges and motion more closely alongside the original.',limit:'Generated texture can look convincing without being accurate. Use the original to decide what happened.'},
   enhanced:{title:'Low-light view · FastLLVE',purpose:'Inspect actions that are hard to see in a dark source frame.',limit:'Brightness and colors are transformed. A brighter view does not establish a hidden detail.'},

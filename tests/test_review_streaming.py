@@ -95,11 +95,16 @@ def test_moss_boxes_require_real_source_alignment_and_valid_schema():
 def test_separate_clip_review_rejects_unsupplied_evidence():
     frames=[frame(0,0),frame(1,1)]
     report={'takeaway':'A person raises their arms.','summary':'A person is visible in an outdoor scene.',
-        'alert_support':'not_applicable','findings':[{'timestamp_start':0,'timestamp_end':1,'actors':[],
+        'alert_support':'not_applicable','findings':[{'timestamp_start':0,'timestamp_end':1,
         'observation':'A person raises their arms.','supporting_frames':[0,1]}],
         'missing_context':['The sampled frames do not establish the surrounding context.'],
         'recommendation':'review_original','recommendation_reason':'Watch the full movement in the original clip.'}
     assert validate_brief(json.dumps(report),frames).recommendation=='review_original'
+    report['findings'][0].pop('timestamp_start');report['findings'][0].pop('timestamp_end')
+    assert validate_brief(json.dumps(report),frames).findings[0].timestamp_end==1
+    report['summary']='A child raises their arms.'
+    with pytest.raises(ValueError):validate_brief(json.dumps(report),frames)
+    report['summary']='A person raises their arms.'
     report['findings'][0]['supporting_frames']=[99]
     with pytest.raises(ValueError):validate_brief(json.dumps(report),frames)
     report['findings'][0]['supporting_frames']=[0];report['recommendation']='flag_for_follow_up'
