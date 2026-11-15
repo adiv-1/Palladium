@@ -1,5 +1,5 @@
 // Client for the backend dispatch agent. Falls back to a local rules plan with the same
-// shape when SafeSC is not connected, so the demo still works offline (labelled on screen).
+// shape when Palladium is not connected, so the demo still works offline (labelled on screen).
 import {distance, etaSeconds} from './sim';
 import {POLICY, proposeUnits} from './dispatch';
 import {INCIDENT_LABEL} from './types';
@@ -51,7 +51,7 @@ function localPlan(incident: Incident, building: Building | null, officers: Offi
     })),
     support: policy.support,
     cautions: incident.uncertainties.slice(0, 2),
-    note: 'Dispatch agent offline (connect SafeSC); local rules plan',
+    note: 'Dispatch agent offline (connect Palladium); local rules plan',
   };
 }
 

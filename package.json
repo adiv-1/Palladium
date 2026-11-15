@@ -2,10 +2,16 @@
   "name": "safesc-hosting",
   "private": true,
   "version": "0.1.0",
-  "engines": {"node": ">=22"},
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "npm ci --prefix apps/web --include=dev && npm run build --prefix apps/web -- --mode hosted && npm ci --prefix apps/dashboard --include=dev && npm run build --prefix apps/dashboard -- --mode hosted",
     "start": "node apps/gateway/server.mjs",
-    "test:gateway": "node --test apps/gateway/server.test.mjs"
+    "test:gateway": "node --test apps/gateway/server.test.mjs",
+    "test:activity": "node --test apps/web/src/activityRouting.test.mjs",
+    "test:video": "node --test apps/web/src/liveVideo.test.mjs apps/web/src/nativeRecording.test.mjs",
+    "test:location": "node --test apps/web/src/geolocation.test.mjs apps/web/src/incidentQueue.test.mjs",
+    "test:learning": "node --test apps/web/src/trainingWorkflowState.test.mjs"
   }
 }

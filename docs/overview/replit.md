@@ -21,7 +21,7 @@ Laptop dashboard                 Phone Safari / Chrome
 
 ## Import and publish
 
-1. Import `https://github.com/adiv-1/SafeSC` into Replit. Switch to the **replit-ui** deployment branch before running. It contains only the Node gateway, React source and deployment documentation; the complete application remains on **reviewed-learning**. In the Replit Shell, run `git fetch origin replit-ui:refs/remotes/origin/replit-ui` then `git switch --track -c replit-ui origin/replit-ui`. A GitHub import may initially select main even when given a branch URL.
+1. Import `https://github.com/adiv-1/SafeSC` into Replit. Switch to the **replit-ui** deployment branch before running. It contains only the Node gateway, React source and deployment documentation; the complete application and public activity snapshot remain on **main**. In the Replit Shell, run `git fetch origin replit-ui:refs/remotes/origin/replit-ui` then `git switch --track -c replit-ui origin/replit-ui`. A GitHub import may initially select main even when given a branch URL.
 2. In Replit Secrets set **only** `SAFESC_BACKEND_ORIGIN` to the current GPU app origin, for example `https://YOUR-POD-ID-8000.proxy.runpod.net`. It is an address, not a provider key. The current origin is recorded locally in `data/runpod-access.txt`.
 3. Click Run. The configured command builds the UI and binds the gateway to `0.0.0.0:3000`. Check the preview shows the SafeSC sign-in screen.
 4. Open Publishing → Adjust settings. Choose **Reserved VM**, web server, smallest available machine for a single-phone demo. Set build to `npm run build`, run to `npm start`, local port `3000` / external port `80`. Confirm `SAFESC_BACKEND_ORIGIN` is also present in the published environment.
@@ -31,6 +31,13 @@ Laptop dashboard                 Phone Safari / Chrome
 8. The **Command center** opens after sign-in and connects with the existing reviewer session. Officer pairing links open under `/command/` and relay messages through `/ws/dispatch/{room}`. Use a Runpod backend built from the same source revision to enable dispatch recommendations, approval auditing and the phone relay. Configure `ANTHROPIC_API_KEY` on Runpod if you want Claude recommendations. The command view uses simulated units.
 
 The GitHub import does not include `.env`, original clips, local databases, model weights, or cloud keys. Do not paste `RUNPOD_TOKEN`, `VULTR_API_KEY`, `HF_TOKEN`, SSH keys, or the Mac's entire `.env` into Replit. No `VITE_` secret is needed. The gateway never bypasses backend authorization, logs request bodies/tokens, or stores video; uploads, playback range responses, WebSocket bytes and cookies pass through it.
+
+The public historical activity snapshot is versioned on the full **main** branch
+under `public-data/activity/`, separately from private operational data. Restore
+it on the backend with `python3 -m scripts.data.activity_snapshot restore`. The
+Replit deployment branch excludes this data: its gateway serves the authenticated
+preloaded analysis from Runpod. Updating the activity feature requires both the
+backend's `/api/activity/exploration-bundle` endpoint and the new Replit UI.
 
 Both Runpod and Replit process traffic when this route is used. If the GPU pod stops or its origin changes, the UI still loads, but API/video operations fail until the pod is available or `SAFESC_BACKEND_ORIGIN` is updated and the deployment restarted. Replit hosting does not extend the Runpod budget or its Sunday shutdown deadline.
 
@@ -61,3 +68,25 @@ References: [Replit deployment types](https://docs.replit.com/features/publishin
 The authenticated deployment at https://safe-sc.replit.app passed API sign-in, anonymous API rejection, the live event WebSocket, activity metadata, the 48-asset learning library, and original learning-video retrieval. A 16-frame synthetic JPEG phone-protocol test received all 16 ACKs, with mean ACK round trip 178.84 ms, maximum 315.49 ms, and total capture runtime 4.54 seconds. The source closed cleanly. This measures receipt over the Replit route; it does not establish model latency, detection accuracy, physical-phone behavior or sustained capacity. Original video retrieval returned a full HTTP 200 response, rather than a partial 206 response. Results and deployed/source commits are recorded in [the hosting check](https://github.com/adiv-1/SafeSC/blob/reviewed-learning/evaluation/replit-hosting.json) on the full source branch.
 
 The gateway sends `Referrer-Policy: strict-origin-when-cross-origin`: OpenStreetMap requires a valid site referrer for its tiles. This sends only the public origin to tile servers, without incident paths or phone pairing fragments. The initial `no-referrer` policy caused blocked background tiles and was corrected before final visual verification.
+
+## Activity forecasting release — November 14, 2026
+
+The full-zone activity update was merged into GitHub `main`, exported to
+`replit-ui`, pulled into the existing Replit project, and republished to
+[SafeSC Campus activity](https://safe-sc.replit.app/#activity). The Runpod backend
+received the new authenticated bundle endpoint and prepared analysis without
+replacing its historical or incident database. The backend restart was performed
+only after confirming no active sources or pending jobs.
+
+Live verification returned anonymous HTTP 401 and authenticated HTTP 200 for
+the analysis bundle, containing 75,686 historical reports, 172 clipped forecast
+areas, and 56 weekday/time windows per report family. The signed-in UI was
+visually checked for satellite/aerial context, route alternatives, ambassador
+planning, and changes after selecting tomorrow. The complete minimized public
+activity snapshot, referenced source pages, checksums, and restore utility are
+now included on `main` under `public-data/activity/`.
+
+Release provenance and measured checks are recorded in
+[the activity release verification](../../evaluation/campus-activity-release.json).
+Forecasts remain exploratory three-hour seasonal estimates; pedestrian flow is
+not included in route or staffing scores.

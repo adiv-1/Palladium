@@ -4,7 +4,7 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .brand-nav { display: flex; align-items: center; gap: 18px; min-width: 0; }
-.logo { display: flex; align-items: center; gap: 9px; color: #fff; text-decoration: none; font: 800 17px Manrope, sans-serif; letter-spacing: -.3px; }
+.logo { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font: 800 15px Manrope, sans-serif; letter-spacing: .14em; }
 .logo i { width: 18px; height: 18px; border-radius: 6px; background: conic-gradient(from 210deg, var(--cardinal), var(--gold), var(--cardinal)); box-shadow: 0 0 14px rgba(204,31,52,.55); animation: spin 14s linear infinite; }
 .tabs { display: flex; gap: 2px; padding: 3px; border-radius: 11px; background: rgba(255,255,255,.05); }
 .tabs a { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: 12.5px; transition: all .18s; white-space: nowrap; }
@@ -142,3 +142,6 @@ html:has(.command-center.app:not(.embedded)), body:has(.command-center.app:not(.
 
 .command-center.app:not(.embedded) .command-map { position: sticky; top: 12px; align-self: start; }
 .command-center .command-review .intercept-panel, .command-center .command-review .intercept { max-width: none; width: 100%; }
+
+.hero-logo { margin-bottom: 12px; }
+.officer-head .brand { display: flex; align-items: center; gap: 8px; }

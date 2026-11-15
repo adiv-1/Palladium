@@ -1,3 +1,4 @@
+import {Logo} from './Logo';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {QRCodeSVG} from 'qrcode.react';
 import {Nav, studentLink} from './Nav';
@@ -242,9 +243,10 @@ export default function About() {
         <div className="about-inner">
           <section className="hero">
             <p className="eyebrow">Architecture</p>
-            <h1>How SafeSC works</h1>
+            <div className="hero-logo"><Logo variant="shield" size={64} /></div>
+            <h1>How Palladium works</h1>
             <p className="lede">
-              SafeSC runs two flows. The <b>live flow</b> turns camera footage into a reviewed, approved dispatch in seconds. The <b>trends flow</b> learns from past incidents to plan patrols and safer walking routes. A person approves every dispatch, and the system never uses face recognition or identifies anyone. Anything simulated is labelled as such.
+              Palladium runs two flows. The <b>live flow</b> turns camera footage into a reviewed, approved dispatch in seconds. The <b>trends flow</b> learns from past incidents to plan patrols and safer walking routes. A person approves every dispatch, and the system never uses face recognition or identifies anyone. Anything simulated is labelled as such.
             </p>
             <div className="hero-tags"><Tag kind="real" /><Tag kind="demo" /><Tag kind="simulated" /><Tag kind="estimate" /></div>
           </section>
@@ -361,7 +363,7 @@ export default function About() {
 
           <section className="card student" aria-labelledby="stu-h">
             <div className="qr">
-              <QRCodeSVG value={link} size={136} bgColor="#ffffff" fgColor="#121417" marginSize={2} title="QR code for the SafeSC student app" />
+              <QRCodeSVG value={link} size={136} bgColor="#ffffff" fgColor="#121417" marginSize={2} title="QR code for the Palladium student app" />
             </div>
             <div className="stu-body">
               <h2 id="stu-h">Try the student app</h2>

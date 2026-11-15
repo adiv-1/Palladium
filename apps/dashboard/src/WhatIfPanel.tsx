@@ -155,14 +155,14 @@ function Slider({label, value, shown, min, max, step, onChange, hint}: {label: s
 const CARDS: {key: 'A' | 'B' | 'C'; title: string; sub: string; tone: string}[] = [
   {key: 'A', title: 'A · Today', sub: 'Planned for current conditions', tone: 'grey'},
   {key: 'B', title: 'B · Scenario, no re-plan', sub: 'Same posts, fewer ambassadors, new boundary', tone: 'red'},
-  {key: 'C', title: 'C · Scenario, SafeSC re-plans', sub: 'Posts re-optimised for the new walkers', tone: 'gold'},
+  {key: 'C', title: 'C · Scenario, Palladium re-plans', sub: 'Posts re-optimised for the new walkers', tone: 'gold'},
 ];
 
 function WhatIfPanel(p: PanelProps) {
   const r = p.result, onDuty = DEFAULTS.baseAmbassadors - p.off;
   const lost = r ? r.A.coveredShare - r.B.coveredShare : 0, won = r ? r.C.coveredShare - r.B.coveredShare : 0;
   const summary = !r ? '' : lost <= 0.0005 && won <= 0.0005 ? 'Under these sliders coverage barely changes, so re-planning has little to recover.'
-    : `Coverage of walker-risk goes from ${pct(r.A.coveredShare)} today to ${pct(r.B.coveredShare)} if nothing is re-planned. SafeSC re-planning brings it to ${pct(r.C.coveredShare)}, `
+    : `Coverage of walker-risk goes from ${pct(r.A.coveredShare)} today to ${pct(r.B.coveredShare)} if nothing is re-planned. Palladium re-planning brings it to ${pct(r.C.coveredShare)}, `
       + (lost > 0.0005 ? `recovering ${Math.round((100 * Math.max(0, won)) / lost)}% of the ${(100 * lost).toFixed(1)} points lost.` : `a change of ${(100 * won).toFixed(1)} points.`);
   return (
     <div className="wi">
@@ -198,7 +198,7 @@ function WhatIfPanel(p: PanelProps) {
         <div className="wi-field">Map: show uncovered exposure</div>
         <div className="seg" role="group">
           <button className={p.view === 'B' ? 'on' : ''} onClick={() => {p.setView('B'); p.restartAnim();}}>Without re-plan</button>
-          <button className={p.view === 'C' ? 'on' : ''} onClick={() => {p.setView('C'); p.restartAnim();}}>SafeSC re-plans</button>
+          <button className={p.view === 'C' ? 'on' : ''} onClick={() => {p.setView('C'); p.restartAnim();}}>Palladium re-plans</button>
         </div>
         <ul className="wi-key">
           <li><i className="red" />Uncovered, thicker means more walkers x risk</li><li><i className="gold" />Covered by a post</li>

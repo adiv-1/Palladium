@@ -50,13 +50,30 @@ def verification_messages(frames,observer_notes='',tracks=None,question=None):
     for frame in frames:
         content.extend([{'type':'text','text':f'Original source frame {frame.index}; stream time {frame.timestamp:.3f} seconds.'},
             {'type':'image','image':Image.open(io.BytesIO(frame.jpeg)).convert('RGB')}])
-    context={'stream_time_range':[start,end],
+    context={'stream_time_range':[round(start,3),round(end,3)],
         'valid_source_frame_ids':ids,'anonymous_tracks_in_latest_frame':tracks or [],
         'untrusted_streaming_observer_notes':observer_notes[-600:],'schema':schema}
     if question:context['cascade_question']=question  # narrow question from the detector cascade
     content.append({'type':'text','text':json.dumps(context)})
     messages=[{'role':'system','content':[{'type':'text','text':VERIFIER_POLICY}]},{'role':'user','content':content}]
     return messages,schema
+
+def generation_target(target,tracks=None):
+    import copy
+    return copy.deepcopy(target)
+
+def validate_visual_output(raw,frames):
+    payload=json.loads(raw);known={f.index:f.timestamp for f in frames}
+    cited=payload.get('supporting_frames',[])
+    if not set(cited)<=known.keys():raise ValueError('Verifier cited frames outside the evidence window')
+    for event in payload.get('observable_events',[]):
+        if not cited:raise ValueError('An event needs supplied supporting frames')
+        # Model-generated decimal times are never authoritative alignment.
+        # The cited source frames define this evidence interval exactly.
+        event['timestamp_start']=min(known[i] for i in cited)
+        event['timestamp_end']=max(known[i] for i in cited)
+        event.setdefault('actors',[])
+    return Detection.model_validate(payload)
 
 _live_verifier=None
 _load_lock=Lock()
@@ -119,11 +136,28 @@ class StructuredVisualVerifier:
             self.processor=AutoProcessor.from_pretrained(adapter,min_pixels=56*56,max_pixels=report.get('inference_max_pixels',336*336))
             self.model=PeftModel.from_pretrained(self.model,adapter).eval();self.adapter=report['adapter_sha256']
         self.last_audit={}
+        # Pay the vocabulary cost during model warmup, before live verification.
+        self.prepare_constraints()
+
+    def prepare_constraints(self):
+        from lmformatenforcer.integrations.transformers import build_token_enforcer_tokenizer_data
+        tokenizer=self.processor.tokenizer
+        # Vocabulary decoding/tree construction is independent of the evidence
+        # schema. Reuse it; each pass still gets fresh parser/enforcer state and
+        # the exact current frame-ID enum. Rebuild if the tokenizer changes.
+        if getattr(self,'_constraint_tokenizer',None) is not tokenizer:
+            self._constraint_tokenizer_data=build_token_enforcer_tokenizer_data(tokenizer)
+            self._constraint_tokenizer=tokenizer
+
+    def constraint_prefix(self,schema):
+        from lmformatenforcer import JsonSchemaParser
+        from lmformatenforcer.integrations.transformers import build_transformers_prefix_allowed_tokens_fn
+        self.prepare_constraints()
+        return build_transformers_prefix_allowed_tokens_fn(
+            self._constraint_tokenizer_data,JsonSchemaParser(schema))
 
     def verify_frames(self,frames,observer_notes='',tracks=None,question=None):
         from PIL import Image
-        from lmformatenforcer import JsonSchemaParser
-        from lmformatenforcer.integrations.transformers import build_transformers_prefix_allowed_tokens_fn
         if len(frames)<2:raise ValueError('Verification requires multiple source frames')
         torch=self.torch;started=time.monotonic()
         frames=sorted(frames,key=lambda f:f.timestamp)
@@ -131,18 +165,25 @@ class StructuredVisualVerifier:
         actor_ids=[t['id'] for t in tracks or []]
         messages,schema=verification_messages(frames,observer_notes,tracks,question)
         inputs=self.processor.apply_chat_template(messages,tokenize=True,add_generation_prompt=True,return_dict=True,return_tensors='pt').to(self.model.device)
-        prefix=build_transformers_prefix_allowed_tokens_fn(self.processor.tokenizer,JsonSchemaParser(schema))
+        prepared=time.monotonic()
+        prefix=self.constraint_prefix(schema)
+        constrained=time.monotonic()
         with torch.inference_mode():
             generated=self.model.generate(**inputs,max_new_tokens=256,do_sample=False,prefix_allowed_tokens_fn=prefix)
         raw=self.processor.decode(generated[0][inputs['input_ids'].shape[-1]:],skip_special_tokens=True)
+        decoded=time.monotonic()
         audit={'model':'Qwen/Qwen3-VL-4B-Instruct','revision':self.revision,'raw_json':raw,
             'adapter_sha256':self.adapter or None,
             'research_mode':self.research_mode,
             'source_frame_indices':ids,'stream_time_range':[start,end],'constrained_decoding':True,
-            'runtime_seconds':time.monotonic()-started,'status':'rejected','observer_notes':observer_notes[-600:],
+            'runtime_seconds':decoded-started,'status':'rejected','observer_notes':observer_notes[-600:],
+            'timing':{'prepare_seconds':prepared-started,'constraint_setup_seconds':constrained-prepared,
+                'generate_decode_seconds':decoded-constrained,
+                'input_tokens':int(inputs['input_ids'].shape[-1]),
+                'generated_tokens':int(generated.shape[-1]-inputs['input_ids'].shape[-1])},
             'cascade_question':question}
         self.last_audit=audit
-        detection=Detection.model_validate_json(raw)
+        detection=validate_visual_output(raw,frames)
         if detection.simulated:raise ValueError('A real verifier cannot assert simulated provenance')
         if not set(detection.supporting_frames)<=set(ids):raise ValueError('Verifier cited frames outside the evidence window')
         for event in detection.observable_events:

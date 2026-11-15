@@ -13,6 +13,36 @@ class Frame:
     timestamp: float
     index: int
     jpeg: bytes
+    motion: float = 0
+
+def select_evidence(frames,count=8):
+    """Select real context and motion transitions; this never classifies an event."""
+    if len(frames)<=count:return list(frames)
+    if count==4 and max(f.motion for f in frames)>0:
+        peak=max(range(1,len(frames)),key=lambda i:frames[i].motion)
+        at=frames[peak].timestamp
+        selected={min(range(len(frames)),key=lambda i:abs(frames[i].timestamp-t)) for t in [at-.5,at-.15,at,at+.5]}
+        for i in np.linspace(0,len(frames)-1,4).round().astype(int):
+            if len(selected)<4:selected.add(int(i))
+        return [frames[i] for i in sorted(selected)]
+    chosen={0,len(frames)-1};peaks=[]
+    for index in sorted(range(1,len(frames)),key=lambda i:frames[i].motion,reverse=True):
+        if any(abs(frames[index].timestamp-t)<.7 for t in peaks):continue
+        peaks.append(frames[index].timestamp)
+        for stamp in [frames[index].timestamp-.3,frames[index].timestamp,frames[index].timestamp+.3]:
+            nearest=min(range(len(frames)),key=lambda i:abs(frames[i].timestamp-stamp))
+            if len(chosen)<count:chosen.add(nearest)
+        if len(chosen)>=count:break
+    if len(chosen)<count:
+        for i in np.linspace(0,len(frames)-1,count).round().astype(int):
+            if len(chosen)<count:chosen.add(int(i))
+    return [frames[i] for i in sorted(chosen)]
+
+def align_frame_timing(reference,generated):
+    """Restore original PTS after a model's video writer changes frame rate."""
+    if len(reference)!=len(generated):
+        raise ValueError('Enhancement frame count differs from input; frame alignment is unknown')
+    return [Frame(source.timestamp,source.index,result.jpeg) for source,result in zip(reference,generated)]
 
 def digest(path):
     h=sha256()
@@ -62,7 +92,10 @@ def write_clip(frames,path,label=None):
     with open(path,'xb') as raw:
         with av.open(raw,mode='w',format='mp4',options={'movflags':'+faststart'}) as out:
             image=decode(frames[0].jpeg); h,w=image.shape[:2]
-            stream=out.add_stream('libx264',rate=30); stream.width=w//2*2; stream.height=h//2*2
+            intervals=[b.timestamp-a.timestamp for a,b in zip(frames,frames[1:]) if b.timestamp>a.timestamp]
+            fps=Fraction(float(1/np.median(intervals))).limit_denominator(1001) if intervals else Fraction(30)
+            fps=max(Fraction(1),min(Fraction(120),fps))
+            stream=out.add_stream('libx264',rate=fps); stream.width=w//2*2; stream.height=h//2*2
             stream.pix_fmt='yuv420p'; stream.options={'crf':'18','preset':'fast'}; stream.time_base=Fraction(1,90000)
             stream.codec_context.time_base=Fraction(1,90000)
             for f in frames:
@@ -77,9 +110,17 @@ def write_clip(frames,path,label=None):
             for packet in stream.encode(): out.mux(packet)
     Path(path).chmod(0o444)
 
+def display_image(frame):
+    """Apply container display rotation to decoded analysis pixels, preserving source bytes."""
+    image=frame.to_ndarray(format='bgr24')
+    angle=float(getattr(frame,'rotation',0) or 0)
+    turns=round(angle/90)
+    if turns and abs(angle-turns*90)<.01:image=np.rot90(image,k=turns).copy()
+    return image
+
 def read_video(path):
     with av.open(str(path)) as container:
         stream=container.streams.video[0]
         for index,frame in enumerate(container.decode(stream)):
             ts=float(frame.time) if frame.time is not None else index/float(stream.average_rate or 30)
-            yield Frame(ts,index,encode(frame.to_ndarray(format='bgr24')))
+            yield Frame(ts,index,encode(display_image(frame)))

@@ -51,7 +51,7 @@ export function AlertPanel({alert, devices, onClose}: {alert: ActiveAlert; devic
           ))}
           <div><dt>Status</dt><dd>{r.status}</dd></div>
         </dl>
-        <p className="fine">Descriptors are placeholders. The vision pipeline does not estimate them, and SafeSC never infers identity or demographics.</p>
+        <p className="fine">Descriptors are placeholders. The vision pipeline does not estimate them, and Palladium never infers identity or demographics.</p>
         <button className="ghost" onClick={copy}>{copied ? 'Copied' : 'Copy report JSON'}</button>
       </div>
     </section>

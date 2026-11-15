@@ -20,6 +20,7 @@ def ssh_args():
 def upload_source():
     archive = ROOT / 'data/runpod-source.tar.gz'
     def include(info):
+        if Path(info.name).parts[:2] in [('docs','local'),('docs','screenshots')]:return None
         if any(x in ['node_modules','__pycache__','.pytest_cache','.venv','.git'] for x in Path(info.name).parts):
             return None
         return info

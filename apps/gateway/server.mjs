@@ -55,6 +55,10 @@ export function createGateway({backendOrigin = process.env.SAFESC_BACKEND_ORIGIN
     // Reject absolute-form URLs; the client cannot select another upstream host.
     if (!req.url?.startsWith('/') || req.url.startsWith('//')) return reply(res, 400, 'Invalid request path');
     if (req.url === '/_health') return reply(res, 200, 'UI gateway ready');
+    // Palladium's front door is the 3D command app; the reviewer app keeps /capture for phone cameras.
+    if (['GET', 'HEAD'].includes(req.method) && /^\/(\?|$)/.test(req.url)) {
+      res.writeHead(302, {Location: '/command/' + req.url.slice(1), 'Cache-Control': 'no-store'}); return res.end();
+    }
     if (/^\/api(?:\/|\?|$)/.test(req.url)) {
       const remote = upstream(req);
       remote.setTimeout(15 * 60_000, () => remote.destroy(new Error('Upstream timeout')));
@@ -101,7 +105,7 @@ export function createGateway({backendOrigin = process.env.SAFESC_BACKEND_ORIGIN
   server.on('upgrade', (req, socket, head) => {
     const reject = status => { socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\n\r\n`); };
     const pathname = req.url?.split('?')[0] || '';
-    const allowed = ['/ws/events', '/ws/capture'].includes(pathname) || /^\/ws\/dispatch\/[A-Za-z0-9_-]{22,64}$/.test(pathname);
+    const allowed = ['/ws/events', '/ws/capture', '/ws/preview', '/ws/live'].includes(pathname) || /^\/ws\/dispatch\/[A-Za-z0-9_-]{22,64}$/.test(pathname);
     if (!allowed || req.headers.upgrade?.toLowerCase() !== 'websocket') {
       reject('404 Not Found'); return;
     }

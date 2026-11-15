@@ -3,9 +3,19 @@ import json
 import sqlite3
 from datetime import date
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import FileResponse
 from .config import settings
 
 router = APIRouter(prefix='/api/activity')
+
+
+@router.get('/exploration-bundle')
+def exploration_bundle():
+    """One authenticated download; all forecast/time/route analysis is preloaded."""
+    path = settings.data_dir / 'activity' / 'forecast-bundle.json'
+    if not path.is_file():
+        raise HTTPException(503, 'Activity outlook is not prepared. Run python -m scripts.build_activity_forecast on the data host.')
+    return FileResponse(path, media_type='application/json', headers={'Cache-Control': 'private, no-cache'})
 
 def database():
     path = settings.data_dir / 'activity' / 'activity.sqlite'

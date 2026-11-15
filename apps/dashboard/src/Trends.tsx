@@ -11,7 +11,9 @@ import {Tag} from './Panels';
 import {Stage, useStage} from './stage';
 import {useCampus} from './data';
 import {useWhatIf} from './WhatIfPanel';
-import {CAMPUS_CENTER, distance} from './sim';
+import {CAMPUS_CENTER, cameraCone, distance, makeCameras} from './sim';
+import {PolygonLayer} from '@deck.gl/layers';
+import type {Camera} from './types';
 import {INCIDENT_LABEL, type Building, type IncidentType, type LngLat} from './types';
 
 const TYPE_COLOR: Record<IncidentType, Color> = {altercation: [204, 31, 52, 255], person_down: [242, 110, 48, 255], rack_activity: [255, 204, 0, 255], other: [150, 160, 170, 255]};
@@ -35,6 +37,9 @@ export default function Trends() {
   const [to, setTo] = useState<Building | null>(null);
   const [caution, setCaution] = useState(6);
   const [heat, setHeat] = useState(true);
+  const [showCams, setShowCams] = useState(true);
+  // Simulated camera positions around real buildings (never real DPS locations); gold = watched live.
+  const cameras = useMemo(() => (campus ? makeCameras(campus.buildings) : []), [campus]);
   const [routes, setRoutes] = useState<Routes | null>(null);
   const [routeError, setRouteError] = useState('');
   const stage = useStage(!routes);
@@ -87,6 +92,12 @@ export default function Trends() {
   const layers = useMemo(() => {
     if (!campus) return [];
     const out: Layer[] = [];
+    if (showCams) {
+      out.push(new PolygonLayer<Camera>({id: 'cam-cones', data: cameras, getPolygon: (c) => cameraCone(c), stroked: false,
+        getFillColor: (c) => (c.watchedLive ? [255, 204, 0, 70] : [120, 190, 200, 30]), pickable: true}) as unknown as Layer);
+      out.push(new ScatterplotLayer<Camera>({id: 'cams', data: cameras, getPosition: (c) => c.position, radiusUnits: 'pixels',
+        getRadius: (c) => (c.watchedLive ? 3.5 : 2.2), getFillColor: (c) => (c.watchedLive ? [255, 204, 0, 240] : [140, 200, 210, 190])}) as unknown as Layer);
+    }
     // A flat glow on the ground: it never hides streets or buildings the way extruded columns did.
     if (heat) out.push(new HeatmapLayer<Past>({id: 'heat', data: points, getPosition: (p) => p.position, getWeight: (p) => p.weight, radiusPixels: 44, intensity: 1.15, threshold: 0.06, opacity: 0.62,
       colorRange: [[120, 20, 70, 0], [160, 30, 70, 70], [204, 31, 52, 130], [238, 90, 60, 185], [255, 150, 60, 220], [255, 225, 120, 240]]}) as unknown as Layer);
@@ -139,9 +150,10 @@ export default function Trends() {
         getRadius: 8, stroked: true, lineWidthUnits: 'pixels', getLineWidth: 3, getFillColor: (d: any) => [...d.c, 255], getLineColor: [255, 255, 255, 255]} as any) as unknown as Layer);
     }
     return out;
-  }, [campus, points, plan, routes, selected, t, count, heat]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [campus, points, plan, routes, selected, t, count, heat, showCams, cameras]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tooltip = ({object, layer}: PickingInfo) => {
+    if (object && layer?.id === 'cam-cones') return {text: `${(object as Camera).id} near ${(object as Camera).near} · ${(object as Camera).watchedLive ? 'watched live' : 'AI triaged'} · simulated position`};
     if (!object || layer?.id !== 'posts') return null;
     const post = plan?.posts[(object as any).post];
     return post ? {text: `Post ${post.rank} · ${post.place}`} : null;
@@ -212,6 +224,7 @@ export default function Trends() {
         {TYPES.map((k) => <span key={k}><i style={{background: `rgb(${TYPE_COLOR[k].slice(0, 3).join(',')})`}} />{INCIDENT_LABEL[k]}</span>)}
         <span><i className="gold" />Ambassador post</span>
         <label className="heat-toggle"><input type="checkbox" checked={heat} onChange={() => setHeat(!heat)} /> Incident heat</label>
+        <label className="heat-toggle"><input type="checkbox" checked={showCams} onChange={() => setShowCams(!showCams)} /> Cameras ({cameras.filter((c) => c.watchedLive).length} watched live, {cameras.filter((c) => !c.watchedLive).length} AI-triaged)</label>
       </div>
     </div>
   );

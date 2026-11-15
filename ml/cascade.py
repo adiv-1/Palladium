@@ -582,10 +582,18 @@ class CascadeDetector:
 class RuleGate:
     """Cascade rules already require persistence over time; this checks evidence bounds only."""
 
+    last_reason = 'awaiting_evidence'
+
     def consider(self, detection, now, valid_indices):
         if detection.state == 'NORMAL' or not detection.observable_events:
+            self.last_reason = 'ordinary_or_uncertain'
             return False
         supported = set(detection.supporting_frames) & set(valid_indices)
         if len(supported) < 2:
+            self.last_reason = 'below_threshold_or_unsupported'
             return False
-        return max(e.timestamp_end for e in detection.observable_events) <= now + 0.5
+        if max(e.timestamp_end for e in detection.observable_events) > now + 0.5:
+            self.last_reason = 'evidence_from_future'
+            return False
+        self.last_reason = 'accepted'
+        return True

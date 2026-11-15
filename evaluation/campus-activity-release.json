@@ -1,0 +1,38 @@
+{
+  "origin": "https://safe-sc.replit.app",
+  "activity_url": "https://safe-sc.replit.app/#activity",
+  "checked_at": "2026-11-15T04:05:19.600115+00:00",
+  "source_commit": "4e54f8b283f523b8c4e45233a4f1c467f9b6886b",
+  "ui_release_commit": "8fb750d1621ccf5743a0e2b3d72a22d52dbb4a5a",
+  "replit_publish_id": "be7865b1",
+  "public_snapshot": "public-data/activity/2026-11-14/manifest.json",
+  "snapshot_restore_verified": true,
+  "bundle_sha256": "e4a76d3d6bd5109646ea5608ea6995ede1df585aea18e56014d9d8cc0f0f7bea",
+  "model_id": "0c44a591236509a7",
+  "anonymous_bundle_status": 401,
+  "authenticated_login_status": 200,
+  "authenticated_bundle_status": 200,
+  "historical_reports": 75686,
+  "forecast_cells": 172,
+  "weekday_time_windows_per_family": 56,
+  "backend_original_database_preserved": true,
+  "live_visual_checks": [
+    "forecast and full UPC-zone map",
+    "satellite/aerial imagery",
+    "walking-route alternatives",
+    "ambassador posts",
+    "date-dependent changes to posts and routes"
+  ],
+  "verification": {
+    "python_tests_passed": 56,
+    "routing_tests_passed": 3,
+    "gateway_tests_passed": 5,
+    "frontend_build_passed": true,
+    "secret_scan_passed": true
+  },
+  "limitations": [
+    "Seasonal three-hour estimates; identical weekday/windows share an outlook.",
+    "Research report-activity and hypothetical staffing estimates, not validated personal-safety predictions.",
+    "Pedestrian evidence is displayed separately; full-zone hourly footfall is not modeled."
+  ]
+}

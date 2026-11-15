@@ -1,0 +1,178 @@
+{
+  "task": "Reviewed physical-contact/object-taking follow-up",
+  "training_videos": 19,
+  "training_variants_per_run": 76,
+  "validation_videos": 8,
+  "test_videos": 12,
+  "held_out_warning": "Same diagnostic holdout as earlier pilot; not independent new validation. No validation/test frames entered optimizer updates.",
+  "runs": {
+    "v2": {
+      "steps": 80,
+      "seed": 42,
+      "trainable_parameters": 2949120,
+      "adapter_sha256": "67f106211eb7f1eeffbbfca8bda218cba9292d9b47c046c1bd81d21c73c0e2e8",
+      "baseline_adapter_sha256": "7b0757f2a65969438a39b40757417dcfcc4ab85dabe761ec381f80887563f16d",
+      "optimizer_updates_performed": true,
+      "optimization_seconds": 102.55569394794293,
+      "runtime_seconds": 377.744062531041,
+      "peak_allocated_vram_mb": 11047.33203125,
+      "baseline": {
+        "val": {
+          "examples": 8,
+          "positive_examples": 5,
+          "normal_examples": 3,
+          "review_recall": 1.0,
+          "missed_positive_examples": 0,
+          "false_positive_examples": 0,
+          "false_positive_rate": 0.0,
+          "action_accuracy": 0.75,
+          "invalid_outputs": 0,
+          "per_action_recall": {
+            "object_taking": 1.0,
+            "ordinary_activity": 1.0,
+            "physical_contact": 0.3333333333333333
+          }
+        },
+        "test": {
+          "examples": 12,
+          "positive_examples": 7,
+          "normal_examples": 5,
+          "review_recall": 1.0,
+          "missed_positive_examples": 0,
+          "false_positive_examples": 3,
+          "false_positive_rate": 0.6,
+          "action_accuracy": 0.5833333333333334,
+          "invalid_outputs": 0,
+          "per_action_recall": {
+            "object_taking": 0.6666666666666666,
+            "ordinary_activity": 0.4,
+            "physical_contact": 0.75
+          }
+        }
+      },
+      "candidate": {
+        "val": {
+          "examples": 8,
+          "positive_examples": 5,
+          "normal_examples": 3,
+          "review_recall": 1.0,
+          "missed_positive_examples": 0,
+          "false_positive_examples": 0,
+          "false_positive_rate": 0.0,
+          "action_accuracy": 1.0,
+          "invalid_outputs": 0,
+          "per_action_recall": {
+            "object_taking": 1.0,
+            "ordinary_activity": 1.0,
+            "physical_contact": 1.0
+          }
+        },
+        "test": {
+          "examples": 12,
+          "positive_examples": 7,
+          "normal_examples": 5,
+          "review_recall": 0.8571428571428571,
+          "missed_positive_examples": 1,
+          "false_positive_examples": 2,
+          "false_positive_rate": 0.4,
+          "action_accuracy": 0.6666666666666666,
+          "invalid_outputs": 0,
+          "per_action_recall": {
+            "object_taking": 0.3333333333333333,
+            "ordinary_activity": 0.6,
+            "physical_contact": 1.0
+          }
+        }
+      },
+      "nonregression": false,
+      "improved_over_parent": false,
+      "output_schema": "experimental derived metadata",
+      "deployed": false
+    },
+    "v3": {
+      "steps": 80,
+      "seed": 42,
+      "trainable_parameters": 2949120,
+      "adapter_sha256": "5c8d9f91b3fd3894bfef9728da9f3c048d2a32a201eec3d71b54a4d6aac27598",
+      "baseline_adapter_sha256": "7b0757f2a65969438a39b40757417dcfcc4ab85dabe761ec381f80887563f16d",
+      "optimizer_updates_performed": true,
+      "optimization_seconds": 106.76495849702042,
+      "runtime_seconds": 412.9810460850131,
+      "peak_allocated_vram_mb": 11210.6591796875,
+      "baseline": {
+        "val": {
+          "examples": 8,
+          "positive_examples": 5,
+          "normal_examples": 3,
+          "review_recall": 1.0,
+          "missed_positive_examples": 0,
+          "false_positive_examples": 0,
+          "false_positive_rate": 0.0,
+          "action_accuracy": 1.0,
+          "invalid_outputs": 0,
+          "per_action_recall": {
+            "object_taking": 1.0,
+            "ordinary_activity": 1.0,
+            "physical_contact": 1.0
+          }
+        },
+        "test": {
+          "examples": 12,
+          "positive_examples": 7,
+          "normal_examples": 5,
+          "review_recall": 1.0,
+          "missed_positive_examples": 0,
+          "false_positive_examples": 2,
+          "false_positive_rate": 0.4,
+          "action_accuracy": 0.75,
+          "invalid_outputs": 0,
+          "per_action_recall": {
+            "object_taking": 0.6666666666666666,
+            "ordinary_activity": 0.6,
+            "physical_contact": 1.0
+          }
+        }
+      },
+      "candidate": {
+        "val": {
+          "examples": 8,
+          "positive_examples": 5,
+          "normal_examples": 3,
+          "review_recall": 1.0,
+          "missed_positive_examples": 0,
+          "false_positive_examples": 0,
+          "false_positive_rate": 0.0,
+          "action_accuracy": 1.0,
+          "invalid_outputs": 0,
+          "per_action_recall": {
+            "object_taking": 1.0,
+            "ordinary_activity": 1.0,
+            "physical_contact": 1.0
+          }
+        },
+        "test": {
+          "examples": 12,
+          "positive_examples": 7,
+          "normal_examples": 5,
+          "review_recall": 0.8571428571428571,
+          "missed_positive_examples": 1,
+          "false_positive_examples": 2,
+          "false_positive_rate": 0.4,
+          "action_accuracy": 0.6666666666666666,
+          "invalid_outputs": 0,
+          "per_action_recall": {
+            "object_taking": 0.3333333333333333,
+            "ordinary_activity": 0.6,
+            "physical_contact": 1.0
+          }
+        }
+      },
+      "nonregression": false,
+      "improved_over_parent": false,
+      "output_schema": "original explicit metadata",
+      "deployed": false
+    }
+  },
+  "selected_adapter_sha256": "7b0757f2a65969438a39b40757417dcfcc4ab85dabe761ec381f80887563f16d",
+  "selection_reason": "Both follow-ups missed one of seven positive test clips; retain the stronger owner-approved high-recall research adapter."
+}

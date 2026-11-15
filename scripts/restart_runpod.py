@@ -11,7 +11,10 @@ def main():
     h=httpx.get('http://127.0.0.1:8000/api/health',headers={'Authorization':'Bearer '+token},timeout=10);h.raise_for_status()
     if h.json()['active_sources']:raise RuntimeError('Active source: restart deferred')
     with sqlite3.connect(root/'data/safesc.db') as c:
-        if c.execute("SELECT count(*) FROM job WHERE status IN ('queued','running')").fetchone()[0]:raise RuntimeError('Pending GPU work: restart deferred')
+        if c.execute("SELECT count(*) FROM job WHERE status IN ('queued','running','cancelling')").fetchone()[0]:raise RuntimeError('Pending GPU work: restart deferred')
+        if c.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='learningrun'").fetchone()[0]:
+            if c.execute("SELECT count(*) FROM learningrun WHERE status IN ('preparing','queued','running','cancelling')").fetchone()[0]:
+                raise RuntimeError('Active training preparation or cancellation: restart deferred')
     command=Path(f'/proc/{a.pid}/cmdline').read_bytes()
     if b'uvicorn' not in command or b'apps.api.main:app' not in command:raise RuntimeError('Unexpected process identity')
     os.kill(a.pid,signal.SIGTERM)

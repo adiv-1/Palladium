@@ -1,0 +1,205 @@
+{
+  "version": 1,
+  "kind": "minimized public campus activity snapshot",
+  "snapshot_downloaded_at": "2026-11-14T09:26:30.999771+00:00",
+  "reports": 75686,
+  "occurrence_start": "2010-01-01",
+  "occurrence_end": "2026-10-31",
+  "scope": "USC UPC Lyft service area (published boundary approximation)",
+  "sources": [
+    "https://data.lacity.org/d/63jg-8b9z",
+    "https://data.lacity.org/d/2nrs-mtv8",
+    "https://data.lacity.org/d/k7nn-b2ep"
+  ],
+  "contents": [
+    {
+      "file": "activity.sqlite.gz",
+      "restore_as": "activity.sqlite",
+      "gzip_encoded": true,
+      "bytes": 5343630,
+      "sha256": "4911964a9576ac04f5f29227fb2fe0360388e5f344aa23b6853dd6f2db3fc3fe",
+      "restored_bytes": 21901312,
+      "restored_sha256": "ca9812ec8a198d72eaa4645cc3ef6988fccdbdfd8f27a7a8d93f0c604ea9b0ec"
+    },
+    {
+      "file": "metadata.json",
+      "restore_as": "metadata.json",
+      "gzip_encoded": false,
+      "bytes": 6892,
+      "sha256": "76e56c4e2e78e0234617f3849b30e4caec97a977e717c09527c8ab9703b746b8",
+      "restored_bytes": 6892,
+      "restored_sha256": "76e56c4e2e78e0234617f3849b30e4caec97a977e717c09527c8ab9703b746b8"
+    },
+    {
+      "file": "forecast-bundle.json.gz",
+      "restore_as": "forecast-bundle.json",
+      "gzip_encoded": true,
+      "bytes": 3193560,
+      "sha256": "63fb7d3268365b4ca06e367a0f9bee41dac7810c6ffe1c63393201e3b240da6f",
+      "restored_bytes": 21141704,
+      "restored_sha256": "e4a76d3d6bd5109646ea5608ea6995ede1df585aea18e56014d9d8cc0f0f7bea"
+    },
+    {
+      "file": "forecast-model.json.gz",
+      "restore_as": "forecast-model.json",
+      "gzip_encoded": true,
+      "bytes": 356551,
+      "sha256": "07086ebdee8f204ee9f7d3060a38cc9dcdb6bcd0f0288da32ee3da52502de7d3",
+      "restored_bytes": 857329,
+      "restored_sha256": "963cdd7961c6954fe3fa58c8d53a517bbc4c040e33989012595fd58bc491f030"
+    },
+    {
+      "file": "forecast-evaluation.json",
+      "restore_as": "forecast-evaluation.json",
+      "gzip_encoded": false,
+      "bytes": 8391,
+      "sha256": "0ec30f05b2430f99230a8fa726480a8176c9886e367af473f9a7d6b628f933c3",
+      "restored_bytes": 8391,
+      "restored_sha256": "0ec30f05b2430f99230a8fa726480a8176c9886e367af473f9a7d6b628f933c3"
+    },
+    {
+      "file": "forecast-streets.json.gz",
+      "restore_as": "forecast-streets.json",
+      "gzip_encoded": true,
+      "bytes": 667977,
+      "sha256": "f46632e53108a3d4e221f91c1fbce80bd99ed5b5a428d306f35e81a73872c5a4",
+      "restored_bytes": 5120006,
+      "restored_sha256": "e9bdbfdf6a0ab11f914db7d18faca49a7dd4975f111fce65918d416885e0b59a"
+    },
+    {
+      "file": "forecast-streets-provenance.json",
+      "restore_as": "forecast-streets-provenance.json",
+      "gzip_encoded": false,
+      "bytes": 504,
+      "sha256": "38446a57737aee084aa1d564863a83c58c47b658bd624096d111cbe1392f2abf",
+      "restored_bytes": 504,
+      "restored_sha256": "38446a57737aee084aa1d564863a83c58c47b658bd624096d111cbe1392f2abf"
+    },
+    {
+      "file": "pedestrian-evidence.json",
+      "restore_as": "pedestrian-evidence.json",
+      "gzip_encoded": false,
+      "bytes": 2279,
+      "sha256": "01c5d387c4443948e2e4e7e38c9f56a92ccdf0472896f3f92da5bc5152f0f81a",
+      "restored_bytes": 2279,
+      "restored_sha256": "01c5d387c4443948e2e4e7e38c9f56a92ccdf0472896f3f92da5bc5152f0f81a"
+    },
+    {
+      "file": "forecast-audit.json",
+      "restore_as": "forecast-audit.json",
+      "gzip_encoded": false,
+      "bytes": 23921,
+      "sha256": "d011a515794139251e9d603e403160bd22789fb4a58e8c5fd235c5c6ab1bc34a",
+      "restored_bytes": 23921,
+      "restored_sha256": "d011a515794139251e9d603e403160bd22789fb4a58e8c5fd235c5c6ab1bc34a"
+    },
+    {
+      "file": "raw/63jg-8b9z-eeef9ec209-0000000.json.gz",
+      "restore_as": "63jg-8b9z-eeef9ec209-0000000.json.gz",
+      "gzip_encoded": false,
+      "bytes": 151049,
+      "sha256": "9568b5d6c621d61d68944b7ca302d4e3010674d7a63b0b75fa99e63a67f9ea8e",
+      "restored_bytes": 151049,
+      "restored_sha256": "9568b5d6c621d61d68944b7ca302d4e3010674d7a63b0b75fa99e63a67f9ea8e"
+    },
+    {
+      "file": "raw/63jg-8b9z-eeef9ec209-0010000.json.gz",
+      "restore_as": "63jg-8b9z-eeef9ec209-0010000.json.gz",
+      "gzip_encoded": false,
+      "bytes": 151393,
+      "sha256": "54aceb1f29452e57a570b46d2f5a76415f92eb38a5450c2e15c55336ff292275",
+      "restored_bytes": 151393,
+      "restored_sha256": "54aceb1f29452e57a570b46d2f5a76415f92eb38a5450c2e15c55336ff292275"
+    },
+    {
+      "file": "raw/63jg-8b9z-eeef9ec209-0020000.json.gz",
+      "restore_as": "63jg-8b9z-eeef9ec209-0020000.json.gz",
+      "gzip_encoded": false,
+      "bytes": 154532,
+      "sha256": "2f7212c2ee9f45421dee39724bd0bf2595f1c776da1921d460ac1c80ee29c9ed",
+      "restored_bytes": 154532,
+      "restored_sha256": "2f7212c2ee9f45421dee39724bd0bf2595f1c776da1921d460ac1c80ee29c9ed"
+    },
+    {
+      "file": "raw/63jg-8b9z-eeef9ec209-0030000.json.gz",
+      "restore_as": "63jg-8b9z-eeef9ec209-0030000.json.gz",
+      "gzip_encoded": false,
+      "bytes": 147652,
+      "sha256": "869e434a3e1dc09ff2759a6f53df205a83e5bfc272d5e15bbda14138465a696d",
+      "restored_bytes": 147652,
+      "restored_sha256": "869e434a3e1dc09ff2759a6f53df205a83e5bfc272d5e15bbda14138465a696d"
+    },
+    {
+      "file": "raw/63jg-8b9z-eeef9ec209-0040000.json.gz",
+      "restore_as": "63jg-8b9z-eeef9ec209-0040000.json.gz",
+      "gzip_encoded": false,
+      "bytes": 153030,
+      "sha256": "1bb15d04f11280734a981df99de8c96e34b11ac0d08a495f300c77447dd61b6d",
+      "restored_bytes": 153030,
+      "restored_sha256": "1bb15d04f11280734a981df99de8c96e34b11ac0d08a495f300c77447dd61b6d"
+    },
+    {
+      "file": "raw/63jg-8b9z-eeef9ec209-0050000.json.gz",
+      "restore_as": "63jg-8b9z-eeef9ec209-0050000.json.gz",
+      "gzip_encoded": false,
+      "bytes": 71625,
+      "sha256": "72baf0c58e3e67f8d3ce2db96a2a55c1fe51d0fd96ef0356951b1b8d6d6b184e",
+      "restored_bytes": 71625,
+      "restored_sha256": "72baf0c58e3e67f8d3ce2db96a2a55c1fe51d0fd96ef0356951b1b8d6d6b184e"
+    },
+    {
+      "file": "raw/2nrs-mtv8-eeef9ec209-0000000.json.gz",
+      "restore_as": "2nrs-mtv8-eeef9ec209-0000000.json.gz",
+      "gzip_encoded": false,
+      "bytes": 155137,
+      "sha256": "a65c7f8a71935239c59c0bda4f0c76abdc9bd3b12ead40ec251d8cb35c8de38e",
+      "restored_bytes": 155137,
+      "restored_sha256": "a65c7f8a71935239c59c0bda4f0c76abdc9bd3b12ead40ec251d8cb35c8de38e"
+    },
+    {
+      "file": "raw/2nrs-mtv8-eeef9ec209-0010000.json.gz",
+      "restore_as": "2nrs-mtv8-eeef9ec209-0010000.json.gz",
+      "gzip_encoded": false,
+      "bytes": 149509,
+      "sha256": "394e41734924a4f98b4f92860fcf7cccf57ca3306fccda46942136c02316f182",
+      "restored_bytes": 149509,
+      "restored_sha256": "394e41734924a4f98b4f92860fcf7cccf57ca3306fccda46942136c02316f182"
+    },
+    {
+      "file": "raw/2nrs-mtv8-eeef9ec209-0020000.json.gz",
+      "restore_as": "2nrs-mtv8-eeef9ec209-0020000.json.gz",
+      "gzip_encoded": false,
+      "bytes": 134476,
+      "sha256": "7c54886cd3c0a63c611c2b6aea083714fd270b330966201976a07d926e5d95bd",
+      "restored_bytes": 134476,
+      "restored_sha256": "7c54886cd3c0a63c611c2b6aea083714fd270b330966201976a07d926e5d95bd"
+    },
+    {
+      "file": "raw/k7nn-b2ep-4b986ae637-0000000.json.gz",
+      "restore_as": "k7nn-b2ep-4b986ae637-0000000.json.gz",
+      "gzip_encoded": false,
+      "bytes": 322086,
+      "sha256": "eb312d125ff8819ebee090652d3ffe8d51f244c3024edfdb1820f5742f1ee9ba",
+      "restored_bytes": 322086,
+      "restored_sha256": "eb312d125ff8819ebee090652d3ffe8d51f244c3024edfdb1820f5742f1ee9ba"
+    },
+    {
+      "file": "raw/k7nn-b2ep-4b986ae637-0010000.json.gz",
+      "restore_as": "k7nn-b2ep-4b986ae637-0010000.json.gz",
+      "gzip_encoded": false,
+      "bytes": 172246,
+      "sha256": "6c38917eb8952a96d647a52db1823cdd4f6f14a503ab047282d0da9fdf4d7294",
+      "restored_bytes": 172246,
+      "restored_sha256": "6c38917eb8952a96d647a52db1823cdd4f6f14a503ab047282d0da9fdf4d7294"
+    }
+  ],
+  "notice": "Public report history and derived research analysis, not personal safety probabilities.",
+  "osm_attribution": "\u00a9 OpenStreetMap contributors, ODbL. https://www.openstreetmap.org/copyright",
+  "exclusions": [
+    "Credentials",
+    "Private videos",
+    "Application/learning databases",
+    "Provider account records",
+    "Model weights"
+  ]
+}

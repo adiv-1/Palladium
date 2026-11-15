@@ -1,0 +1,60 @@
+{
+  "kind": "Live-path diagnostic, not independent accuracy validation",
+  "physical_phone_tested": false,
+  "actual_campus_footage_tested": false,
+  "held_out_reused": true,
+  "human_bookmarks_used": false,
+  "model": "Owner-approved Qwen3-VL-4B research LoRA + unchanged MOSS observer",
+  "adapter_sha256": "7b0757f2a65969438a39b40757417dcfcc4ab85dabe761ec381f80887563f16d",
+  "automatic_examples": [
+    {
+      "action": "physical_contact",
+      "incident_id": "142933c8-ae31-474c-ba93-373b2ec5d8ad",
+      "source": "Assault038_x264",
+      "automatic": true,
+      "simulated": false,
+      "score": 0.8,
+      "threshold": 0.75,
+      "saved_original_seconds": 19.849,
+      "annotated_activity_in_saved_original": true,
+      "cited_frame_to_notice_seconds": 26.997,
+      "original_sha256": "92261e13e7404a2b6f6cfd9eb12f389cf87f8415acf582a62d1c036f57fa60a4",
+      "downloaded_original_hash_verified": true
+    },
+    {
+      "action": "object_taking",
+      "incident_id": "60b35e07-bfe1-45f3-b7bf-56cff61d57d7",
+      "source": "Stealing081_x264",
+      "automatic": true,
+      "simulated": false,
+      "score": 0.8,
+      "threshold": 0.75,
+      "saved_original_seconds": 39.004,
+      "annotated_activity_in_saved_original": true,
+      "cited_frame_to_notice_seconds": 37.351,
+      "original_sha256": "7c3ee80245d7c79f96ebace587a02e6c9818754e5eadc5a542ab1a7fbdee189b",
+      "downloaded_original_hash_verified": true
+    }
+  ],
+  "ordinary_diagnostic": {
+    "clips": 2,
+    "false_alert_clips": 1,
+    "note": "Tiny sample; no claim of false alerts per hour or safety accuracy."
+  },
+  "failures_retained": [
+    "Initial eight-frame diagnostic did not create the required positive reports.",
+    "A ten-second object post-window omitted the late annotated activity; final object window increased to thirty seconds."
+  ],
+  "final_capture_policy": {
+    "general_pre_seconds": 10,
+    "general_post_seconds": 10,
+    "object_post_seconds": 30,
+    "max_model_lag_seconds": 60
+  },
+  "limits": [
+    "Not a guarantee for a new phone angle, lighting, or staged gesture.",
+    "Model confidence is uncalibrated.",
+    "Alerts describe possible physical actions, not confirmed offenses.",
+    "Source schedule annotations have sub-second handshake offset in these retained diagnostic reports; original clip margins cover the complete target windows."
+  ]
+}

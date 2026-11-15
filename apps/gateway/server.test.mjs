@@ -35,6 +35,8 @@ test('serves phone SPA and readiness without backend, excludes private files', a
   assert.match(await (await fetch(origin + '/capture')).text(), /SafeSC/);
   assert.equal((await fetch(origin + '/')).headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
   assert.equal((await fetch(origin + '/_health')).status, 200);
+  const home = await fetch(origin + '/', {redirect:'manual'});
+  assert.equal(home.status, 302); assert.equal(home.headers.get('location'), '/command/');
   for (const path of ['/.env', '/data/private.json', '/%2eenv', '/missing.js']) {
     assert.equal((await fetch(origin + path)).status, 404, path);
   }
@@ -99,6 +101,11 @@ test('relays capture and dispatch WebSockets, rejects unrelated paths and origin
     if (head.length) socket.write(head);
     socket.pipe(socket);
   });
+  const socket = await new Promise((resolve, reject) => {
+    const request = http.request(origin + '/ws/live', {headers:{Connection:'Upgrade', Upgrade:'websocket',
+      Origin:origin, Cookie:'safesc_token=test-only'}});
+    request.on('upgrade', (_response, socket) => resolve(socket)); request.on('error', reject); request.end();
+  });
   const binary = Buffer.from([0x82, 0x83, 1, 2, 3, 4, 42, 43, 44]);
   for (const path of ['/ws/capture', roomPath]) {
     const socket = await new Promise((resolve, reject) => {
@@ -111,7 +118,7 @@ test('relays capture and dispatch WebSockets, rejects unrelated paths and origin
     const data = once(socket, 'data'); socket.write(binary);
     assert.deepEqual((await data)[0], binary); socket.destroy();
   }
-  assert.deepEqual(forwarded, ['/ws/capture', roomPath]);
+  assert.deepEqual(forwarded, ['/ws/live', '/ws/capture', roomPath]);
   for (const [path, from, expected] of [
     ['/ws/capture', 'https://evil.invalid', 403],
     [roomPath, 'https://evil.invalid', 403],

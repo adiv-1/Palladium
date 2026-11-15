@@ -1,8 +1,9 @@
 import {useEffect, useState} from 'react';
 import {dashboardRoom} from './bus';
+import {Logo} from './Logo';
 
 export type Route = 'trends' | 'incidents' | 'live' | 'about';
-const TABS: [Route, string][] = [['trends', 'Trends'], ['incidents', 'Incidents'], ['live', 'Live'], ['about', 'About']];
+const TABS: [Route, string][] = [['trends', 'Campus'], ['live', 'Live detection'], ['about', 'How it works'], ['incidents', 'Incidents']];
 
 export function currentRoute(): Route {
   const r = location.hash.replace(/^#\/?/, '').split(/[?/]/)[0];
@@ -24,7 +25,7 @@ export const studentLink = () => `${location.origin}${location.pathname}?app=1&r
 export function Nav({active}: {active: Route}) {
   return (
     <div className="brand-nav">
-      <a className="logo" href="#/trends"><i /><strong>SafeSC</strong></a>
+      <a className="logo" href="#/trends" aria-label="Palladium"><Logo variant="mark" size={26} /><strong>PALLADIUM</strong></a>
       <nav className="tabs" aria-label="Pages">
         {TABS.map(([id, label]) => (
           <a key={id} href={`#/${id}`} className={id === active ? 'on' : ''} aria-current={id === active ? 'page' : undefined}>

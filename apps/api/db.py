@@ -48,6 +48,17 @@ class ReviewAction(SQLModel, table=True):
     decision: str
     note: str
 
+class ArchiveState(SQLModel, table=True):
+    incident_id: str = Field(primary_key=True)
+    status: str = 'pending'
+    media_evicted: bool = False
+    fingerprint: str = ''
+    manifest_key: str = ''
+    media: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    bytes_stored: int = 0
+    error: str | None = None
+    updated_at: str = Field(default_factory=now)
+
 engine = create_engine(f'sqlite:///{settings.data_dir}/safesc.db', connect_args={'check_same_thread':False})
 @event.listens_for(engine, 'connect')
 def sqlite_options(connection, _):
@@ -60,8 +71,11 @@ def init(recover=True):
     with Session(engine) as s:
         for job in s.exec(select(Job).where(Job.status=='running')):
             job.status='failed'; job.error='Worker restarted; retry explicitly'; s.add(job)
-        for src in s.exec(select(Source).where(Source.status=='streaming')):
-            src.status='disconnected'; s.add(src)
+        for src in s.exec(select(Source).where(Source.status.in_(['streaming','processing','warming','waiting_for_gpu']))):
+            src.status='disconnected'
+            if 'geolocation' in src.telemetry:
+                src.telemetry={**src.telemetry,'geolocation':{'status':'disabled','provenance':'browser_permission'}}
+            s.add(src)
         s.commit()
 
 def save(obj):

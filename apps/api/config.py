@@ -1,6 +1,7 @@
 from pathlib import Path
 import secrets
-from pydantic import Field
+from typing import Literal
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -8,6 +9,10 @@ class Settings(BaseSettings):
     data_dir: Path = Path('data')
     app_token: str = ''
     public_url: str = 'http://localhost:8000'
+    webrtc_ice_servers: str = '[{"urls":"stun:stun.l.google.com:19302"}]'
+    webrtc_ice_transport_policy: Literal['all','relay'] = 'all'
+    turn_urls: str = ''
+    turn_shared_secret: SecretStr = SecretStr('')
     streaming_model: str = 'moss'
     moss_ws_url: str = 'ws://127.0.0.1:8001/v1/realtime'
     moss_service_command: str = ''
@@ -17,13 +22,17 @@ class Settings(BaseSettings):
     verifier_adapter: str = ''
     verifier_research_mode: bool = False
     verification_interval_seconds: float = Field(4,ge=2,le=30)
+    verification_frame_count: int = Field(4,ge=4,le=8)
+    max_inference_lag_seconds: float = Field(60,ge=10,le=120)
     alert_agreement_seconds: float = Field(12,ge=2,le=30)
     enhancement_model: str = 'bypass'
     fastllve_checkpoint: str = ''
     pre_event_seconds: float = Field(10, ge=0, le=60)
     post_event_seconds: float = Field(10, ge=0, le=60)
+    object_post_event_seconds: float = Field(30,ge=0,le=60)
     sample_fps: float = Field(2, ge=0.2, le=10)
-    capture_fps: float = Field(8, ge=1, le=15)
+    capture_fps: float = Field(12, ge=1, le=15)
+    enable_native_recording: bool = False
     dark_luminance_threshold: float = 45
     light_luminance_threshold: float = 70
     alert_confidence_threshold: float = 0.75
@@ -35,6 +44,7 @@ class Settings(BaseSettings):
     relift_python: str = ''
     relift_frame_limit: int = Field(84, ge=2, le=84)
     enable_tracking: bool = False
+    moss_spatial_output: bool = False
     enable_bvimamba: bool = False
     # Detector cascade (STREAMING_MODEL=cascade); see docs/overview/cascade.md.
     detector_weights: str = 'yolo11n.pt'
@@ -50,8 +60,13 @@ class Settings(BaseSettings):
     # Adversarial debate (apps/api/debate.py): 'auto' = claude if ANTHROPIC_API_KEY is set, else rules.
     debate_gate: str = 'auto'  # 'auto' | 'rules' | 'claude' | 'jev'
     debate_model: str = 'claude-haiku-5-5'
+    enable_clip_review: bool = False
     allow_rtsp: bool = False
     max_upload_mb: int = 500
+    supabase_url: str = ''
+    supabase_secret_key: SecretStr = SecretStr('')
+    supabase_bucket: str = 'safesc-incidents'
+    archive_max_mb: int = Field(800,ge=1,le=900)
 
 settings = Settings()
 settings.data_dir.mkdir(parents=True, exist_ok=True)

@@ -9,69 +9,107 @@ import numpy as np
 from .config import settings
 from .db import Job, Incident, rows, get, save, now, engine, Source
 from .runtime import sessions, hub
-from .video import digest, read_video, write_clip, decode, encode, Frame
+from .training_control import TrainingCancelled
+from .video import digest, read_video, write_clip, decode, encode, Frame, align_frame_timing
 
 gpu_busy=False
+live_warmup=False
 
 class ModelCommandError(RuntimeError):
     def __init__(self,message,metrics):super().__init__(message);self.metrics=metrics
 
-async def command(argv,cwd=None):
+async def terminate_process_group(process,grace=3):
+    """Terminate the dedicated subprocess group, including surviving children."""
+    if getattr(process,'_safesc_group_stopped',False):return
+    try:os.killpg(process.pid,signal.SIGTERM)
+    except ProcessLookupError:pass
+    waiter=asyncio.create_task(process.wait())
+    try:await asyncio.wait_for(asyncio.shield(waiter),grace)
+    except asyncio.TimeoutError:pass
+    # A parent can exit before its CUDA-owning children; kill the group as well.
+    try:os.killpg(process.pid,signal.SIGKILL)
+    except ProcessLookupError:pass
+    await waiter
+    process._safesc_group_stopped=True
+
+async def command(argv,cwd=None,*,cancel_event=None,progress_reader=None):
+    from .training_control import TrainingCancelled
     started=time.monotonic();start_time=now();peak=0
+    if cancel_event and cancel_event.is_set():raise TrainingCancelled('Training cancelled before process launch')
     process=await asyncio.create_subprocess_exec(*map(str,argv),cwd=cwd,
         stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.STDOUT,start_new_session=True)
-    async def measure():
+    tail=bytearray()
+    async def consume():
+        while chunk:=await process.stdout.read(16384):
+            tail.extend(chunk)
+            if len(tail)>65536:del tail[:-65536]
+        await process.wait()
+    async def monitor():
         nonlocal peak
-        while process.returncode is None:
-            probe=None
-            try:
-                probe=await asyncio.create_subprocess_exec('nvidia-smi','--query-gpu=memory.used','--format=csv,noheader,nounits',stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.DEVNULL)
-                output,_=await asyncio.wait_for(probe.communicate(),4)
-                peak=max(peak,float(output.decode().strip().splitlines()[0]))
-            except (OSError,ValueError,IndexError,asyncio.TimeoutError):pass
-            finally:
-                if probe and probe.returncode is None:
-                    probe.kill();await probe.wait()
-            await asyncio.sleep(.5)
-    sampler=asyncio.create_task(measure())
+        last_measure=0
+        while not output.done():
+            if cancel_event and cancel_event.is_set():
+                await terminate_process_group(process)
+                raise TrainingCancelled('Training cancelled; subprocess and children were stopped')
+            if progress_reader:progress_reader()
+            if time.monotonic()-last_measure>=.5:
+                probe=None
+                try:
+                    probe=await asyncio.create_subprocess_exec('nvidia-smi','--query-gpu=memory.used','--format=csv,noheader,nounits',stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.DEVNULL)
+                    gpu_output,_=await asyncio.wait_for(probe.communicate(),1)
+                    peak=max(peak,float(gpu_output.decode().strip().splitlines()[0]))
+                except (OSError,ValueError,IndexError,asyncio.TimeoutError):pass
+                finally:
+                    if probe and probe.returncode is None:probe.kill();await probe.wait()
+                last_measure=time.monotonic()
+            await asyncio.sleep(.1)
+    output=asyncio.create_task(consume());watch=asyncio.create_task(monitor())
     try:
-        stdout,_=await asyncio.wait_for(process.communicate(),1800)
+        done,_=await asyncio.wait([output,watch],timeout=1800,return_when=asyncio.FIRST_COMPLETED)
+        if not done:raise asyncio.TimeoutError('Model subprocess exceeded 30 minutes')
+        if watch in done:watch.result()
+        await output
+        if cancel_event and cancel_event.is_set():raise TrainingCancelled('Training cancelled before result publication')
+        if progress_reader:progress_reader()
         metrics={'start_time':start_time,'end_time':now(),'runtime_seconds':time.monotonic()-started,
             'sampled_device_peak_vram_mb':peak,'exit_code':process.returncode,'device':'cuda:0',
-            'memory_note':'Total device memory sampled at 0.5-second intervals, including any persistent CUDA context'}
-        if process.returncode: raise ModelCommandError(f'{Path(str(argv[0])).name} failed: {stdout.decode(errors="replace")[-3000:]}',metrics)
+            'memory_note':'Total device memory sampled during subprocess execution'}
+        if process.returncode:raise ModelCommandError(f'{Path(str(argv[0])).name} failed: {tail.decode(errors="replace")[-3000:]}',metrics)
         return metrics
     except BaseException:
-        if process.returncode is None:
-            os.killpg(process.pid,signal.SIGKILL); await process.wait()
+        await terminate_process_group(process)
         raise
     finally:
-        sampler.cancel();await asyncio.gather(sampler,return_exceptions=True)
+        watch.cancel();output.cancel()
+        await asyncio.gather(watch,output,return_exceptions=True)
 
-def export_trajectories(npz,out,source_frames=None):
-    with np.load(npz,allow_pickle=False) as data:
-        xyz=data['xyz']; t,h,w,_=xyz.shape
-        step=max(1,int(np.sqrt(h*w/250)))
-        xyz=xyz[:,::step,::step].reshape(t,-1,3)
-        observed=data['observed'][:,::step,::step].reshape(t,-1) if 'observed' in data else None
-        payload={'simulated':False,'label':'ESTIMATED 3D RECONSTRUCTION','units':'geometry-model units; not measured meters',
-            'frame_indices':list(range(t)),'points':np.nan_to_num(xyz).round(4).tolist(),
-            'confidence':observed.astype(float).tolist() if observed is not None else None,
-            'confidence_note':'Observed-by-tracker mask (0 or 1), not calibrated 3D accuracy or likelihood of harm',
-            'cameras':data['poses'].tolist() if 'poses' in data else None,
-            'intrinsics':data['intrinsics'].tolist() if 'intrinsics' in data else None,
-            'source_frames':source_frames[:t] if source_frames else None}
-    out.write_text(json.dumps(payload))
+from .trajectories import export_trajectories
 
 async def run(job):
+    if job.kind=='learning_train':
+        from .learning import run_training_job
+        return await run_training_job(job)
     incident=get(Incident,job.incident_id)
     if not incident: raise RuntimeError('Incident was removed')
     folder=(settings.data_dir/'incidents'/incident.id).resolve(); original=folder/'original.mp4'
     if digest(original)!=incident.record['original_sha256']: raise RuntimeError('Original hash mismatch')
-    started=time.monotonic(); transforms=[]; files={}; executions=[];warnings=[]
+    started=time.monotonic(); transforms=[]; files={}; executions=[];warnings=[];assessments={}
     lockpath=Path('model-lock.json')
     provenance=json.loads(lockpath.read_text()).get(job.kind,{}) if lockpath.exists() else {}
-    if job.kind=='relayvsr':
+    if job.kind=='review_brief':
+        initial=folder/f'initial-review-{job.id}.json'
+        initial.write_text(json.dumps({'origin':incident.record.get('trigger_origin','model'),
+            'observations':[e.get('observation','') for e in incident.record.get('observable_events',[])[:2]],
+            'source_time_offset':incident.record.get('clip_offset',0)}))
+        output=folder/f'clip-review-{job.id}.json'
+        executions.append(await command([Path.cwd()/'.venv/bin/python','-m','scripts.review_incident',original,output,'--initial',initial]))
+        report=json.loads(output.read_text())
+        if report['input_sha256']!=digest(original):raise RuntimeError('Clip review input hash mismatch')
+        incident=get(Incident,incident.id);incident.record={**incident.record,'clip_review':report};save(incident)
+        files['clip_review']=output.name
+        transforms.append({'operation':'Secondary original-clip review','model':report['model'],
+            'revision':report['revision'],'research_adapter_used':False,'output_sha256':digest(output)})
+    elif job.kind=='relayvsr':
         repo=Path('third_party/RelayVSR').resolve(); output=folder/f'relayvsr-{job.id}.mp4'
         working=original
         def working_copy():
@@ -89,9 +127,28 @@ async def run(job):
         if resize:transforms.append(resize)
         executions.append(await command([repo/'.venv/bin/python','inference.py','--input',working,'--output',output],repo))
         labeled=folder/f'review-{job.id}.mp4'
-        await asyncio.to_thread(write_clip,list(read_video(output)),labeled,'AI-ENHANCED REVIEW COPY')
+        def label_with_source_timing():
+            source_frames=list(read_video(working));generated=list(read_video(output))
+            if len(source_frames)!=len(generated):
+                raise RuntimeError('Enhancement frame count differs from input; original retained without inventing frame alignment')
+            aligned=align_frame_timing(source_frames,generated)
+            write_clip(aligned,labeled,'AI-ENHANCED REVIEW COPY')
+            return {'operation':'Preserve original frame timing on enhanced copy','frames':len(aligned),
+                'duration_seconds':aligned[-1].timestamp-aligned[0].timestamp,'interpolated_frames':False}
+        transforms.append(await asyncio.to_thread(label_with_source_timing))
         files['review']=labeled.name
         transforms.append({'operation':'RelayVSR','output_sha256':digest(labeled)})
+    elif job.kind=='relift_export':
+        candidates=sorted(folder.glob('relift-original-*/tracks.npz'),key=lambda p:p.stat().st_mtime,reverse=True)
+        if not candidates:raise RuntimeError('No cached ReLift result; run the full reconstruction job first')
+        npz=candidates[0];mapping=npz.parent/'input-map.json'
+        source_frames=json.loads(mapping.read_text()) if mapping.exists() else incident.record.get('frame_timestamps')
+        target=folder/f'trajectories-original-{job.id}.json';motion=folder/f'motion-review-{job.id}.mp4'
+        quality=await asyncio.to_thread(export_trajectories,npz,target,source_frames,motion)
+        files.update(trajectory_original=target.name,motion_review=motion.name)
+        assessments['trajectory_original']={'status':'estimated','export_version':2,**quality}
+        transforms.append({'operation':'ReLift colored export and video reprojection','inference_rerun':False,
+            'raw_tracks_sha256':await asyncio.to_thread(digest,npz),'output_sha256':digest(target)})
     elif job.kind=='relift':
         repo=Path('third_party/ReLift').resolve()
         for name,input_path in [('original',original),('enhanced',folder/incident.record['files'].get('enhanced','not-present'))]:
@@ -99,28 +156,47 @@ async def run(job):
             if name=='enhanced' and len(await asyncio.to_thread(lambda:list(read_video(input_path))))<2:
                 warnings.append('Enhanced ReLift pass skipped: fewer than two enhanced frames');continue
             output=folder/f'relift-{name}-{job.id}'
+            # Sample the full incident interval, not only its first 84 frames.
+            def prepare_relift_input():
+                frames=list(read_video(input_path))
+                indices=np.linspace(0,len(frames)-1,min(len(frames),settings.relift_frame_limit)).round().astype(int)
+                chosen=[frames[i] for i in indices]
+                mapping=[(incident.record.get('native_frame_timestamps') or incident.record['frame_timestamps'])[i] for i in indices] if name=='original' else [{'index':f.index,'timestamp':f.timestamp+incident.record.get('clip_offset',0)+incident.record.get('artifact_time_offsets',{}).get('enhanced',0)} for f in chosen]
+                working=folder/f'relift-input-{name}-{job.id}.mp4';write_clip(chosen,working)
+                output.mkdir(exist_ok=True);(output/'input-map.json').write_text(json.dumps(mapping))
+                return working,mapping
+            working,frame_metadata=await asyncio.to_thread(prepare_relift_input)
             python = settings.relift_python or str(repo/'.venv/bin/python')
             try:
-                executions.append(await command([python,'scripts/demo_video.py',input_path,'--out',output,'--num_frames',str(settings.relift_frame_limit)],repo))
+                executions.append(await command([python,'scripts/demo_video.py',working,'--out',output,'--num_frames',str(settings.relift_frame_limit)],repo))
             except Exception as error:
                 if name=='original':raise
                 warnings.append(f'Enhanced ReLift pass failed; original reconstruction retained: {error}')
                 transforms.append({'operation':'ReLift','input':name,'status':'failed','error':str(error)});continue
             target=folder/f'trajectories-{name}-{job.id}.json'
-            frame_metadata=incident.record.get('frame_timestamps',[]) if name=='original' else None
-            await asyncio.to_thread(export_trajectories,output/'tracks.npz',target,frame_metadata)
+            motion=folder/f'motion-{name}-{job.id}.mp4'
+            quality=await asyncio.to_thread(export_trajectories,output/'tracks.npz',target,frame_metadata,motion)
+            if name=='original':files['motion_review']=motion.name
+            assessments[f'trajectory_{name}']={'status':'estimated','export_version':2,**quality}
             files[f'trajectory_{name}']=target.name
             transforms.append({'operation':'ReLift','input':name,'output_sha256':digest(target),'frame_limit':settings.relift_frame_limit})
     elif job.kind=='bvimamba':
         root=Path.cwd();output=folder/f'bvimamba-{job.id}.mp4'
         executions.append(await command([root/'.venv/bin/python','-m','scripts.bvimamba_video',original,output],root))
         files['bvimamba_review']=output.name
+        assessment=json.loads(Path(str(output)+'.json').read_text())
+        assessments['bvimamba_review']={k:v for k,v in assessment.items() if k!='frame_metrics'}
         transforms.append({'operation':'BVI-Mamba offline comparison','working_resolution':[512,512],
             'context_frames':5,'alignment':'centered; replicated boundaries','output_sha256':digest(output)})
     else: raise RuntimeError('Unknown job kind')
     incident=get(Incident,incident.id)
+    history=list(incident.record.get('artifact_history',[]))
+    for kind,filename in files.items():
+        old=incident.record['files'].get(kind)
+        if old and old!=filename:history.append({'kind':kind,'filename':old,'superseded_by':filename,'timestamp':now()})
     incident.record={**incident.record,'files':{**incident.record['files'],**files},
-        'transforms':incident.record['transforms']+transforms}
+        'artifact_assessments':{**incident.record.get('artifact_assessments',{}),**assessments},
+        'artifact_history':history,'transforms':incident.record['transforms']+transforms}
     save(incident)
     return {'status':'ok','model':job.kind,'revision':provenance.get('source_revision','unconfigured'),
         'model_provenance':provenance,'executions':executions,
@@ -132,46 +208,59 @@ async def worker():
     global gpu_busy
     while True:
         # Heavy jobs wait until no active ingestion/model session. Never evict a live detector midstream.
-        if not sessions:
-            jobs=sorted([j for j in rows(Job) if j.status=='queued'],key=lambda j:(j.priority,j.id))
-            if jobs:
-                gpu_busy=True
-                job=jobs[0]; job.status='running'; job.attempts+=1; job.started_at=now(); save(job)
-                await hub.publish('job',job.model_dump())
-                try:
+        jobs=sorted([j for j in rows(Job) if j.status=='queued' and (not sessions or j.kind=='relift_export') and (not live_warmup or j.kind=='relift_export')],key=lambda j:(j.priority,j.id))
+        if jobs:
+            job=jobs[0];requires_gpu=job.kind!='relift_export'
+            gpu_busy=requires_gpu
+            job.status='running'; job.attempts+=1; job.started_at=now(); save(job)
+            await hub.publish('job',job.model_dump())
+            try:
+                if requires_gpu:
                     from ml.service import model_service
                     await model_service.stop()
                     from ml.verifier import release_verifier
                     await asyncio.to_thread(release_verifier)
-                    job.result=await run(job); job.status='completed'; job.error=None
-                except asyncio.CancelledError:
-                    job.status='failed'; job.error='Worker interrupted'; raise
-                except Exception as e:
-                    job.status='failed'; job.error=str(e)
-                    job.result={'status':'failed','error':str(e),**getattr(e,'metrics',{})}
-                finally:
-                    gpu_busy=False
-                    job.ended_at=now(); save(job); await hub.publish('job',job.model_dump())
+                job.result=await run(job); job.status='completed'; job.error=None
+            except TrainingCancelled as e:
+                job.status='cancelled';job.error=None;job.result={'status':'cancelled','reason':str(e),'deployed':False}
+            except asyncio.CancelledError:
+                job.status='failed'; job.error='Worker interrupted'; raise
+            except Exception as e:
+                job.status='failed'; job.error=str(e)
+                job.result={'status':'failed','error':str(e),**getattr(e,'metrics',{})}
+            finally:
+                gpu_busy=False
+                job.ended_at=now(); save(job); await hub.publish('job',job.model_dump())
         await asyncio.sleep(1)
 
-async def retention():
-    from sqlmodel import Session, select
+def expire_local():
+    """One cleanup pass, serialized with retention-hold changes and archiving."""
     import shutil
+    from .retention import retention_lock, held
+    from .archive import enabled as archive_enabled
+    from .db import ArchiveState
+    with retention_lock:
+        cutoff=(datetime.now(timezone.utc)-timedelta(hours=settings.retention_hours)).isoformat()
+        active_jobs={j.incident_id for j in rows(Job) if j.status in ['queued','running']}
+        for incident in rows(Incident):
+            if held(incident) or incident.created_at>=cutoff or incident.id in active_jobs:continue
+            state=get(ArchiveState,incident.id)
+            if archive_enabled() and (not state or state.status not in ['synced','evicted','expired']):continue
+            folder=settings.data_dir/'incidents'/incident.id
+            if folder.is_dir():shutil.rmtree(folder)
+            incident.record={**incident.record,'expired':True,'files':{}};save(incident)
+        for source in rows(Source):
+            if source.created_at>=cutoff or source.id in sessions or not source.path:continue
+            if any(i.source_id==source.id and (held(i) or not i.record.get('expired')) for i in rows(Incident)):continue
+            path=Path(source.path)
+            if path.resolve().parent==(settings.data_dir/'uploads').resolve():
+                path.unlink(missing_ok=True)
+                source.path=None;source.status='expired';save(source)
+
+
+async def retention():
     while True:
         await asyncio.sleep(60)
         from .learning import expire_learning
         await asyncio.to_thread(expire_learning)
-        cutoff=(datetime.now(timezone.utc)-timedelta(hours=settings.retention_hours)).isoformat()
-        for incident in rows(Incident):
-            if incident.created_at>=cutoff or any(j.incident_id==incident.id and j.status in ['queued','running'] for j in rows(Job)): continue
-            folder=settings.data_dir/'incidents'/incident.id
-            if folder.is_dir(): await asyncio.to_thread(shutil.rmtree,folder)
-            incident.record={**incident.record,'expired':True,'files':{}}; save(incident)
-        for source in rows(Source):
-            if source.created_at>=cutoff or source.id in sessions or not source.path: continue
-            if any(i.source_id==source.id and not i.record.get('expired') for i in rows(Incident)): continue
-            path=Path(source.path)
-            uploads=(settings.data_dir/'uploads').resolve()
-            if path.resolve().parent==uploads:
-                path.unlink(missing_ok=True)
-                source.path=None; source.status='expired';save(source)
+        await asyncio.to_thread(expire_local)
