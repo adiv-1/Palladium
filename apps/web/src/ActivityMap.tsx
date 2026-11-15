@@ -3,27 +3,26 @@ import {Map as MapView,NavigationControl,GeoJSONSource,setWorkerUrl} from 'mapli
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {CalendarDays,MapPin,ExternalLink,X} from 'lucide-react';
+import ActivityForecast from './ActivityForecast';
 setWorkerUrl(workerUrl);
 
-type Row=[string,string,number,number,string];
+type Row=[string,string,number,number,string,string,string,string,string,string];
 type RecordData=Record<string,any>;
 const today=new Date().toLocaleDateString('en-CA');
 const yearsAgo=(n:number)=>{const d=new Date();d.setFullYear(d.getFullYear()-n);return d.toLocaleDateString('en-CA')};
 const day=(s:string)=>Date.parse(s+'T00:00:00Z')/86400000;
 async function read(path:string,signal?:AbortSignal){const r=await fetch('/api/activity'+path,{signal});if(!r.ok){const e=await r.json();throw Error(e.detail||'Unable to load public records')}return r.json()}
 
-export default function ActivityMap(){
+function HistoryMap({bundle}:{bundle:RecordData}){
   const host=useRef<HTMLDivElement>(null),map=useRef<MapView|null>(null);
-  const [meta,setMeta]=useState<RecordData|null>(null),[rows,setRows]=useState<Row[]>([]),[start,setStart]=useState(yearsAgo(10)),[end,setEnd]=useState(today),[category,setCategory]=useState('All categories');
+  const meta=bundle.metadata;
+  const [rows,setRows]=useState<Row[]>([]),[start,setStart]=useState(yearsAgo(10)),[end,setEnd]=useState(today),[category,setCategory]=useState('All categories');
   const [ready,setReady]=useState(false),[busy,setBusy]=useState(true),[error,setError]=useState(''),[mapError,setMapError]=useState(''),[selected,setSelected]=useState(''),[detail,setDetail]=useState<RecordData|null>(null),[detailError,setDetailError]=useState('');
   const filtered=category==='All categories'?rows:rows.filter(r=>r[4]===category);
-  useEffect(()=>{const abort=new AbortController();read('/meta',abort.signal).then(setMeta).catch(e=>{if(e.name!=='AbortError')setError(e.message)});return()=>abort.abort()},[]);
   useEffect(()=>{
     if(!meta||!start||!end||start>end)return;
-    const abort=new AbortController();setBusy(true);setError('');setSelected('');
-    const timer=setTimeout(()=>read(`/points?start=${start}&end=${end}`,abort.signal).then(d=>setRows(d.points)).catch(e=>{if(e.name!=='AbortError')setError(e.message)}).finally(()=>{if(!abort.signal.aborted)setBusy(false)}),300);
-    return()=>{clearTimeout(timer);abort.abort()};
-  },[meta,start,end]);
+    setRows(bundle.history.points.filter((r:Row)=>r[1]>=start&&r[1]<=end));setBusy(false);setError('');setSelected('');
+  },[bundle,meta,start,end]);
   useEffect(()=>{
     if(!meta||!host.current)return;
     let view:MapView;
@@ -56,8 +55,10 @@ export default function ActivityMap(){
   },[rows,category,ready,start,end]);
   useEffect(()=>{
     setDetail(null);setDetailError('');if(!selected)return;
-    const abort=new AbortController();read('/incidents/'+selected,abort.signal).then(setDetail).catch(e=>{if(e.name!=='AbortError')setDetailError(e.message)});return()=>abort.abort();
-  },[selected]);
+    const row:Row|undefined=bundle.history.points.find((r:Row)=>r[0]===selected);
+    if(row)setDetail({id:row[0],occurred:row[1],lon:row[2],lat:row[3],category:row[4],time:row[5],reported:row[6],case_number:row[7],offenses:JSON.parse(row[8]),sources:JSON.parse(row[9]),
+      summary:`Public records list a report categorized as ${row[4].toLowerCase()}, with an occurrence date of ${row[1]}. The marker is an approximate reported location.`,context:'A public report is not a finding of guilt or a measure of your personal risk. Multiple classifications may describe one report.'});
+  },[selected,bundle]);
   const point=rows.find(r=>r[0]===selected),nearby=point?filtered.filter(r=>r[2]===point[2]&&r[3]===point[3]):[];
   return <div className="activity-page">
     <div className="activity-intro"><span className="eyebrow">PUBLIC RECORDS · UNIVERSITY PARK</span><h1>Campus activity, in context.</h1><p>Explore reported activity over time. A little context goes further than an alarming headline.</p></div>
@@ -72,4 +73,12 @@ export default function ActivityMap(){
     <details className="activity-record-list"><summary>Browse records as a list ({filtered.length.toLocaleString()})</summary><p className="fine">Most recent 100 matching reports. Narrow the date range to explore others.</p>{filtered.slice(-100).reverse().map(r=><button key={r[0]} onClick={()=>{setSelected(r[0]);map.current?.easeTo({center:[r[2],r[3]],zoom:16})}}>{r[1]} · {r[4]} <MapPin size={12}/></button>)}</details>
     {meta&&<details className="activity-method panel"><summary>About these records & coverage</summary><p>{meta.count.toLocaleString()} grouped reports · {meta.date_min} through {meta.date_max} · snapshot downloaded {meta.downloaded_at.slice(0,10)}.</p>{meta.notes.map((n:string)=><p className="fine" key={n}>{n}</p>)}<p className="fine">No records after {meta.date_max} appear in this snapshot. An empty date range does not establish that no incidents occurred.</p><a href={meta.boundary.properties.source_url} target="_blank" rel="noreferrer">USC Lyft program boundary</a><span> · </span><a href={meta.boundary.properties.map_url} target="_blank" rel="noreferrer">Published USC map</a>{meta.sources.map((s:RecordData)=><p key={s.id}><a href={s.url} target="_blank" rel="noreferrer">{s.name}</a></p>)}</details>}
   </div>
+}
+
+export default function ActivityMap(){
+  const [bundle,setBundle]=useState<RecordData|null>(null),[error,setError]=useState(''),[mode,setMode]=useState('forecast');
+  useEffect(()=>{const abort=new AbortController();read('/exploration-bundle',abort.signal).then(setBundle).catch(e=>{if(e.name!=='AbortError')setError(e.message)});return()=>abort.abort()},[]);
+  if(error)return <div className="panel"><h2>Campus activity needs its prepared snapshot.</h2><p className="error">{error}</p><p>The activity data host must prepare the exploration bundle before it can be loaded.</p></div>;
+  if(!bundle)return <div className="panel"><h2>Loading the full-zone activity snapshot…</h2><p>Preparing historical reports, time-window outlooks, and walking connections for local exploration.</p></div>;
+  return <><div className="activity-mode-tabs" role="group" aria-label="Campus activity mode"><button className={mode==='forecast'?'selected':''} onClick={()=>setMode('forecast')}>Forecast & walking routes</button><button className={mode==='history'?'selected':''} onClick={()=>setMode('history')}>Historical reports</button></div>{mode==='forecast'?<ActivityForecast bundle={bundle}/>:<HistoryMap bundle={bundle}/>}</>;
 }
