@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Request, Response, UploadFile, WebSo
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from .config import settings
-from .db import init, Source, Incident, Job, ReviewAction, rows, get, save
+from .db import init, Source, Incident, Job, ReviewAction, ArchiveState, rows, get, save
 from .schemas import SourceRequest, Review
 from .video import Frame, digest, decode
 from .runtime import hub, sessions, pairings, VideoSession, replay
@@ -26,7 +26,8 @@ def background(coro):
 
 @asynccontextmanager
 async def lifespan(app):
-    init(); background(worker()); background(retention())
+    from .archive import archive_worker
+    init(); background(worker()); background(retention()); background(archive_worker())
     yield
     for task in list(tasks): task.cancel()
     await asyncio.gather(*tasks,return_exceptions=True)
@@ -158,6 +159,7 @@ def incident_detail(incident_id:str):
     if not incident: raise HTTPException(404)
     source=get(Source,incident.source_id)
     return {'incident':incident,'source':{'name':source.name,'kind':source.kind} if source else None,
+        'archive':get(ArchiveState,incident_id),
         'jobs':[j for j in rows(Job) if j.incident_id==incident_id],
         'history':[r for r in rows(ReviewAction) if r.incident_id==incident_id]}
 
@@ -174,6 +176,15 @@ async def review(incident_id:str,payload:Review):
             # Event review is independent of training eligibility or expired media.
             await hub.publish('learning_warning',{'incident_id':incident.id,'message':str(error)})
     await hub.publish('incident',incident.model_dump()); return incident
+
+@app.get('/api/storage',dependencies=[Depends(authenticated)])
+def storage_status():
+    from . import archive
+    return {'enabled':archive.enabled(),'provider':'Supabase','bucket':settings.supabase_bucket,
+        'visibility':'private','cap_mb':settings.archive_max_mb,'used_bytes':archive.usage_bytes,
+        'eviction':'FIFO archived media; summaries and review history retained until retention expires',
+        'retention_hours':settings.retention_hours,'last_error':archive.last_error,
+        'incidents':[s.model_dump(exclude={'media','fingerprint'}) for s in rows(ArchiveState)]}
 
 @app.post('/api/jobs/{job_id}/retry',dependencies=[Depends(authenticated)])
 def retry(job_id:str):

@@ -1,6 +1,6 @@
 from pathlib import Path
 import secrets
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     enable_clip_review: bool = False
     allow_rtsp: bool = False
     max_upload_mb: int = 500
+    supabase_url: str = ''
+    supabase_secret_key: SecretStr = SecretStr('')
+    supabase_bucket: str = 'safesc-incidents'
+    archive_max_mb: int = Field(800,ge=1,le=900)
 
 settings = Settings()
 settings.data_dir.mkdir(parents=True, exist_ok=True)

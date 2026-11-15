@@ -195,6 +195,10 @@ async def retention():
         cutoff=(datetime.now(timezone.utc)-timedelta(hours=settings.retention_hours)).isoformat()
         for incident in rows(Incident):
             if incident.created_at>=cutoff or any(j.incident_id==incident.id and j.status in ['queued','running'] for j in rows(Job)): continue
+            from .archive import enabled as archive_enabled
+            from .db import ArchiveState
+            state=get(ArchiveState,incident.id)
+            if archive_enabled() and (not state or state.status not in ['synced','evicted','expired']):continue
             folder=settings.data_dir/'incidents'/incident.id
             if folder.is_dir(): await asyncio.to_thread(shutil.rmtree,folder)
             incident.record={**incident.record,'expired':True,'files':{}}; save(incident)

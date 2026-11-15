@@ -3,6 +3,8 @@
 Keep shareable project explanations in this folder. Local account records, support history, deployment credentials, and account screenshots are excluded from version control.
 
 - [Architecture](architecture.md): data flow, phone connection, and model responsibilities.
+- [Live observations and incident review](review-workflow.md): latest-frame preview, separate clip review, enhancement fixes and measured limits.
+- [Private incident storage](storage.md): Supabase archive, FIFO media eviction, retention and recovery.
 - [Models and licenses](models.md): isolated runtime setup, pinned checkpoints, and known limitations.
 - [Historical activity data](activity-data.md): LAPD sources, geography, deduplication, and interpretation.
 - [Deployment and measured verification](deployment.md): runtime layout, engineering results, and operating boundaries.
