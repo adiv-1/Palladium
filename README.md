@@ -16,9 +16,10 @@ SafeSC connects a phone camera or uploaded video to a streaming vision pipeline,
 - Large synchronized review players, an original-clip Qwen review pass, live MOSS scene notes, and a latest-frame WebSocket preview.
 - Private Supabase incident archives with verified original hashes, restore support, an 800 MiB cap and FIFO cloud-media eviction. See [storage behavior and retention](docs/overview/storage.md).
 - An interactive map of 75,686 grouped LAPD reports from January 2010 through October 2026, with date/category filters and source-linked summaries.
+- A precomputed full-UPC-zone seasonal activity outlook, date/time controls, local walking-route comparisons, satellite/aerial context, and ambassador coverage planning. The analysis bundle must be prepared on the data host; [setup, validation, and limitations](docs/overview/activity-forecasting.md). [Pedestrian survey evidence](docs/overview/pedestrian-distribution.md) is displayed separately and is not treated as a validated hourly flow model.
 - A reviewed learning repository with original video playback, exact four-frame training inputs, permission history, append-only annotations, immutable dataset versions, and measured model experiments.
 
-The current application supports **one active video source** and a shared reviewer workspace. Two-camera support, separate student accounts, and reviewer-approved student notifications remain planned. A Qwen LoRA research candidate has been trained on 19 approved research windows and evaluated separately; [results and limitations](docs/overview/learning.md) are explicit. Forecasting and automatic continuous training are not enabled.
+The current application supports **one active video source** and a shared reviewer workspace. Two-camera support, separate student accounts, and reviewer-approved student notifications remain planned. A Qwen LoRA research candidate has been trained on 19 approved research windows and evaluated separately; [results and limitations](docs/overview/learning.md) are explicit. Automatic continuous training is not enabled. Activity forecasting is a separately prepared seasonal research outlook with explicit validation limits.
 
 ## Architecture
 
@@ -93,6 +94,14 @@ uv run python scripts/data/download_activity.py
 The importer requests selected non-demographic LAPD fields near USC, filters the published UPC Lyft boundary approximation, and writes compressed source pages plus a normalized SQLite snapshot under ignored `data/activity/`. The map database is approximately 22 MB. No source video, incident database, or downloaded police data is included in this repository.
 
 The map shows reported history, not personal risk or a forecast. Locations and the digitized service boundary are approximate. See [data methodology and coverage](docs/overview/activity-data.md).
+
+The separate Forecast & walking routes view uses a prepared seasonal count-model
+bundle. Run `python -m scripts.data.download_forecast_streets`,
+`python -m scripts.data.prepare_pedestrian_evidence`, then
+`python -m scripts.build_activity_forecast` on the data host. Forecasts and
+ambassador scenarios are precomputed; route comparisons run in the browser.
+Imagery basemap tiles load online. Outputs describe report activity and planning
+scenarios, not a probability of personal harm or actual DPS assignments.
 
 ## Verification
 

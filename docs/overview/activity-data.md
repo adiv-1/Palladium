@@ -27,4 +27,13 @@ From the project root, run `uv run python scripts/data/download_activity.py`. It
 
 ## Forecasting boundary
 
-This release provides history, not forecasts. LAPD's transition to NIBRS and reporting differences prevent naive year-to-year count comparisons. Preserve report date and source system for future chronological holdout evaluation. A current revised dataset is not a historical as-of snapshot: filtering by report date reduces leakage but cannot reconstruct when each record originally became public or how it was later revised. Historical counts lack pedestrian exposure and cannot measure an individual's risk. DPS logs may be a later source, with separate provenance and duplicate reconciliation.
+The Historical reports view provides observed history. A separately prepared
+[seasonal outlook](activity-forecasting.md) now adds forecast exploration,
+walking comparisons, and hypothetical ambassador coverage. LAPD's transition
+to NIBRS and reporting differences prevent naive year-to-year count comparisons.
+The first outlook compares source-regime candidates and preserves a mature
+training cutoff. A current revised dataset is not a historical as-of snapshot:
+filtering by report date reduces leakage but cannot reconstruct when each record
+originally became public or how it was later revised. Historical counts lack
+pedestrian exposure and cannot measure an individual's risk. DPS logs may be a
+later source, with separate provenance and duplicate reconciliation.
