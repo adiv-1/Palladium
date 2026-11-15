@@ -1,0 +1,54 @@
+{
+  "kind": "Uploader-authorized staged demonstration videos",
+  "labels_provenance": "Uploader descriptions and source-frame review; not new AI detections",
+  "files": [
+    {
+      "file": "quiet-scene.mp4",
+      "original_filename": "WhatsApp Video 2026-11-14 at 20.08.50.mp4",
+      "sha256": "7653eaf4fe58c18b59395a6abec739fad9ffa80f174f81a83a6688427faa0941",
+      "bytes": 554526,
+      "last_frame_seconds": 4.04,
+      "reviewed_title": "Quiet scene",
+      "reviewed_action": "ordinary_activity",
+      "reviewed_description": "Two people walk along the sidewalk; no concerning physical action is visible.",
+      "reviewed_tags": [
+        "ordinary activity",
+        "no incident"
+      ],
+      "original_bytes_unchanged": true
+    },
+    {
+      "file": "staged-contact-and-fall.mp4",
+      "original_filename": "WhatsApp Video 2026-11-14 at 20.09.51.mp4",
+      "sha256": "d3bb10719d1a960f74fa21b7a6f8af63f75e79ca5255f41827dc517258c3b490",
+      "bytes": 1401031,
+      "last_frame_seconds": 7.8,
+      "reviewed_title": "Staged punch and fall",
+      "reviewed_action": "physical_contact",
+      "reviewed_description": "In a staged reenactment, one person strikes another, who falls to the ground.",
+      "reviewed_tags": [
+        "physical contact",
+        "fall",
+        "staged reenactment"
+      ],
+      "original_bytes_unchanged": true
+    },
+    {
+      "file": "staged-jacket-taking.mp4",
+      "original_filename": "WhatsApp Video 2026-11-14 at 20.10.46.mp4",
+      "sha256": "51f8150354b526893c24ac64fc3ec02565819ec93789da6b5349e8540131aefe",
+      "bytes": 2002140,
+      "last_frame_seconds": 9.266666666666667,
+      "reviewed_title": "Staged jacket taking and running away",
+      "reviewed_action": "object_taking",
+      "reviewed_description": "In a staged reenactment, one person takes a jacket from another person and runs away carrying it.",
+      "reviewed_tags": [
+        "object taking",
+        "jacket removal",
+        "running away",
+        "staged reenactment"
+      ],
+      "original_bytes_unchanged": true
+    }
+  ]
+}
