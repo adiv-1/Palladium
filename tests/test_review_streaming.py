@@ -277,3 +277,24 @@ async def test_short_clip_native_drain_is_bounded_and_does_not_emit_partial():
     await asyncio.wait_for(detector.drain_observer(timeout=.025),.2)
     assert not detector.observer_notes
     assert detector.observer_drain_done
+
+@pytest.mark.parametrize('field',['takeaway','summary','observation','missing_context','recommendation_reason'])
+def test_clip_review_object_retrieval_accepts_observation_but_rejects_legal_negation(field):
+    """Even a denied legal claim is outside this original-only visual brief."""
+    import copy
+    frames=[frame(0,0),frame(1,1)]
+    report={'takeaway':'A person lifts a garment.',
+        'summary':'A person retrieves a garment and carries it away.',
+        'alert_support':'supported',
+        'findings':[{'observation':'A person lifts a garment and carries it away.','supporting_frames':[0,1]}],
+        'missing_context':['Ownership and permission are unknown.'],
+        'recommendation':'review_original',
+        'recommendation_reason':'Review the original to assess the object retrieval and surrounding context.'}
+    valid=validate_brief(json.dumps(report),frames,origin='model')
+    assert valid.alert_support=='supported'
+    assert valid.findings[0].timestamp_start==0 and valid.findings[0].timestamp_end==1
+    invalid=copy.deepcopy(report)
+    if field=='observation':invalid['findings'][0][field]='No theft is confirmed.'
+    elif field=='missing_context':invalid[field]=['No theft is confirmed.']
+    else:invalid[field]='No theft is confirmed.'
+    with pytest.raises(ValueError):validate_brief(json.dumps(invalid),frames,origin='model')

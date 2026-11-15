@@ -196,28 +196,34 @@ async def worker():
                 job.ended_at=now(); save(job); await hub.publish('job',job.model_dump())
         await asyncio.sleep(1)
 
-async def retention():
-    from sqlmodel import Session, select
+def expire_local():
+    """One cleanup pass, serialized with retention-hold changes and archiving."""
     import shutil
+    from .retention import retention_lock, held
+    from .archive import enabled as archive_enabled
+    from .db import ArchiveState
+    with retention_lock:
+        cutoff=(datetime.now(timezone.utc)-timedelta(hours=settings.retention_hours)).isoformat()
+        active_jobs={j.incident_id for j in rows(Job) if j.status in ['queued','running']}
+        for incident in rows(Incident):
+            if held(incident) or incident.created_at>=cutoff or incident.id in active_jobs:continue
+            state=get(ArchiveState,incident.id)
+            if archive_enabled() and (not state or state.status not in ['synced','evicted','expired']):continue
+            folder=settings.data_dir/'incidents'/incident.id
+            if folder.is_dir():shutil.rmtree(folder)
+            incident.record={**incident.record,'expired':True,'files':{}};save(incident)
+        for source in rows(Source):
+            if source.created_at>=cutoff or source.id in sessions or not source.path:continue
+            if any(i.source_id==source.id and (held(i) or not i.record.get('expired')) for i in rows(Incident)):continue
+            path=Path(source.path)
+            if path.resolve().parent==(settings.data_dir/'uploads').resolve():
+                path.unlink(missing_ok=True)
+                source.path=None;source.status='expired';save(source)
+
+
+async def retention():
     while True:
         await asyncio.sleep(60)
         from .learning import expire_learning
         await asyncio.to_thread(expire_learning)
-        cutoff=(datetime.now(timezone.utc)-timedelta(hours=settings.retention_hours)).isoformat()
-        for incident in rows(Incident):
-            if incident.created_at>=cutoff or any(j.incident_id==incident.id and j.status in ['queued','running'] for j in rows(Job)): continue
-            from .archive import enabled as archive_enabled
-            from .db import ArchiveState
-            state=get(ArchiveState,incident.id)
-            if archive_enabled() and (not state or state.status not in ['synced','evicted','expired']):continue
-            folder=settings.data_dir/'incidents'/incident.id
-            if folder.is_dir(): await asyncio.to_thread(shutil.rmtree,folder)
-            incident.record={**incident.record,'expired':True,'files':{}}; save(incident)
-        for source in rows(Source):
-            if source.created_at>=cutoff or source.id in sessions or not source.path: continue
-            if any(i.source_id==source.id and not i.record.get('expired') for i in rows(Incident)): continue
-            path=Path(source.path)
-            uploads=(settings.data_dir/'uploads').resolve()
-            if path.resolve().parent==uploads:
-                path.unlink(missing_ok=True)
-                source.path=None; source.status='expired';save(source)
+        await asyncio.to_thread(expire_local)

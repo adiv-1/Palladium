@@ -12,6 +12,7 @@ import httpx
 from .config import settings
 from .db import ArchiveState,Incident,Source,ReviewAction,get,rows,save,now
 from .video import digest
+from .retention import held, expires_at, guarded
 
 MAX_FILE_BYTES=49*1024**2
 last_error=None
@@ -77,29 +78,34 @@ class SupabaseArchive:
     def delete(self,keys):
         if keys:self.request('DELETE','object/'+quote(self.bucket,safe=''),json={'prefixes':keys})
 
+@guarded
 def sync_incident(incident,store):
     global usage_bytes
+    incident=get(Incident,incident.id) or incident
     snap=snapshot(incident);fingerprint=hashlib.sha256(canonical(snap)).hexdigest()
     state=get(ArchiveState,incident.id) or ArchiveState(incident_id=incident.id)
     if state.status in ['synced','evicted'] and state.fingerprint==fingerprint:return state
     folder=settings.data_dir/'incidents'/incident.id;media=dict(state.media);uploads=[]
     evicted=state.media_evicted
-    for kind in ([] if evicted else ['original','thumbnail']):
+    if state.status=='expired' or held(incident) and evicted:
+        media={};evicted=False
+    for kind in ([] if evicted else ['original','thumbnail']+(['source_original'] if incident.record.get('files',{}).get('source_original') else [])):
         filename=incident.record.get('files',{}).get(kind)
         if not filename:raise ValueError('Original and thumbnail are required for a complete archive')
         path=(folder/filename).resolve()
         if path.parent!=folder.resolve() or not path.is_file():raise ValueError('Archive source is missing; local files retained')
         sha=digest(path)
         if kind=='original' and sha!=incident.record['original_sha256']:raise ValueError('Original hash mismatch; refusing archive')
+        if kind=='source_original' and sha!=incident.record.get('source_sha256'):raise ValueError('Original upload hash mismatch; refusing archive')
         if media.get(kind,{}).get('sha256')==sha:continue
         size=path.stat().st_size
         if size>MAX_FILE_BYTES:raise ValueError('Original exceeds 49 MiB archive limit; retained locally without recompression')
         key=f'incidents/{incident.id}/{kind}-{sha}{path.suffix}'
         media[kind]={'key':key,'sha256':sha,'bytes':size,'filename':path.name}
         uploads.append((key,path,mimetypes.guess_type(path.name)[0] or 'application/octet-stream'))
-    expires=(datetime.fromisoformat(incident.created_at)+timedelta(hours=settings.retention_hours)).isoformat()
+    expires=expires_at(incident)
     manifest={**snap,'media':media,'expires_at':expires,'media_evicted':evicted,
-        'archive_policy':'Original + thumbnail + review metadata. Oldest archived media evicted first at capacity. Derived media remain on Runpod.'}
+        'archive_policy':'Original + untouched upload when retained + thumbnail + review metadata. Explicit retention holds do not expire or enter FIFO eviction until released. Other media expire normally and oldest unheld media are evicted at capacity. New backups fail rather than exceed the cap. Derived media remain on Runpod.'}
     body=canonical(manifest);key=f'manifests/{incident.id}/{fingerprint}.json'
     pointer=canonical({'manifest_key':key,'expires_at':expires,'incident_id':incident.id})
     planned=sum(path.stat().st_size for _,path,_ in uploads)+len(body)+len(pointer)
@@ -110,11 +116,12 @@ def sync_incident(incident,store):
             raise ValueError('Remote original verification failed; local files retained')
     store.upload(key,body,'application/json')
     store.upload(f'index/{incident.id}.json',pointer,'application/json',upsert=True)
-    state.status='evicted' if evicted else 'synced';state.fingerprint=fingerprint;state.manifest_key=key;state.media=media
+    state.status='evicted' if evicted else 'synced';state.media_evicted=evicted;state.fingerprint=fingerprint;state.manifest_key=key;state.media=media
     state.bytes_stored=sum(v['bytes'] for v in media.values())+len(body);state.updated_at=now();state.error=None
     usage_bytes=store.used_bytes()
     return save(state)
 
+@guarded
 def make_room(store,planned,exclude):
     """FIFO by incident capture time, confined to this managed bucket; keep an audit manifest."""
     global usage_bytes
@@ -127,14 +134,20 @@ def make_room(store,planned,exclude):
         pointer=json.loads(store.download(item['key']))
         if pointer['incident_id']==exclude:continue
         manifest=json.loads(store.download(pointer['manifest_key']))
+        local=get(Incident,pointer['incident_id'])
+        if held(manifest['incident']) or local and held(local):continue
         if manifest.get('media'):candidates.append((manifest['incident']['created_at'],item['key'],manifest,pointer))
     for _,index_key,manifest,pointer in sorted(candidates,key=lambda entry:(entry[0],entry[1])):
         incident_id=manifest['incident']['id']
         # Save an explicit eviction revision before removing the media or old manifests.
         manifest={**manifest,'media':{},'media_evicted':True,'media_evicted_at':now(),'eviction_reason':'FIFO archive capacity'}
         body=canonical(manifest);key=f'manifests/{incident_id}/evicted-{hashlib.sha256(body).hexdigest()}.json'
+        revised_pointer=canonical({**pointer,'manifest_key':key})
+        # Leave even temporary audit writes inside the managed cap.
+        overhead=len(body)+max(0,len(revised_pointer)-len(store.download(index_key)))
+        if store.used_bytes()+overhead>cap:continue
         store.upload(key,body,'application/json')
-        store.upload(index_key,canonical({**pointer,'manifest_key':key}),'application/json',upsert=True)
+        store.upload(index_key,revised_pointer,'application/json',upsert=True)
         keys=[x['key'] for x in store.objects(f'incidents/{incident_id}/')]
         keys += [x['key'] for x in store.objects(f'manifests/{incident_id}/') if x['key']!=key]
         store.delete(keys)
@@ -142,15 +155,17 @@ def make_room(store,planned,exclude):
         state.status='evicted';state.media_evicted=True;state.media={};state.manifest_key=key;state.bytes_stored=len(body);state.updated_at=now();save(state)
         usage_bytes=store.used_bytes()
         if usage_bytes+planned<=cap:return
-    raise ValueError('Archive metadata or unrelated objects fill the cap; local original retained')
+    raise ValueError('Archive cap is occupied by held media, metadata, or other objects; local original retained')
 
+@guarded
 def restore_archive(store):
     """Restore unexpired originals/index after replacing the GPU pod; preserve existing human decisions."""
     restored=[]
     for item in store.objects('index/'):
         pointer=json.loads(store.download(item['key']))
-        if pointer['expires_at']<=now():continue
         manifest=json.loads(store.download(pointer['manifest_key']));record=manifest['incident']
+        expiry=None if held(record) else manifest.get('expires_at') or pointer.get('expires_at') or expires_at(record)
+        if expiry is not None and expiry<=now():continue
         if get(Incident,record['id']):continue
         incident=Incident.model_validate(record)
         # UUID validation prevents a remote manifest from choosing a local path.
@@ -160,6 +175,8 @@ def restore_archive(store):
         for kind,meta in manifest['media'].items():
             if kind=='original' and meta['sha256']!=incident.record['original_sha256']:
                 raise ValueError('Archived original hash does not match incident provenance')
+            if kind=='source_original' and meta['sha256']!=incident.record.get('source_sha256'):
+                raise ValueError('Archived original upload hash does not match source provenance')
             filename=Path(meta['filename']).name
             if filename!=meta['filename']:raise ValueError('Invalid archived filename')
             content=store.download(meta['key'])
@@ -182,6 +199,20 @@ def restore_archive(store):
         restored.append(incident.id)
     return restored
 
+@guarded
+def expire_archive(incident,store):
+    """Recheck the hold under the same lock used by hold updates and FIFO."""
+    incident=get(Incident,incident.id) or incident
+    expiry=expires_at(incident)
+    if expiry is None or expiry>now():return False
+    state=get(ArchiveState,incident.id)
+    if state and state.status!='expired':
+        keys=[x['key'] for prefix in [f'incidents/{incident.id}/',f'manifests/{incident.id}/'] for x in store.objects(prefix)]
+        store.delete(keys+[f'index/{incident.id}.json'])
+        state.status='expired';state.updated_at=now();save(state)
+    return True
+
+
 async def archive_worker():
     global last_error,usage_bytes
     if not enabled():return
@@ -192,14 +223,7 @@ async def archive_worker():
             store=SupabaseArchive();await asyncio.to_thread(store.ensure_private);last_error=None
             # Purge the whole incident prefix, including historical manifests, after retention expires.
             for incident in rows(Incident):
-                expires=datetime.fromisoformat(incident.created_at)+timedelta(hours=settings.retention_hours)
-                if expires<=datetime.now(timezone.utc):
-                    state=get(ArchiveState,incident.id)
-                    if state and state.status!='expired':
-                        keys=[x['key'] for prefix in [f'incidents/{incident.id}/',f'manifests/{incident.id}/'] for x in await asyncio.to_thread(store.objects,prefix)]
-                        await asyncio.to_thread(store.delete,keys+[f'index/{incident.id}.json'])
-                        state.status='expired';state.updated_at=now();save(state)
-                    continue
+                if await asyncio.to_thread(expire_archive,incident,store):continue
                 if retry_after.get(incident.id,0)>time.monotonic():continue
                 try:
                     await asyncio.to_thread(sync_incident,incident,store)

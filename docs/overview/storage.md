@@ -24,6 +24,10 @@ Supabase Free currently includes 1 GB of object storage and caps each file at 50
 
 The configured incident retention (48 hours on the demo deployment) also applies to cloud incident media and manifests. The worker removes expired archives while the backend is online and resumes cleanup after downtime. It is **not a provider-side lifecycle timer**: shutting down every backend also stops scheduled deletion. The restore command excludes expired records. Failed or pending archives prevent normal local-retention deletion until their state is resolved. Local disk pressure still needs operational monitoring.
 
+Reviewers can select **Keep for recall** on an incident to place an audited retention hold. A held incident keeps its local original and review files beyond normal expiry; its private cloud original and manifest are excluded from expiry and FIFO eviction, and remain eligible for restore. For held uploads, the exact uploaded file is also copied, hash-verified, and included in the private archive when available; the incident window remains a separate artifact. The hold does not confirm an event or grant training permission. Releasing it resumes the normal policy based on the original capture date, so an already old incident can expire on the next cleanup pass. Media already deleted cannot be recovered by adding a hold.
+
+The archive cap still applies. Held media consume that capacity; if unheld media cannot free enough space, new archives report failure and stay local. A hold is not a claim that cloud backup has completed: check the archive state for **synced**. It also cannot protect against account deletion, provider loss, or manual removal of files. Derived review videos remain local and are not included in the cloud archive.
+
 Use **Privacy & controls → Incident storage** or authenticated `GET /api/storage` to inspect usage, cap and archive failures. Incident detail includes archive state in processing/provenance. The secret key stays in backend environment configuration; the Replit UI and browser do not receive either Supabase key. Public object reads are disabled. SafeSC authenticates video reads through its backend.
 
 Original objects have SHA-256 names, are uploaded without upsert, and are downloaded once to verify their exact bytes before the archive is marked synced. Changed review metadata produces a new immutable manifest; a small `index/` pointer identifies its latest version. Original local files are never replaced by enhancement or storage compression. Generated RelayVSR/BVI/ReLift videos are intentionally excluded from the free archive and can be regenerated where inputs/checkpoints remain available.
@@ -34,7 +38,7 @@ To recover a replacement backend, configure the same project/bucket credentials 
 uv run python -m scripts.restore_archive
 ```
 
-This restores unexpired originals/thumbnails and reviewer records into the configured `DATA_DIR`. It verifies media hashes and refuses to replace different existing files or overwrite an existing incident's human decision. Reconnect the replacement backend to the UI afterward; Supabase Storage alone does not run the API or GPU models.
+This restores unexpired and held originals/thumbnails and reviewer records into the configured `DATA_DIR`. It verifies media hashes and refuses to replace different existing files or overwrite an existing incident's human decision. Reconnect the replacement backend to the UI afterward; Supabase Storage alone does not run the API or GPU models.
 
 Validation on November 14, 2026: the actual existing engineering sample archived successfully using **2,957,916 bytes**. An isolated temporary index restored one incident, three review records and an identical original SHA-256. FIFO, tamper rejection and restore behavior are tested with an in-memory storage service; no real incident was deleted to fill the bucket for testing.
 

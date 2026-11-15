@@ -57,3 +57,7 @@ class Envelope(BaseModel):
     outputs: dict = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
     error: str | None = None
+
+class RetentionHoldRequest(BaseModel):
+    active: bool
+    note: str = Field(min_length=8, max_length=2000)

@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from .config import settings
 from .db import init, Source, Incident, Job, ReviewAction, ArchiveState, rows, get, save
-from .schemas import SourceRequest, Review
+from .schemas import SourceRequest, Review, RetentionHoldRequest
 from .video import Frame, digest, decode
 from .runtime import hub, sessions, pairings, VideoSession, replay
 from .jobs import worker, retention
@@ -189,12 +189,21 @@ async def review(incident_id:str,payload:Review):
             await hub.publish('learning_warning',{'incident_id':incident.id,'message':str(error)})
     await hub.publish('incident',incident.model_dump()); return incident
 
+@app.post('/api/incidents/{incident_id}/retention-hold',dependencies=[Depends(authenticated)])
+async def retention_hold(incident_id:str,payload:RetentionHoldRequest):
+    from .retention import set_hold
+    try:incident=await asyncio.to_thread(set_hold,incident_id,payload.active,payload.note)
+    except LookupError:raise HTTPException(404,'Incident not found')
+    except ValueError as error:raise HTTPException(409,str(error))
+    await hub.publish('incident',incident.model_dump())
+    return incident
+
 @app.get('/api/storage',dependencies=[Depends(authenticated)])
 def storage_status():
     from . import archive
     return {'enabled':archive.enabled(),'provider':'Supabase','bucket':settings.supabase_bucket,
         'visibility':'private','cap_mb':settings.archive_max_mb,'used_bytes':archive.usage_bytes,
-        'eviction':'FIFO archived media; summaries and review history retained until retention expires',
+        'eviction':'FIFO of unheld archived media; explicit retention holds remain until released. New backups can fail at the cap.',
         'retention_hours':settings.retention_hours,'last_error':archive.last_error,
         'incidents':[s.model_dump(exclude={'media','fingerprint'}) for s in rows(ArchiveState)]}
 
