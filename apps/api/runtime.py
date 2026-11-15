@@ -365,6 +365,9 @@ class VideoSession:
             'safety_state':self.last_observation['state'] if self.last_observation else 'AWAITING_ASSESSMENT',
             'inference_frames':self.inference_frames}
         await asyncio.to_thread(save,self.source)
+        if settings.streaming_model!='fixture' and self.source.kind in ['phone','webcam','upload']:
+            from .jobs import preserve_live_readiness
+            preserve_live_readiness()
         sessions.pop(self.source.id,None)
         await hub.publish('source',self.source.model_dump())
 

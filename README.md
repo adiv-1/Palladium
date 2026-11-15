@@ -1,8 +1,14 @@
-# SafeSC
+# Palladium
 
 **Campus video review with preserved context and a human decision.** Built for the AI@USC hackathon.
 
-SafeSC connects a phone camera or uploaded video to a streaming vision pipeline, preserves potentially relevant moments, and gives a reviewer original footage, uncertainty, and clearly labeled derived artifacts. A separate campus-activity map explores public LAPD reports near USC.
+This branch introduces the Palladium interface with three primary demo tabs:
+**Real-time analysis**, **Ambassador positioning**, and **Get Somewhere**. It
+retains the existing SafeSC backend and reviewer workflows. See the
+[interface and demo guide](docs/overview/palladium-ui.md).
+This source branch is separate from the hosted deployment.
+
+Palladium connects a phone camera or uploaded video to a streaming vision pipeline, preserves potentially relevant moments, and gives a reviewer original footage, uncertainty, and clearly labeled derived artifacts. A separate campus-activity map explores public LAPD reports near USC.
 
 [Open the hosted SafeSC dashboard](https://safe-sc.replit.app) · Workspace access token required. The UI runs on Replit; inference and working media stay on Runpod. Original incident windows, thumbnails and review metadata are backed up to private Supabase Storage.
 

@@ -281,7 +281,15 @@ class MossDetector:
             self.record_verification(detection,frames,kind);self.error=None
             from apps.api.config import settings
             if detection.state in ['REVIEW_REQUIRED','HIGH_PRIORITY_REVIEW'] and detection.confidence>=settings.alert_confidence_threshold:
-                fresh=[f for f in pool or [] if f.index not in set(detection.supporting_frames)]
+                # Camera intake continues during the primary GPU pass. Include
+                # those newly received ORIGINAL frames when confirming a brief
+                # action, instead of confirming against a stale dispatch-time
+                # snapshot that may contain only its quiet lead-up.
+                event_end=max(e.timestamp_end for e in detection.observable_events)
+                candidates={f.index:f for f in [*(pool or []),*self.evidence_pool]}
+                supported=set(detection.supporting_frames)
+                fresh=sorted((f for f in candidates.values() if f.index not in supported
+                    and abs(f.timestamp-event_end)<=settings.alert_agreement_seconds),key=lambda f:f.timestamp)
                 if len(fresh)>=2:
                     # An event-focused second pass uses different ORIGINAL frames,
                     # rather than waiting for a brief action to occur again.

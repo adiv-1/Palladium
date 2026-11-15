@@ -31,7 +31,9 @@ async def main():
             for index in range(160):
                 sent=time.monotonic();await ws.send(json.dumps({'type':'frame','timestamp':sent-started}))
                 await ws.send(frames[0 if index<80 else 1])
-                ack=json.loads(await asyncio.wait_for(ws.recv(),10));assert ack['type']=='ack',ack
+                ack=json.loads(await asyncio.wait_for(ws.recv(),10))
+                while ack['type']=='phone_alert':ack=json.loads(await asyncio.wait_for(ws.recv(),10))
+                assert ack['type']=='ack',ack
                 acks.append({'frame':index,'roundtrip_ms':(time.monotonic()-sent)*1000,'model_status':ack['model_status']})
                 await asyncio.sleep(max(0,.125-(time.monotonic()-sent)))
             await ws.send(json.dumps({'type':'stop'}));stopped=json.loads(await asyncio.wait_for(ws.recv(),220));assert stopped['type']=='stopped',stopped

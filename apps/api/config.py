@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     object_post_event_seconds: float = Field(30,ge=0,le=60)
     sample_fps: float = Field(2, ge=0.2, le=10)
     capture_fps: float = Field(12, ge=1, le=15)
+    live_idle_grace_seconds: float = Field(60, ge=0, le=300)
     enable_native_recording: bool = False
     dark_luminance_threshold: float = 45
     light_luminance_threshold: float = 70

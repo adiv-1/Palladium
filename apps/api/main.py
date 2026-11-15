@@ -96,6 +96,9 @@ async def health():
 @app.post('/api/models/moss/warm',dependencies=[Depends(authenticated)])
 async def warm_moss():
     if busy(): raise HTTPException(409,'Stop the current stream or wait for postprocessing')
+    from . import jobs
+    if jobs.live_warmup: raise HTTPException(409,'Live models are already warming')
+    jobs.live_warmup=True; jobs.gpu_busy=True
     from ml.service import model_service
     try:
         await model_service.ensure()
@@ -108,8 +111,11 @@ async def warm_moss():
             response=await client.get(url)
             response.raise_for_status()
             if not response.json().get('model_loaded'):raise RuntimeError('MOSS is not loaded')
+        jobs.preserve_live_readiness()
     except Exception as e:
         raise HTTPException(503,str(e))
+    finally:
+        jobs.gpu_busy=False; jobs.live_warmup=False
     return {'status':'ready','model':'moss','revision':settings.model_revision}
 
 @app.get('/api/sources',dependencies=[Depends(authenticated)])
@@ -316,7 +322,7 @@ async def events(ws:WebSocket):
 
 @app.websocket('/ws/capture')
 async def capture(ws:WebSocket):
-    await ws.accept(); session=None
+    await ws.accept(); session=None; alert_task=None; alert_queue=None
     try:
         hello=await asyncio.wait_for(ws.receive_json(),10)
         pairing=pairings.get(hello.get('token',''))
@@ -325,7 +331,10 @@ async def capture(ws:WebSocket):
         from .training_control import cancel_active_training
         await cancel_active_training('Phone started streaming; returning GPU to live analysis')
         source=get(Source,pairing['source_id']); session=VideoSession(source); session.native_recording_expected=settings.enable_native_recording and hello.get('native_recording') is True; sessions[source.id]=session
+        from .phone_alerts import relay_phone_alerts
+        alert_queue=asyncio.Queue(maxsize=32); hub.listeners.add(alert_queue)
         await ws.send_json({'type':'ready','fps':settings.capture_fps,'source_id':source.id,'native_recording':settings.enable_native_recording,'geolocation':True})
+        alert_task=asyncio.create_task(relay_phone_alerts(ws,alert_queue,source.id,settings.streaming_model=='fixture'))
         index=0; first=None
         while True:
             meta=await asyncio.wait_for(ws.receive_json(),30)
@@ -351,6 +360,10 @@ async def capture(ws:WebSocket):
         except RuntimeError: pass
 
     finally:
+        if alert_queue is not None: hub.listeners.discard(alert_queue)
+        if alert_task:
+            alert_task.cancel()
+            await asyncio.gather(alert_task,return_exceptions=True)
         if session: await session.close()
         try: await ws.close()
         except RuntimeError: pass

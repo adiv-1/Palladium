@@ -56,6 +56,7 @@ async def main(origin,output,only=None):
                 async for raw in ws:
                     event=json.loads(raw)
                     if event['type']=='ack':ack_times.append((time.monotonic()-pending.pop(event['index']-1))*1000)
+                    elif event['type']=='phone_alert':continue  # Source-scoped camera notice; ACK accounting is independent.
                     elif event['type']=='stopped':return
                     else:raise RuntimeError(str(event))
             async def notices():

@@ -3,6 +3,7 @@
 Keep shareable project explanations in this folder. Local account records, support history, deployment credentials, and account screenshots are excluded from version control.
 
 - [Architecture](architecture.md): data flow, phone connection, and model responsibilities.
+- [Palladium interface](palladium-ui.md): three demo tabs, shared 2D/3D planning, original demo recordings, and the local-only response illustration.
 - [Live observations and incident review](review-workflow.md): latest-frame preview, separate clip review, enhancement fixes and measured limits.
 - [Private incident storage](storage.md): Supabase archive, FIFO media eviction, retention and recovery.
 - [Models and licenses](models.md): isolated runtime setup, pinned checkpoints, and known limitations.

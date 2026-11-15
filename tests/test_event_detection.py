@@ -239,3 +239,54 @@ async def test_final_window_uses_stream_end_not_early_motion_selected_end(monkey
     assert detector.last_verified==4
     await detector.finish()
     assert len(calls)==1 # close() calling finish() again does not duplicate work.
+
+
+@pytest.mark.asyncio
+async def test_confirmation_uses_original_frames_received_during_primary_verification():
+    import threading
+    started=threading.Event();release=threading.Event()
+    detector=MossDetector('ws://unused')
+    class Verifier:
+        last_audit={}
+        def __init__(self):self.calls=[]
+        def verify_frames(self,frames,notes,tracks):
+            self.calls.append([f.index for f in frames])
+            if len(self.calls)==1:
+                started.set()
+                assert release.wait(2)
+            return detection(min(f.timestamp for f in frames),max(f.timestamp for f in frames),[f.index for f in frames])
+    detector.verifier=Verifier()
+    async def prepared():pass
+    detector.prepare_verifier=prepared
+    primary=[Frame(i*.5,i,bytes([i])) for i in [0,2,4,6]]
+    task=asyncio.create_task(detector.verify_window(primary,'',[],primary))
+    try:
+        assert await asyncio.to_thread(started.wait,2)
+        # These arrive while the GPU is occupied; none were in the dispatch pool.
+        detector.evidence_pool=primary+[Frame(i*.5,i,bytes([i]),motion=100 if i==12 else 1) for i in range(8,18)]
+        release.set();await task
+    finally:
+        release.set()
+        await asyncio.gather(task,return_exceptions=True)
+    assert len(detector.verifier.calls)==2
+    assert all(i>=8 for i in detector.verifier.calls[1])
+    assert not set(detector.verifier.calls[0])&set(detector.verifier.calls[1])
+    assert detector.response_audit[-1]['pass']=='event_context_confirmation'
+
+
+@pytest.mark.asyncio
+async def test_confirmation_never_uses_new_frames_outside_temporal_agreement_window():
+    detector=MossDetector('ws://unused')
+    class Verifier:
+        last_audit={}
+        calls=0
+        def verify_frames(self,frames,notes,tracks):
+            self.calls+=1
+            return detection(0,3,[f.index for f in frames])
+    detector.verifier=Verifier()
+    async def prepared():pass
+    detector.prepare_verifier=prepared
+    primary=[Frame(i,i,bytes([i])) for i in range(4)]
+    detector.evidence_pool=[Frame(100+i,100+i,b'new') for i in range(4)]
+    await detector.verify_window(primary,'',[],primary)
+    assert detector.verifier.calls==1

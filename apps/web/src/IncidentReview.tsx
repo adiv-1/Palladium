@@ -1,7 +1,5 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useRef,useState,lazy,Suspense} from 'react';
 import {ChevronLeft,Eye,Check,Lock,Layers,Play,Pause,RotateCcw,FileVideo,Trash2,Pencil,Undo2,X} from 'lucide-react';
-import * as THREE from 'three';
-import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {LearningPermission} from './LearningRepository';
 import CameraLocation from './CameraLocation';
 import {DeleteIncidentDialog} from './IncidentQueue';
@@ -26,53 +24,18 @@ function EditIncidentLabel({incident,onClose,onSaved}:{incident:Data,onClose:()=
   return <div className="modal-backdrop" onClick={()=>!busy&&onClose()}><form className="review-label-dialog" role="dialog" aria-modal="true" aria-labelledby="review-label-title" onClick={e=>e.stopPropagation()} onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{const updated=await api(`/incidents/${incident.id}/label`,{title,description,action,tags:parsedTags,note});onSaved(updated)}catch(e){setError(e instanceof Error?e.message:String(e));setBusy(false)}}}><div className="review-label-dialog-heading"><h2 id="review-label-title">Edit reviewed label</h2><button type="button" aria-label="Close label editor" disabled={busy} onClick={onClose}><X size={18}/></button></div><p>Use the original footage to describe the visible action. This updates the queue label; it does not confirm the incident or approve training.</p><label>Title<input aria-label="Title" autoFocus required maxLength={160} value={title} onChange={e=>setTitle(e.target.value)}/></label><label>Description<textarea aria-label="Description" required maxLength={1000} value={description} onChange={e=>setDescription(e.target.value)}/></label><label>Action<select aria-label="Action" value={action} onChange={e=>setAction(e.target.value)}><option value="ordinary_activity">Ordinary activity</option><option value="physical_contact">Physical contact</option><option value="object_taking">Object removal / taking</option><option value="insufficient_visibility">Insufficient visibility</option></select></label><label>Tags · separate with commas<input aria-label="Tags · separate with commas" value={tags} onChange={e=>setTags(e.target.value)} placeholder="Up to 8 tags, 40 characters each"/></label><label>Audit note<input aria-label="Audit note" maxLength={2000} value={note} onChange={e=>setNote(e.target.value)}/></label>{error&&<p className="error" role="alert">{error}</p>}<div className="review-label-dialog-actions"><button type="button" disabled={busy} onClick={onClose}>Cancel</button><button className="primary" disabled={busy||!title.trim()||!description.trim()||!validTags}>{busy?'Saving…':'Save reviewed label'}</button></div></form></div>;
 }
 
-function PointCloud({url,playhead,offset,onSeek}:{url:string,playhead:number,offset:number,onSeek:(t:number)=>void}){
-  const host=useRef<HTMLDivElement>(null),frameRef=useRef(0),reset=useRef<()=>void>(()=>{});
-  const [data,setData]=useState<Data|null>(null),[open,setOpen]=useState(false),[error,setError]=useState('');
-  useEffect(()=>{let active=true;setData(null);setError('');fetch(url).then(r=>{if(!r.ok)throw Error('Reconstruction unavailable');return r.json()}).then(d=>{if(!Array.isArray(d.points)||!d.points.length)throw Error('No valid 3D points were exported');if(active)setData(d)}).catch(e=>active&&setError(String(e)));return()=>{active=false}},[url]);
-  const sourceTimes:number[]=data?.source_frames?.map((f:Data)=>Math.max(0,f.timestamp-offset))||[];
-  let frame=0;sourceTimes.forEach((t,n)=>{if(t<=playhead+.015)frame=n});frameRef.current=frame;
-  useEffect(()=>{
-    if(!open||!data||!host.current)return;const el=host.current;
-    let renderer:THREE.WebGLRenderer;
-    try{renderer=new THREE.WebGLRenderer({antialias:true})}catch{setError('3D rendering is unavailable in this browser. Use the motion-tracks video above.');return}
-    renderer.setPixelRatio(Math.min(devicePixelRatio,2));el.appendChild(renderer.domElement);
-    const scene=new THREE.Scene();scene.background=new THREE.Color('#101d24');
-    const h=data.image_size?.[1]||504,fy=data.intrinsics?.[0]?.[1]?.[1]||h;
-    const camera=new THREE.PerspectiveCamera(THREE.MathUtils.radToDeg(2*Math.atan(h/(2*fy))),1,.01,1000);
-    const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;
-    const depths=data.points[0].map((p:number[])=>p[2]).filter((z:number)=>Number.isFinite(z)&&z>0).sort((a:number,b:number)=>a-b);
-    const depth=depths[Math.floor(depths.length*.5)]||5;
-    reset.current=()=>{camera.position.set(0,0,0);camera.up.set(0,1,0);controls.target.set(0,0,-depth);camera.lookAt(controls.target);controls.update()};reset.current();
-    const geometry=new THREE.BufferGeometry(),count=data.points[0].length;
-    const positions=new Float32Array(count*3),colors=new Float32Array(count*3);
-    geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));geometry.setAttribute('color',new THREE.BufferAttribute(colors,3));
-    const material=new THREE.PointsMaterial({vertexColors:true,size:2.6,sizeAttenuation:false});const points=new THREE.Points(geometry,material);points.frustumCulled=false;scene.add(points);
-    const resize=()=>{const width=Math.max(1,el.clientWidth);renderer.setSize(width,360);camera.aspect=width/360;camera.updateProjectionMatrix()};
-    const observer=new ResizeObserver(resize);observer.observe(el);resize();
-    let raf=0,last=-1;
-    function render(){const f=Math.min(frameRef.current,data!.points.length-1);
-      if(f!==last){let n=0;data!.points[f].forEach((p:number[],i:number)=>{
-        if(!p.every(Number.isFinite)||p[2]<=0||(data!.confidence?.[f]&&data!.confidence[f][i]<.5))return;
-        positions[n*3]=p[0];positions[n*3+1]=-p[1];positions[n*3+2]=-p[2];
-        const rgb=data!.colors?.[i]||[99,221,191],c=new THREE.Color(rgb[0]/255,rgb[1]/255,rgb[2]/255).convertSRGBToLinear();
-        colors.set([c.r,c.g,c.b],n*3);n++;
-      });geometry.setDrawRange(0,n);geometry.attributes.position.needsUpdate=true;geometry.attributes.color.needsUpdate=true;last=f}
-      controls.update();renderer.render(scene,camera);raf=requestAnimationFrame(render)
-    }render();return()=>{cancelAnimationFrame(raf);observer.disconnect();controls.dispose();geometry.dispose();material.dispose();renderer.dispose();el.replaceChildren()};
-  },[data,open]);
-  return <section className="panel geometry-panel"><div className="panel-title"><Layers size={18}/><h3>Explore the estimated 3D points</h3></div><p>Use the motion-tracks video first. This optional view lets you orbit the same scene points and inspect their estimated movement.</p><p className="fine">This is a colored point cloud, not a body mesh or a reconstruction of hidden actions. Scale is in geometry-model units, not measured meters. Only points observed by the tracker are displayed.</p>
-    {error&&<p className="error">{error}</p>}
-    <button onClick={()=>setOpen(!open)}>{open?'Close 3D explorer':'Open 3D explorer'}</button>
-    {open&&<><div className="pointcloud-host" ref={host}/>{data&&<><div className="geometry-controls"><button onClick={()=>reset.current()}><RotateCcw size={14}/>Reset camera</button><span>{data.quality?.sampled_points||data.points[0].length} sampled points · {Math.round((data.quality?.observed_fraction?.[frame]??1)*100)}% observed in this frame</span></div><input aria-label="3D source time" type="range" min={0} max={data.points.length-1} value={frame} onChange={e=>onSeek(sourceTimes[+e.target.value]||0)}/><p className="fine">Clip {seconds(sourceTimes[frame]||0)} · source frame {data.source_frames?.[frame]?.index??frame} · drag to orbit, scroll to zoom</p></>}</>}
-  </section>
+const PointCloud=lazy(()=>import('./PointCloud'));
+const ResponseDemo=lazy(()=>import('./ResponseDemo'));
+function GeometryDisclosure(props:{url:string;playhead:number;offset:number;onSeek:(t:number)=>void}){
+  const [open,setOpen]=useState(false);
+  return open?<Suspense fallback={<section className="panel">Loading estimated geometry…</section>}><PointCloud {...props}/></Suspense>:<section className="panel geometry-panel"><div className="panel-title"><Layers size={18}/><h3>Estimated 3D point tracks</h3></div><p>Optional scene-point motion in model units. Use the original and motion-tracks video as the reference.</p><button onClick={()=>setOpen(true)}>Open 3D explorer</button></section>;
 }
 
 export default function IncidentReview({id,onBack,onChange,onDeleted}:{id:string,onBack:()=>void,onChange?:(incident:Data)=>void,onDeleted?:(incident:Data)=>void}){
   const [detail,setDetail]=useState<Data|null>(null),[error,setError]=useState(''),[note,setNote]=useState(''),[copy,setCopy]=useState('review');
-  const [time,setTime]=useState(0),[duration,setDuration]=useState(0),[playing,setPlaying]=useState(false),[focused,setFocused]=useState(false),[holding,setHolding]=useState(false),[editingLabel,setEditingLabel]=useState(false),[deleting,setDeleting]=useState(false);
+  const [time,setTime]=useState(0),[duration,setDuration]=useState(0),[playing,setPlaying]=useState(false),[focused,setFocused]=useState(false),[holding,setHolding]=useState(false),[showResponse,setShowResponse]=useState(false),[editingLabel,setEditingLabel]=useState(false),[deleting,setDeleting]=useState(false);
   const original=useRef<HTMLVideoElement>(null),derived=useRef<HTMLVideoElement>(null);
-  useEffect(()=>{let active=true;setDetail(null);setError('');setTime(0);setDuration(0);setPlaying(false);const load=()=>api('/incidents/'+id).then(d=>active&&setDetail(d)).catch(e=>active&&setError(e.message));load();const interval=setInterval(load,4000);return()=>{active=false;clearInterval(interval)}},[id]);
+  useEffect(()=>{let active=true;setDetail(null);setShowResponse(false);setError('');setTime(0);setDuration(0);setPlaying(false);const load=()=>api('/incidents/'+id).then(d=>active&&setDetail(d)).catch(e=>active&&setError(e.message));load();const interval=setInterval(load,4000);return()=>{active=false;clearInterval(interval)}},[id]);
   if(!detail)return <p>{error||'Loading incident…'}</p>;
   const i=detail.incident,r=i.record,events=r.observable_events||[],offset=r.clip_offset||0;
   const manual=r.trigger_origin==='reviewer',dismissed=i.review_status==='dismissed',card=deriveIncidentCard(i);
@@ -97,6 +60,8 @@ export default function IncidentReview({id,onBack,onChange,onDeleted}:{id:string
 </section>
 
     <CameraLocation location={r.geolocation} title="Recorded camera location"/>
+    <div className="event-map-toggle"><button onClick={()=>setShowResponse(v=>!v)} aria-expanded={showResponse}>{showResponse?'Close event map':'View event map & response demo'}</button><span className="fine">Demo only · no officers contacted</span></div>
+    {showResponse&&<Suspense fallback={<section className="panel">Loading the event map…</section>}><ResponseDemo incident={i} sourceKind={detail.source?.kind}/></Suspense>}
     <section className="review-hold" aria-label="Video retention"><Lock size={19}/><div><strong>{retentionHeld?'Saved for later recall':'Keep this original for later'}</strong><p>{retentionHeld?'Automatic expiry and cloud FIFO eviction are paused until you release this hold.':`Normal media retention is ${detail.archive?.status==='expired'?'already expired':'time limited'}. Save this video to pause automatic expiry and cloud FIFO eviction.`}</p>{r.files?.source_original&&<a className="source-original-download" href={media(id,'source_original')} download>Download uploaded original</a>}<small>{retentionHeld?'Archive capacity and upload limits still apply; the archive status below confirms whether cloud backup succeeded.':'Releasing a hold restores normal retention; an older clip may expire immediately.'}</small></div><button disabled={holding||(!retentionHeld&&!r.files?.original&&!detail.archive?.media?.original)} onClick={changeRetention}>{holding?'Saving…':retentionHeld?'Release hold':'Keep this video'}</button></section>
 
     {i.simulated&&<div className="simulation">SIMULATED TRIGGER · This record is not a real AI incident detection.</div>}{error&&<div role="alert" className="error">{error}</div>}
@@ -105,7 +70,7 @@ export default function IncidentReview({id,onBack,onChange,onDeleted}:{id:string
     <section className="panel evidence-player"><div className="panel-title"><Layers size={18}/><h3>Supporting review view</h3></div><div className="artifact-tabs" role="group" aria-label="Supporting review views">{available.map(k=><button key={k} className={selected===k?'selected':''} onClick={()=>setCopy(k)}>{k==='review'?'Detail':k==='enhanced'?'Low light':k==='motion_review'?'Motion tracks':'BVI comparison'}</button>)}</div>
     {current?<><h3>{current.title}</h3><p className="artifact-purpose">{current.purpose}</p>{legacyBvi?<div className="artifact-state"><strong>Earlier comparison needs rebuilding</strong><p>This copy used an incorrect input convention. It should not be used to judge visibility.</p><button onClick={()=>api(`/incidents/${id}/compare`,{}).catch(e=>setError(String(e)))}>Rebuild BVI comparison</button></div>:noEnhancement?<div className="artifact-state"><SunIcon/><strong>Low-light enhancement was not needed.</strong><p>This source is already well lit. BVI preserved the original exposure rather than brightening it unnecessarily.</p></div>:<div className="review-video-stage"><video key={r.files[selected]} ref={derived} controls playsInline muted preload="metadata" src={media(id,selected)} onLoadedMetadata={e=>{e.currentTarget.currentTime=Math.max(0,Math.min(time-derivedOffset,e.currentTarget.duration))}} onSeeked={e=>{if(original.current&&Math.abs(original.current.currentTime-(e.currentTarget.currentTime+derivedOffset))>.15)seek(e.currentTarget.currentTime+derivedOffset)}}/></div>}<p className="artifact-limit">{current.limit}</p></>:<div className="artifact-state"><strong>{r.review_copies_requested===false?'Original-first review':'Review views are being prepared.'}</strong><p>{r.review_copies_requested===false?'Additional generated copies were not requested for this stream. Review the preserved original and its context.':'The original is ready to review now. Derived views appear when processing finishes.'}</p></div>}</section></div>
     <div className="shared-playback"><button className="primary" onClick={toggle}>{playing?<Pause size={15}/>:<Play size={15}/>} {playing?'Pause':'Play'} comparison</button><input aria-label="Incident clip time" type="range" min={0} max={duration||Math.max(0,i.end_time-i.start_time)} step={.05} value={Math.min(time,duration||time)} onChange={e=>seek(+e.target.value)}/><span>{seconds(time)} / {seconds(duration)}</span></div>
-    {r.files.trajectory_original&&<PointCloud key={r.files.trajectory_original} url={media(id,'trajectory_original')} offset={offset} playhead={time} onSeek={seek}/>}
+    {r.files.trajectory_original&&<GeometryDisclosure key={r.files.trajectory_original} url={media(id,'trajectory_original')} offset={offset} playhead={time} onSeek={seek}/>}
     <div className="review-section-heading"><div><span className="eyebrow">2 · CHECK THE SUPPORT</span><h2>Why was this moment saved?</h2></div></div>
     <div className="review-grid"><section className="panel"><div className="panel-title"><Eye size={18}/><h3>{card.reviewed?'Reviewed label':'Saved source context'}</h3></div><p>{card.reviewed?card.description:manual?'A reviewer requested that this source footage be saved.':'The preserved source footage is available for review. Initial model output is retained in the audit below.'}</p><h4>Supporting moments</h4><div className="frame-links">{(r.supporting_frames||[]).map((f:number)=>{const stamp=r.frame_timestamps?.find((x:Data)=>x.index===f)?.timestamp;return <button key={f} onClick={()=>stamp!==undefined&&seek(stamp-offset)}>{stamp!==undefined?seconds(stamp-offset):`Frame ${f}`}</button>})}</div><p className="fine">{card.reviewed?'This reviewed label does not change the incident decision.':'Review the original footage. Initial model output is available in the audit below.'}</p></section>
     <section className="panel"><span className="eyebrow">3 · MAKE THE DECISION</span><h2>Does this need follow-up?</h2><p>Base your decision on the original and its context. Your decision stays inside this workspace.</p><textarea aria-label="Reviewer note" placeholder="What did you see, and what context is missing?" value={note} onChange={e=>setNote(e.target.value)}/><div className="review-actions"><button className="review-follow-up" onClick={()=>decide('confirmed')}><Check size={14}/>Flag for follow-up</button><button onClick={()=>decide('needs_review')}>Need more context</button><button onClick={()=>decide('dismissed')}>Dismiss</button></div><h4>Review history</h4>{detail.history.map((h:Data)=><p className="fine" key={h.id}>{new Date(h.timestamp).toLocaleString()} · {h.decision.replaceAll('_',' ')} {h.note&&`— ${h.note}`}</p>)}</section></div>

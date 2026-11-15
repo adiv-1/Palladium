@@ -14,6 +14,17 @@ from .video import digest, read_video, write_clip, decode, encode, Frame, align_
 
 gpu_busy=False
 live_warmup=False
+live_idle_until=0.0
+
+def preserve_live_readiness():
+    """Allow the next recording to begin before idle GPU work evicts live models."""
+    global live_idle_until
+    live_idle_until=max(live_idle_until,time.monotonic()+settings.live_idle_grace_seconds)
+
+def background_ready(job, at=None):
+    # CPU exports remain independent of the live GPU and its warmup/grace period.
+    if job.kind=='relift_export':return True
+    return not sessions and not gpu_busy and not live_warmup and (time.monotonic() if at is None else at)>=live_idle_until
 
 class ModelCommandError(RuntimeError):
     def __init__(self,message,metrics):super().__init__(message);self.metrics=metrics
@@ -208,10 +219,10 @@ async def worker():
     global gpu_busy
     while True:
         # Heavy jobs wait until no active ingestion/model session. Never evict a live detector midstream.
-        jobs=sorted([j for j in rows(Job) if j.status=='queued' and (not sessions or j.kind=='relift_export') and (not live_warmup or j.kind=='relift_export')],key=lambda j:(j.priority,j.id))
+        jobs=sorted([j for j in rows(Job) if j.status=='queued' and background_ready(j)],key=lambda j:(j.priority,j.id))
         if jobs:
             job=jobs[0];requires_gpu=job.kind!='relift_export'
-            gpu_busy=requires_gpu
+            if requires_gpu:gpu_busy=True
             job.status='running'; job.attempts+=1; job.started_at=now(); save(job)
             await hub.publish('job',job.model_dump())
             try:
@@ -229,7 +240,7 @@ async def worker():
                 job.status='failed'; job.error=str(e)
                 job.result={'status':'failed','error':str(e),**getattr(e,'metrics',{})}
             finally:
-                gpu_busy=False
+                if requires_gpu:gpu_busy=False
                 job.ended_at=now(); save(job); await hub.publish('job',job.model_dump())
         await asyncio.sleep(1)
 
