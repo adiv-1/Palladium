@@ -11,7 +11,8 @@ const hopHeaders = ['connection', 'keep-alive', 'proxy-authenticate', 'proxy-aut
   'te', 'trailer', 'transfer-encoding', 'upgrade'];
 const mime = {'.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8',
   '.css':'text/css; charset=utf-8', '.svg':'image/svg+xml', '.png':'image/png',
-  '.jpg':'image/jpeg', '.ico':'image/x-icon', '.woff2':'font/woff2', '.json':'application/json'};
+  '.jpg':'image/jpeg', '.ico':'image/x-icon', '.woff2':'font/woff2', '.json':'application/json',
+  '.mp4':'video/mp4', '.webm':'video/webm', '.mov':'video/quicktime'};
 
 function cleanHeaders(headers) {
   const result = {...headers};
@@ -87,14 +88,32 @@ export function createGateway({backendOrigin = process.env.SAFESC_BACKEND_ORIGIN
       info = await stat(filename).catch(() => null);
     }
     if (!info?.isFile()) return reply(res, 503, 'UI build missing. Run npm run build first.');
-    res.writeHead(200, {'Content-Type':mime[extname(filename)] || 'application/octet-stream',
+    const headers = {'Content-Type':mime[extname(filename)] || 'application/octet-stream',
       'Content-Length':info.size, 'X-Content-Type-Options':'nosniff',
       // OSM tiles require a Referer. Cross-origin requests disclose only the
       // public site origin; pairing fragments and review paths stay private.
       'Referrer-Policy':'strict-origin-when-cross-origin',
-      'Cache-Control':pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache'});
+      'Cache-Control':pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache'};
+    const video = ['.mp4', '.webm', '.mov'].includes(extname(filename));
+    let status = 200, start = 0, end = info.size - 1;
+    if (video) headers['Accept-Ranges'] = 'bytes';
+    if (video && req.method === 'GET' && req.headers.range) {
+      const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range);
+      if (range && range[1]) {
+        start = Number(range[1]); end = range[2] ? Math.min(Number(range[2]), end) : end;
+      } else if (range && range[2] && Number(range[2]) > 0) {
+        start = Math.max(0, info.size - Number(range[2]));
+      } else start = NaN;
+      if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || start >= info.size || end < start) {
+        res.writeHead(416, {'Content-Range':`bytes */${info.size}`, 'Content-Length':0, 'Accept-Ranges':'bytes'});
+        return res.end();
+      }
+      status = 206; headers['Content-Range'] = `bytes ${start}-${end}/${info.size}`;
+      headers['Content-Length'] = end - start + 1;
+    }
+    res.writeHead(status, headers);
     if (req.method === 'HEAD') return res.end();
-    createReadStream(filename).on('error', () => res.destroy()).pipe(res);
+    createReadStream(filename, status === 206 ? {start, end} : undefined).on('error', () => res.destroy()).pipe(res);
   });
 
   server.on('upgrade', (req, socket, head) => {
