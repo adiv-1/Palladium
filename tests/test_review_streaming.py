@@ -116,10 +116,16 @@ async def test_moss_chat_uses_actual_native_responses_not_fixtures():
     class Socket:
         def __aiter__(self):
             async def generate():
-                for text in ['<|response|>A person ','raises an arm.<|silence|>']:
+                for text in ['<|response|>A man ','raises an arm.<|silence|>',
+                             '<|response|>A person commits theft.<|silence|>',
+                             '<|response|>A person walks with',
+                             '<|round_start|><|response|>A person stands.<|silence|>']:
                     yield json.dumps({'type':'output','text':text})
             return generate()
     detector=MossDetector('ws://unused');detector.use_verifier=True;detector.spatial_enabled=False;detector.ws=Socket()
     await detector.receive()
     assert detector.observer_notes[0]['text']=='A person raises an arm.'
+    assert detector.observer_notes[0]['normalizations']==['neutral_person_terms']
+    assert len(detector.observer_notes)==2
+    assert detector.observer_notes[1]['text']=='A person stands.'
     assert detector.object_sample is None

@@ -13,13 +13,16 @@ async def run(origin,duration,output):
     async with httpx.AsyncClient(base_url=origin,headers={'Authorization':'Bearer '+token},timeout=240) as client:
         health=(await client.get('/api/health')).json()
         if health['active_sources']:raise RuntimeError('An active source must not be interrupted')
+        print('Warming existing models...',flush=True)
         warm=await client.post('/api/models/moss/warm');warm.raise_for_status()
+        print('Models ready; fetching the public test image.',flush=True)
         async with httpx.AsyncClient(timeout=30) as public:
             image=await public.get('https://raw.githubusercontent.com/ultralytics/ultralytics/main/ultralytics/assets/bus.jpg')
         image.raise_for_status();picture=Image.open(io.BytesIO(image.content)).convert('RGB');picture.thumbnail((960,960))
         data=io.BytesIO();picture.save(data,format='JPEG',quality=72);jpeg=data.getvalue()
         response=await client.post('/api/sources',json={'name':'Public-image live-preview transport test','kind':'phone'})
         response.raise_for_status();pair=response.json();source_id=pair['source']['id']
+        print(json.dumps({'status':'streaming_test','source_id':source_id}),flush=True)
         ws_origin=origin.replace('https://','wss://').replace('http://','ws://')
         acks=[];display=[];sent_times={};started=time.monotonic();first_send=None;stopping=False
         async with websockets.connect(ws_origin+'/ws/capture',max_size=2**22) as camera:

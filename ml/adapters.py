@@ -53,6 +53,16 @@ class Tracker(Protocol):
 
 class UnavailableModel(RuntimeError): pass
 
+def neutral_scene_note(text):
+    """Remove person-category wording without inventing or changing actions."""
+    terms={'man':'person','woman':'person','boy':'person','girl':'person','child':'person',
+        'adult':'person','teenager':'person','men':'people','women':'people','children':'people',
+        'his':'their','her':'their','he':'they','she':'they'}
+    normalized=re.sub(r'\b(man|woman|boy|girl|child|adult|teenager|men|women|children|his|her|he|she)\b',
+        lambda m:terms[m[0].lower()],text,flags=re.I)
+    normalized=re.sub(r'\b(?:male|female|young|elderly)\s+(?=person|people)','',normalized,flags=re.I)
+    return normalized
+
 class OneStreamerAdapter:
     async def observe(self,*args):
         raise UnavailableModel('OneStreamer weights are not installed; configure MOSS instead')
@@ -79,7 +89,7 @@ class MossDetector:
         self.use_verifier=settings.observation_verifier_model=='qwen3vl'
         self.verifier=None;self.evidence_frames=[];self.observer_text='';self.last_verified=-1e9;self.phase='not_started';self.verification_task=None
         self.object_frames={};self.object_text='';self.object_sample=None;self.object_version=0
-        self.last_object_request=-1e9;self.last_object_output=0;self.spatial_enabled=settings.moss_spatial_output
+        self.last_object_request=0;self.last_object_output=0;self.spatial_enabled=settings.moss_spatial_output
         self.caption_text='';self.caption_finished=True;self.observer_notes=deque(maxlen=30);self.caption_sequence=0
     async def prepare_verifier(self):
         if self.use_verifier and self.verifier is None:
@@ -108,6 +118,9 @@ class MossDetector:
                 if msg['type']=='error': raise UnavailableModel(str(msg))
                 if msg['type']=='output':
                     if self.use_verifier:
+                        native=msg.get('text','')
+                        if any(marker in native for marker in ['<|response|>','<|round_start|>']):
+                            self.caption_text='';self.caption_finished=False
                         clean=re.sub(r'<\|[^>]+\|>','',msg.get('text',''))
                         self.observer_text=(self.observer_text+clean)[-4000:]
                         self.object_text=(self.object_text+clean)[-24000:]
@@ -115,15 +128,22 @@ class MossDetector:
                             self.last_object_output=time.monotonic()
                             if self.caption_finished:self.caption_text='';self.caption_finished=False
                             self.caption_text=(self.caption_text+clean)[-500:]
-                        if any(token in msg.get('text','') for token in ['<|silence|>','<|round_end|>','<|im_end|>']) and self.caption_text.strip() and not self.spatial_enabled:
+                        # Native rounds can restart a partial caption. Only completed
+                        # sentences reach chat; do not join fragments across rounds.
+                        sentence=re.match(r'^\s*(.+?[.!?])',self.caption_text,re.S)
+                        if sentence and not self.spatial_enabled:
                             from apps.api.schemas import Observation
-                            caption=self.caption_text.strip()
+                            raw_caption=sentence[1].strip();caption=neutral_scene_note(raw_caption)
                             try:
                                 Observation(timestamp_start=0,timestamp_end=0,actors=[],observation=caption)
                                 if not self.observer_notes or caption!=self.observer_notes[-1]['text']:
                                     self.caption_sequence+=1
-                                    self.observer_notes.append({'id':self.caption_sequence,'text':caption,'received_at':time.time(),'model':'MOSS-VL-Realtime'})
+                                    self.observer_notes.append({'id':self.caption_sequence,'text':caption,'received_at':time.time(),'model':'MOSS-VL-Realtime',
+                                        'normalizations':['neutral_person_terms'] if caption!=raw_caption else []})
                             except ValueError:pass
+                            self.caption_text=self.caption_text[sentence.end():]
+                        if any(token in native for token in ['<|silence|>','<|round_end|>','<|im_end|>']):
+                            self.caption_text=''
                             self.caption_finished=True
                         candidates=extract_objects(self.object_text,self.object_frames) if self.spatial_enabled else []
                         if candidates:
@@ -179,20 +199,26 @@ class MossDetector:
         # Put evidence alignment metadata in a separate image margin instead.
         import cv2
         import numpy as np
-        image=cv2.imdecode(np.frombuffer(frames[-1].jpeg,dtype=np.uint8),cv2.IMREAD_COLOR)
-        if image is None:raise ValueError('Unable to decode MOSS analysis frame')
-        self.object_frames[frames[-1].index]=(frames[-1],image.shape[0])
+        def prepare_frame():
+            image=cv2.imdecode(np.frombuffer(frames[-1].jpeg,dtype=np.uint8),cv2.IMREAD_COLOR)
+            if image is None:raise ValueError('Unable to decode MOSS analysis frame')
+            height=image.shape[0]
+            if not self.spatial_enabled and max(image.shape[:2])>640:
+                ratio=640/max(image.shape[:2]);image=cv2.resize(image,(round(image.shape[1]*ratio),round(image.shape[0]*ratio)))
+            image=cv2.copyMakeBorder(image,32,0,0,0,cv2.BORDER_CONSTANT,value=(15,15,15))
+            cv2.putText(image,f'Source frame {frames[-1].index} | stream time {timestamps[-1]:.3f}s',(8,22),cv2.FONT_HERSHEY_SIMPLEX,.55,(255,255,255),1)
+            ok,encoded=cv2.imencode('.jpg',image,[cv2.IMWRITE_JPEG_QUALITY,85])
+            if not ok:raise ValueError('Unable to encode MOSS analysis frame')
+            return encoded.tobytes(),height
+        encoded,height=await asyncio.to_thread(prepare_frame)
+        self.object_frames[frames[-1].index]=(frames[-1],height)
         while len(self.object_frames)>64:self.object_frames.pop(next(iter(self.object_frames)))
-        image=cv2.copyMakeBorder(image,32,0,0,0,cv2.BORDER_CONSTANT,value=(15,15,15))
-        cv2.putText(image,f'Source frame {frames[-1].index} | stream time {timestamps[-1]:.3f}s',(8,22),cv2.FONT_HERSHEY_SIMPLEX,.55,(255,255,255),1)
-        ok,encoded=cv2.imencode('.jpg',image,[cv2.IMWRITE_JPEG_QUALITY,85])
-        if not ok:raise ValueError('Unable to encode MOSS analysis frame')
         await self.ws.send(json.dumps({'type':'frame','timestamp':timestamps[-1]}))
-        await self.ws.send(encoded.tobytes())
+        await self.ws.send(encoded)
         self.latency_ms=(time.monotonic()-started)*1000
         if self.use_verifier:
             # Request periodically, never for every frame or during an active response.
-            if timestamps[-1]-self.last_object_request>=6 and time.monotonic()-self.last_object_output>1.5:
+            if timestamps[-1]-self.last_object_request>=10 and self.caption_finished and time.monotonic()-self.last_object_output>2:
                 await self.ws.send(json.dumps({'type':'prompt','text':f'Describe source frame {frames[-1].index}: return frame, objects as separate arrays, and summary. Use the actual source frame number.' if self.spatial_enabled else 'Describe the visible objects and actions in one brief sentence now. No identity, demographics, intent or legal inference.'}))
                 self.last_object_request=timestamps[-1]
             from apps.api.config import settings

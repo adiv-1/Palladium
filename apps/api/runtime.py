@@ -125,7 +125,7 @@ class VideoSession:
         self.buffer.append(frame); self.count+=1
         image=await asyncio.to_thread(decode,frame.jpeg)
         self.latest=frame.jpeg;self.latest_frame=frame
-        lighting=self.light.update(image)
+        lighting=await asyncio.to_thread(self.light.update,image)
         if frame.timestamp-self.last_sample>=1/settings.sample_fps:
             self.last_sample=frame.timestamp
             if settings.streaming_model=='fixture':
