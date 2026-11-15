@@ -1,4 +1,4 @@
-const tabs = new Set(['live', 'response', 'ambassadors', 'routes', 'incidents', 'activity', 'learning', 'controls']);
+const tabs = new Set(['live', 'response', 'ambassadors', 'routes', 'incidents', 'activity', 'learning', 'pipeline', 'controls']);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Keep existing #incident=UUID, #activity and #learning links working after login.

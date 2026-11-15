@@ -20,6 +20,7 @@ import {responseRequested} from './responseState.mjs';
 const LearningRepository=React.lazy(()=>import('./LearningRepository'));
 const ActivityMap=React.lazy(()=>import('./ActivityMap'));
 const IncidentResponse=React.lazy(()=>import('./IncidentResponse'));
+const LearningPipeline=React.lazy(()=>import('./LearningPipeline'));
 
 type AnyRecord=Record<string,any>;
 async function api(path:string,options:RequestInit={}){
@@ -99,7 +100,7 @@ function App(){
   const [authed,setAuthed]=useState(false),[token,setToken]=useState(''),[sources,setSources]=useState<AnyRecord[]>([]),[incidents,setIncidents]=useState<AnyRecord[]>([]),[health,setHealth]=useState<AnyRecord>({}),[selected,setSelected]=useState<string|null>(incidentFromLocation),[pair,setPair]=useState(''),[error,setError]=useState(''),[uploading,setUploading]=useState(false),[connected,setConnected]=useState(false),[tab,setTab]=useState<WorkspaceTab>(()=>readNavigation(location.hash).tab);
   const refresh=async()=>{const revision=sourceRevision.current,incidentVersion=incidentRevision.current;try{const [s,i,h]=await Promise.all([api('/sources'),api('/incidents'),api('/health')]);i.forEach((incident:AnyRecord)=>seenIncidents.current.add(incident.id));setSources(old=>revision===sourceRevision.current?s:[...old,...s.filter((source:AnyRecord)=>!old.some(item=>item.id===source.id))]);if(incidentVersion===incidentRevision.current)setIncidents(i);setHealth(h);setAuthed(true)}catch(e:any){if(e.status===401)setAuthed(false);else setConnected(false)}};
   useEffect(()=>{refresh()},[]);
-  const {setCampus,setResponseIncident,setResponseRuns}=useWorkspaceState();
+  const {setCampus,setResponseIncident,setResponseRuns,setLearningIncident,setLearningDemos}=useWorkspaceState();
   function navigate(next:WorkspaceTab){
     setTab(next);setSelected(null);window.scrollTo({top:0,behavior:'auto'});
     if(next==='ambassadors'||next==='routes')setCampus(old=>({...old,mode:next==='ambassadors'?'posts':['routes','posts'].includes(old.mode)?old.mode:'routes'}));
@@ -107,6 +108,7 @@ function App(){
     history.pushState(null,'',location.pathname+location.search+navigationHash(next));
   }
   function openResponse(incident:AnyRecord,simulate=false){applyIncident(incident);setResponseIncident(incident.id);if(simulate&&responseRequested(incident))setResponseRuns(old=>({...old,[incident.id]:'notified'}));navigate('response');}
+  function openLearning(incident:AnyRecord){applyIncident(incident);setLearningIncident(incident.id);setLearningDemos(old=>old[incident.id]?old:{...old,[incident.id]:{elapsed:0,playing:true,selectedRole:null}});navigate('pipeline');}
   function openIncident(id:string){setSelected(id);setTab('incidents');window.scrollTo({top:0,behavior:'auto'});history.pushState(null,'',location.pathname+location.search+navigationHash('incidents',id));}
   useEffect(()=>{const sync=()=>{const next=readNavigation(location.hash);setSelected(next.incident);setTab(next.tab);if(next.tab==='ambassadors'||next.tab==='routes')setCampus(old=>({...old,mode:next.tab==='ambassadors'?'posts':['routes','posts'].includes(old.mode)?old.mode:'routes'}));};window.addEventListener('hashchange',sync);window.addEventListener('popstate',sync);return()=>{window.removeEventListener('hashchange',sync);window.removeEventListener('popstate',sync)}},[setCampus]);
   useEffect(()=>{if(!authed)return;let ws:WebSocket;let retry:number;let stopped=false;
@@ -131,8 +133,8 @@ function App(){
   const source=sources.find(s=>['streaming','processing','warming','waiting_for_gpu'].includes(s.status))||sources[0];
   const pending=incidents.filter(i=>['pending','needs_review'].includes(i.review_status));
   const sourceBusy=sources.some(s=>['streaming','processing','warming','waiting_for_gpu'].includes(s.status));
-  const names:Record<WorkspaceTab,string>={live:'Real-time analysis',response:'Incident response',ambassadors:'Get Somewhere',routes:'Get Somewhere',incidents:'Incidents',activity:'Campus outlook',learning:'Learning',controls:'Controls'};
-  const primary:[WorkspaceTab,string][]=[['live','Real-time analysis'],['response','Incident response'],['routes','Get Somewhere']];
+  const names:Record<WorkspaceTab,string>={live:'Real-time analysis',response:'Incident response',ambassadors:'Get Somewhere',routes:'Get Somewhere',incidents:'Incidents',activity:'Campus outlook',pipeline:'Learning pipeline',learning:'Learning repository',controls:'Controls'};
+  const primary:[WorkspaceTab,string][]=[['live','Real-time analysis'],['response','Incident response'],['routes','Get Somewhere'],['pipeline','Learning pipeline']];
   return <div className="app-shell">
     <header className="app-header"><a className="brand" href="#live" onClick={e=>{e.preventDefault();navigate('live')}}><Logo size={38}/><strong>Palladium</strong></a>
       <nav className="primary-nav" aria-label="Solutions">{primary.map(([id,label],i)=><a key={id} href={navigationHash(id)} aria-current={!selected&&(tab===id||id==='routes'&&tab==='ambassadors')?'page':undefined} className={!selected&&(tab===id||id==='routes'&&tab==='ambassadors')?'selected':''} onClick={e=>{e.preventDefault();navigate(id)}}><span className="nav-number">0{i+1}</span>{label}</a>)}</nav>
@@ -145,7 +147,8 @@ function App(){
       {health.simulated&&<div className="simulation">Simulated development mode · fixture alerts are not real model results.</div>}
       {reviewAlert&&<div className="review-notification" role="status"><AlertTriangle size={20}/><div><strong>{reviewAlert.record?.trigger_origin==='reviewer'?'Marked moment saved':'Possible incident · review required'}</strong><p>Original footage and context are ready for a closer look.</p></div><button onClick={()=>{openIncident(reviewAlert.id);setReviewAlert(null)}}>Review footage <ArrowUpRight size={15}/></button><button className="text-button" aria-label="Dismiss notification" onClick={()=>setReviewAlert(null)}><X size={16}/></button></div>}
       <React.Suspense fallback={<section className="panel unavailable" role="status">Loading workspace…</section>}>
-        {selected?<ReviewPage id={selected} onResponse={openResponse} onBack={()=>navigate('incidents')} onChange={applyIncident} onDeleted={incident=>{applyIncident(incident);navigate('incidents')}}/>:
+        {selected?<ReviewPage id={selected} onLearning={openLearning} onResponse={openResponse} onBack={()=>navigate('incidents')} onChange={applyIncident} onDeleted={incident=>{applyIncident(incident);navigate('incidents')}}/>:
+          tab==='pipeline'?<LearningPipeline incidents={incidents} onOpen={openIncident} onRepository={()=>navigate('learning')}/>:
           tab==='learning'?<LearningRepository onReturnToLive={()=>navigate('live')}/>:
           tab==='response'?<IncidentResponse incidents={incidents} sources={sources} onOpen={openIncident} onChange={applyIncident}/>:
           ['activity','ambassadors','routes'].includes(tab)?<ActivityMap mode={tab==='ambassadors'?'posts':undefined} planningOnly={tab!=='activity'} onModeChange={mode=>{if(mode==='posts'||mode==='routes')navigate('routes')}}/>:

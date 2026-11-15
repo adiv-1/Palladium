@@ -14,6 +14,7 @@ export type ResponseDemo = {
   staging: Place | null; phase: 'idle' | 'en_route' | 'awaiting' | 'on_scene';
   startedAt?: number; path?: Point[];
 };
+export type LearningDemo = {elapsed:number;playing:boolean;selectedRole:string|null};
 export function losAngelesParts(date = new Date()) {
   return Object.fromEntries(new Intl.DateTimeFormat('en-CA', {timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'}).formatToParts(date).map(p => [p.type, p.value]));
 }
@@ -34,6 +35,8 @@ type State = {
   demos: Record<string, ResponseDemo>; setDemos: Dispatch<SetStateAction<Record<string, ResponseDemo>>>;
   responseIncident: string|null; setResponseIncident: Dispatch<SetStateAction<string|null>>;
   responseRuns: Record<string,'notified'|'on_scene'>; setResponseRuns: Dispatch<SetStateAction<Record<string,'notified'|'on_scene'>>>;
+  learningIncident:string|null;setLearningIncident:Dispatch<SetStateAction<string|null>>;
+  learningDemos:Record<string,LearningDemo>;setLearningDemos:Dispatch<SetStateAction<Record<string,LearningDemo>>>;
 };
 const Context = createContext<State | null>(null);
 export function WorkspaceStateProvider({children}: {children: ReactNode}) {
@@ -42,7 +45,9 @@ export function WorkspaceStateProvider({children}: {children: ReactNode}) {
   const [demos, setDemos] = useState<Record<string, ResponseDemo>>({});
   const [responseIncident,setResponseIncident]=useState<string|null>(null);
   const [responseRuns,setResponseRuns]=useState<Record<string,'notified'|'on_scene'>>({});
-  return <Context.Provider value={{campus, setCampus, demos, setDemos,responseIncident,setResponseIncident,responseRuns,setResponseRuns}}>{children}</Context.Provider>;
+  const [learningIncident,setLearningIncident]=useState<string|null>(null);
+  const [learningDemos,setLearningDemos]=useState<Record<string,LearningDemo>>({});
+  return <Context.Provider value={{campus, setCampus, demos, setDemos,responseIncident,setResponseIncident,responseRuns,setResponseRuns,learningIncident,setLearningIncident,learningDemos,setLearningDemos}}>{children}</Context.Provider>;
 }
 export function useWorkspaceState() {
   const value = useContext(Context);

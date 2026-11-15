@@ -6,7 +6,7 @@ at `2162cf7`. The gateway still serves one frontend and the existing FastAPI API
 This UI migration does not change the inference pipeline, live model selection,
 incident database, archive, retention, or training policy.
 
-## Three demo tabs
+## Workspace tabs
 
 1. **Real-time analysis:** the live monitor appears first, followed by saved videos
    pending human review. **Pair phone camera**, arbitrary video uploads,
@@ -29,6 +29,17 @@ incident database, archive, retention, or training policy.
    retain 1–8-person scenarios, 400 m network coverage, marginal contributions and
    reasoning. Both presentations use the existing public-data analysis. These
    indices describe report activity, not a probability of personal harm.
+
+4. **Learning pipeline:** a separate tab for confirmed events, with an agent-role
+   timeline, a connected architecture diagram, and an output preview. These roles
+   map to the existing Python training workers and human gates. Playback is
+   explicitly simulated, runs in browser memory, pauses when hidden or unmounted,
+   and respects reduced motion. It makes no training or publication requests.
+   Confirmation opens the walkthrough but does not establish training permission.
+   Hugging Face shows the real publisher's adapter-only allowlist, immutable version
+   path, commit/tag/hash policy and excluded footage. Real learning controls remain
+   in **More → Learning repository**. MOSS is not retrained; Qwen LoRA is the adapter
+   path, with separate evaluation and manual activation.
 
 The primary tabs remain available while scrolling. **Incidents** is the video
 review queue. The **More** menu contains campus exploration/history, learning,
@@ -75,7 +86,7 @@ database, not in a filename/ID-based frontend rule. Unknown recordings stay unkn
 Only human `needs_review` / `confirmed` classifications enter the response queue.
 A model-triggered saved incident can glow red while it awaits that classification;
 manual bookmarks and ordinary activity do not acquire an automatic model flag.
-The four demonstration positions are nearby real connected-network vertices,
+The four demonstration positions are real connected-network vertices 600–1,500 m from the event,
 labeled as illustrative ambassador/DPS positions, without representing tracked
 people. Selecting **Needs review** starts the local illustration when a usable
 location and four positions exist. Missing data disables it. **Mark demo on scene**

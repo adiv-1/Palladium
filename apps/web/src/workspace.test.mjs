@@ -7,8 +7,8 @@ import {readNavigation,navigationHash} from './workspaceNavigation.mjs';
 import {campusModel,demoTransition,incidentLocation,pointAlongPath,responseRoute} from './campusModel.mjs';
 import {makeNetwork,routes} from './activityRouting.mjs';
 
-test('the three solution tabs and legacy deep links resolve without losing the selected incident',()=>{
-  for(const tab of ['live','response','ambassadors','routes','activity','learning','incidents','controls']) assert.deepEqual(readNavigation(navigationHash(tab)),{tab,incident:null});
+test('the solution and pipeline tabs and legacy deep links resolve without losing the selected incident',()=>{
+  for(const tab of ['live','response','ambassadors','routes','activity','learning','pipeline','incidents','controls']) assert.deepEqual(readNavigation(navigationHash(tab)),{tab,incident:null});
   const id='12a85670-1742-4f12-8473-052970225611';
   assert.deepEqual(readNavigation('#incident='+id),{tab:'incidents',incident:id});
   assert.equal(readNavigation('#incident=../../elsewhere').incident,null);

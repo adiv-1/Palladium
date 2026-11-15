@@ -5,6 +5,7 @@ A review and planning layer for USC’s existing cameras, incident records and c
 - **Real-time analysis:** phone camera pairing or video upload, AI observations, and preserved clips for human review.
 - **Incident response:** event locations, recent public reports, and a simulated four-responder notification flow.
 - **Get Somewhere:** departure-time walking routes and ambassador positioning, with reasoning for each recommendation.
+- **Learning pipeline:** a labeled workflow demo from confirmed event through Qwen LoRA evaluation and private Hugging Face publication.
 
 [Working prototype](https://xhogd16ggxiijr-8000.proxy.runpod.net/#live) · Workspace access token required.
 

@@ -45,8 +45,15 @@ test('four demo responders use actual connected-network points, never actual off
   const point=[-118.2904,34.02145],units=demoResponders(bundle,point);
   assert.equal(units.length,4);assert.equal(new Set(units.map(u=>u.point.join(','))).size,4);
   const nodes=new Set(bundle.graph.largest_component.map(i=>bundle.graph.nodes[i].join(',')));
-  for(const unit of units){assert.equal(nodes.has(unit.point.join(',')),true);assert.match(unit.name,/Demo/);assert.ok(unit.distance>=100&&unit.distance<=500)}
-  for(const [i,unit] of units.entries())for(const other of units.slice(i+1))assert.ok(Math.hypot((unit.point[0]-other.point[0])*92300,(unit.point[1]-other.point[1])*111320)>=75);
+  for(const unit of units){assert.equal(nodes.has(unit.point.join(',')),true);assert.match(unit.name,/Demo/);assert.ok(unit.distance>=600&&unit.distance<=1500)}
+  for(const [i,unit] of units.entries())for(const other of units.slice(i+1))assert.ok(Math.hypot((unit.point[0]-other.point[0])*92300,(unit.point[1]-other.point[1])*111320)>=350);
   assert.deepEqual(demoResponders(bundle,point),units);
   assert.deepEqual(demoResponders(bundle,[-120,35]),[]);
+});
+
+test('the wider response area also supports public landmarks at the middle and north of the zone',()=>{
+  for(const point of [[-118.2847,34.0258],[-118.2915,34.0399]]){
+    const units=demoResponders(bundle,point);assert.equal(units.length,4);
+    for(const unit of units)assert.ok(unit.distance>=600&&unit.distance<=1500);
+  }
 });
