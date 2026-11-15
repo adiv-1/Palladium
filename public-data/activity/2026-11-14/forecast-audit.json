@@ -1,0 +1,1264 @@
+{
+  "kind": "descriptive forecasting readiness audit; no fitted predictions",
+  "database_sha256": "ca9812ec8a198d72eaa4645cc3ef6988fccdbdfd8f27a7a8d93f0c604ea9b0ec",
+  "matches_metadata_hash": true,
+  "snapshot_downloaded_at": "2026-11-14T09:26:30.999771+00:00",
+  "all_history": {
+    "reports": 75686,
+    "distinct_coordinates": 1637,
+    "systems": {
+      "Legacy": 64809,
+      "NIBRS": 10877
+    },
+    "categories": {
+      "Sexual offense": 1982,
+      "Vehicle-related report": 15022,
+      "Theft or burglary": 21438,
+      "Other reported activity": 9602,
+      "Assault or threat": 16895,
+      "Property damage": 6525,
+      "Robbery": 3647,
+      "Fraud or forgery": 476,
+      "Homicide": 99
+    },
+    "hour_counts": {
+      "0": 3148,
+      "1": 2172,
+      "2": 1814,
+      "3": 1394,
+      "4": 1083,
+      "5": 1099,
+      "6": 1604,
+      "7": 2047,
+      "8": 2931,
+      "9": 2857,
+      "10": 3299,
+      "11": 3315,
+      "12": 5105,
+      "13": 3779,
+      "14": 4024,
+      "15": 4160,
+      "16": 4140,
+      "17": 4366,
+      "18": 4532,
+      "19": 4015,
+      "20": 4084,
+      "21": 3785,
+      "22": 3714,
+      "23": 3219
+    },
+    "weekday_counts_monday_zero": {
+      "0": 10519,
+      "1": 10478,
+      "2": 10648,
+      "3": 10638,
+      "4": 11725,
+      "5": 11512,
+      "6": 10166
+    },
+    "missing_time": 0,
+    "midnight_or_0001": 1420,
+    "on_the_hour": 30939,
+    "missing_reported_date": 210,
+    "report_delay_days_percentiles": {
+      "50": 0,
+      "90": 9,
+      "95": 30,
+      "99": 366
+    },
+    "reported_after_30_days": 3730,
+    "multiple_offense_labels": 875,
+    "identity_theft_in_theft_burglary_bucket": 2593
+  },
+  "ten_year_window": {
+    "start": "2016-11-01",
+    "end": "2026-10-31",
+    "calendar_days": 3652,
+    "reports": 48403,
+    "distinct_coordinates": 1533,
+    "systems": {
+      "Legacy": 37535,
+      "NIBRS": 10868
+    },
+    "categories": {
+      "Vehicle-related report": 9698,
+      "Assault or threat": 10695,
+      "Sexual offense": 1227,
+      "Theft or burglary": 12985,
+      "Other reported activity": 7261,
+      "Robbery": 2134,
+      "Property damage": 4184,
+      "Fraud or forgery": 154,
+      "Homicide": 65
+    },
+    "hour_counts": {
+      "0": 2024,
+      "1": 1297,
+      "2": 1118,
+      "3": 872,
+      "4": 721,
+      "5": 789,
+      "6": 1155,
+      "7": 1322,
+      "8": 1830,
+      "9": 1845,
+      "10": 2110,
+      "11": 2155,
+      "12": 3098,
+      "13": 2500,
+      "14": 2690,
+      "15": 2668,
+      "16": 2649,
+      "17": 2798,
+      "18": 2915,
+      "19": 2583,
+      "20": 2570,
+      "21": 2398,
+      "22": 2313,
+      "23": 1983
+    },
+    "weekday_counts_monday_zero": {
+      "0": 6656,
+      "1": 6703,
+      "2": 6972,
+      "3": 6854,
+      "4": 7481,
+      "5": 7248,
+      "6": 6489
+    },
+    "missing_time": 0,
+    "midnight_or_0001": 963,
+    "on_the_hour": 18718,
+    "missing_reported_date": 210,
+    "report_delay_days_percentiles": {
+      "50": 0,
+      "90": 8,
+      "95": 27,
+      "99": 273
+    },
+    "reported_after_30_days": 2158,
+    "multiple_offense_labels": 875,
+    "identity_theft_in_theft_burglary_bucket": 1518,
+    "weekday_observation_days": {
+      "1": 522,
+      "2": 522,
+      "3": 522,
+      "4": 522,
+      "5": 522,
+      "6": 521,
+      "0": 521
+    }
+  },
+  "last_365_days": {
+    "start": "2025-11-01",
+    "end": "2026-10-31",
+    "reports": 5265,
+    "distinct_coordinates": 629,
+    "systems": {
+      "NIBRS": 5265
+    },
+    "categories": {
+      "Assault or threat": 999,
+      "Other reported activity": 1107,
+      "Theft or burglary": 1858,
+      "Vehicle-related report": 519,
+      "Property damage": 504,
+      "Robbery": 164,
+      "Sexual offense": 93,
+      "Homicide": 14,
+      "Fraud or forgery": 7
+    },
+    "hour_counts": {
+      "0": 236,
+      "1": 162,
+      "2": 112,
+      "3": 96,
+      "4": 78,
+      "5": 95,
+      "6": 250,
+      "7": 151,
+      "8": 161,
+      "9": 197,
+      "10": 223,
+      "11": 197,
+      "12": 277,
+      "13": 298,
+      "14": 393,
+      "15": 295,
+      "16": 272,
+      "17": 291,
+      "18": 313,
+      "19": 267,
+      "20": 258,
+      "21": 237,
+      "22": 209,
+      "23": 197
+    },
+    "weekday_counts_monday_zero": {
+      "0": 742,
+      "1": 730,
+      "2": 765,
+      "3": 758,
+      "4": 762,
+      "5": 773,
+      "6": 735
+    },
+    "missing_time": 0,
+    "midnight_or_0001": 140,
+    "on_the_hour": 1766,
+    "missing_reported_date": 93,
+    "report_delay_days_percentiles": {
+      "50": 0,
+      "90": 5,
+      "95": 14,
+      "99": 63
+    },
+    "reported_after_30_days": 120,
+    "multiple_offense_labels": 397,
+    "identity_theft_in_theft_burglary_bucket": 74,
+    "daily_mean": 14.424657534246576,
+    "daily_sample_variance": 20.00323648953786
+  },
+  "recent_0600_to_0700": {
+    "reports": 250,
+    "reports_with_rail_transit_trespass_label": 76
+  },
+  "by_system": {
+    "Legacy": {
+      "reports": 64809,
+      "distinct_coordinates": 1457,
+      "systems": {
+        "Legacy": 64809
+      },
+      "categories": {
+        "Sexual offense": 1760,
+        "Vehicle-related report": 13982,
+        "Theft or burglary": 17812,
+        "Other reported activity": 7619,
+        "Assault or threat": 14538,
+        "Property damage": 5402,
+        "Robbery": 3180,
+        "Fraud or forgery": 441,
+        "Homicide": 75
+      },
+      "hour_counts": {
+        "0": 2624,
+        "1": 1869,
+        "2": 1568,
+        "3": 1184,
+        "4": 906,
+        "5": 901,
+        "6": 1213,
+        "7": 1748,
+        "8": 2570,
+        "9": 2466,
+        "10": 2854,
+        "11": 2864,
+        "12": 4541,
+        "13": 3169,
+        "14": 3287,
+        "15": 3586,
+        "16": 3540,
+        "17": 3751,
+        "18": 3901,
+        "19": 3444,
+        "20": 3521,
+        "21": 3281,
+        "22": 3231,
+        "23": 2790
+      },
+      "weekday_counts_monday_zero": {
+        "0": 8994,
+        "1": 8932,
+        "2": 9119,
+        "3": 9101,
+        "4": 10070,
+        "5": 9893,
+        "6": 8700
+      },
+      "missing_time": 0,
+      "midnight_or_0001": 1112,
+      "on_the_hour": 27179,
+      "missing_reported_date": 0,
+      "report_delay_days_percentiles": {
+        "50": 0,
+        "90": 9,
+        "95": 31,
+        "99": 366
+      },
+      "reported_after_30_days": 3277,
+      "multiple_offense_labels": 0,
+      "identity_theft_in_theft_burglary_bucket": 2400
+    },
+    "NIBRS": {
+      "reports": 10877,
+      "distinct_coordinates": 726,
+      "systems": {
+        "NIBRS": 10877
+      },
+      "categories": {
+        "Sexual offense": 222,
+        "Vehicle-related report": 1040,
+        "Theft or burglary": 3626,
+        "Other reported activity": 1983,
+        "Assault or threat": 2357,
+        "Robbery": 467,
+        "Property damage": 1123,
+        "Homicide": 24,
+        "Fraud or forgery": 35
+      },
+      "hour_counts": {
+        "0": 524,
+        "1": 303,
+        "2": 246,
+        "3": 210,
+        "4": 177,
+        "5": 198,
+        "6": 391,
+        "7": 299,
+        "8": 361,
+        "9": 391,
+        "10": 445,
+        "11": 451,
+        "12": 564,
+        "13": 610,
+        "14": 737,
+        "15": 574,
+        "16": 600,
+        "17": 615,
+        "18": 631,
+        "19": 571,
+        "20": 563,
+        "21": 504,
+        "22": 483,
+        "23": 429
+      },
+      "weekday_counts_monday_zero": {
+        "0": 1525,
+        "1": 1546,
+        "2": 1529,
+        "3": 1537,
+        "4": 1655,
+        "5": 1619,
+        "6": 1466
+      },
+      "missing_time": 0,
+      "midnight_or_0001": 308,
+      "on_the_hour": 3760,
+      "missing_reported_date": 210,
+      "report_delay_days_percentiles": {
+        "50": 0,
+        "90": 6,
+        "95": 24,
+        "99": 366
+      },
+      "reported_after_30_days": 453,
+      "multiple_offense_labels": 875,
+      "identity_theft_in_theft_burglary_bucket": 193
+    }
+  },
+  "monthly_counts_by_system": [
+    {
+      "month": "2016-11",
+      "system": "Legacy",
+      "reports": 417
+    },
+    {
+      "month": "2016-12",
+      "system": "Legacy",
+      "reports": 338
+    },
+    {
+      "month": "2017-01",
+      "system": "Legacy",
+      "reports": 345
+    },
+    {
+      "month": "2017-02",
+      "system": "Legacy",
+      "reports": 353
+    },
+    {
+      "month": "2017-03",
+      "system": "Legacy",
+      "reports": 349
+    },
+    {
+      "month": "2017-04",
+      "system": "Legacy",
+      "reports": 381
+    },
+    {
+      "month": "2017-05",
+      "system": "Legacy",
+      "reports": 394
+    },
+    {
+      "month": "2017-06",
+      "system": "Legacy",
+      "reports": 352
+    },
+    {
+      "month": "2017-07",
+      "system": "Legacy",
+      "reports": 381
+    },
+    {
+      "month": "2017-08",
+      "system": "Legacy",
+      "reports": 417
+    },
+    {
+      "month": "2017-09",
+      "system": "Legacy",
+      "reports": 455
+    },
+    {
+      "month": "2017-10",
+      "system": "Legacy",
+      "reports": 439
+    },
+    {
+      "month": "2017-10",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2017-11",
+      "system": "Legacy",
+      "reports": 438
+    },
+    {
+      "month": "2017-12",
+      "system": "Legacy",
+      "reports": 351
+    },
+    {
+      "month": "2018-01",
+      "system": "Legacy",
+      "reports": 378
+    },
+    {
+      "month": "2018-01",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2018-02",
+      "system": "Legacy",
+      "reports": 381
+    },
+    {
+      "month": "2018-03",
+      "system": "Legacy",
+      "reports": 367
+    },
+    {
+      "month": "2018-04",
+      "system": "Legacy",
+      "reports": 379
+    },
+    {
+      "month": "2018-05",
+      "system": "Legacy",
+      "reports": 340
+    },
+    {
+      "month": "2018-06",
+      "system": "Legacy",
+      "reports": 354
+    },
+    {
+      "month": "2018-07",
+      "system": "Legacy",
+      "reports": 370
+    },
+    {
+      "month": "2018-08",
+      "system": "Legacy",
+      "reports": 401
+    },
+    {
+      "month": "2018-09",
+      "system": "Legacy",
+      "reports": 389
+    },
+    {
+      "month": "2018-10",
+      "system": "Legacy",
+      "reports": 430
+    },
+    {
+      "month": "2018-10",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2018-11",
+      "system": "Legacy",
+      "reports": 458
+    },
+    {
+      "month": "2018-12",
+      "system": "Legacy",
+      "reports": 387
+    },
+    {
+      "month": "2019-01",
+      "system": "Legacy",
+      "reports": 384
+    },
+    {
+      "month": "2019-01",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2019-02",
+      "system": "Legacy",
+      "reports": 360
+    },
+    {
+      "month": "2019-03",
+      "system": "Legacy",
+      "reports": 384
+    },
+    {
+      "month": "2019-03",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2019-04",
+      "system": "Legacy",
+      "reports": 350
+    },
+    {
+      "month": "2019-05",
+      "system": "Legacy",
+      "reports": 389
+    },
+    {
+      "month": "2019-05",
+      "system": "NIBRS",
+      "reports": 3
+    },
+    {
+      "month": "2019-06",
+      "system": "Legacy",
+      "reports": 362
+    },
+    {
+      "month": "2019-07",
+      "system": "Legacy",
+      "reports": 366
+    },
+    {
+      "month": "2019-07",
+      "system": "NIBRS",
+      "reports": 2
+    },
+    {
+      "month": "2019-08",
+      "system": "Legacy",
+      "reports": 387
+    },
+    {
+      "month": "2019-09",
+      "system": "Legacy",
+      "reports": 438
+    },
+    {
+      "month": "2019-10",
+      "system": "Legacy",
+      "reports": 468
+    },
+    {
+      "month": "2019-11",
+      "system": "Legacy",
+      "reports": 423
+    },
+    {
+      "month": "2019-12",
+      "system": "Legacy",
+      "reports": 400
+    },
+    {
+      "month": "2020-01",
+      "system": "Legacy",
+      "reports": 390
+    },
+    {
+      "month": "2020-01",
+      "system": "NIBRS",
+      "reports": 3
+    },
+    {
+      "month": "2020-02",
+      "system": "Legacy",
+      "reports": 381
+    },
+    {
+      "month": "2020-03",
+      "system": "Legacy",
+      "reports": 351
+    },
+    {
+      "month": "2020-03",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2020-04",
+      "system": "Legacy",
+      "reports": 255
+    },
+    {
+      "month": "2020-04",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2020-05",
+      "system": "Legacy",
+      "reports": 284
+    },
+    {
+      "month": "2020-06",
+      "system": "Legacy",
+      "reports": 337
+    },
+    {
+      "month": "2020-07",
+      "system": "Legacy",
+      "reports": 329
+    },
+    {
+      "month": "2020-08",
+      "system": "Legacy",
+      "reports": 323
+    },
+    {
+      "month": "2020-08",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2020-09",
+      "system": "Legacy",
+      "reports": 291
+    },
+    {
+      "month": "2020-10",
+      "system": "Legacy",
+      "reports": 332
+    },
+    {
+      "month": "2020-11",
+      "system": "Legacy",
+      "reports": 305
+    },
+    {
+      "month": "2020-12",
+      "system": "Legacy",
+      "reports": 256
+    },
+    {
+      "month": "2020-12",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2021-01",
+      "system": "Legacy",
+      "reports": 330
+    },
+    {
+      "month": "2021-01",
+      "system": "NIBRS",
+      "reports": 2
+    },
+    {
+      "month": "2021-02",
+      "system": "Legacy",
+      "reports": 287
+    },
+    {
+      "month": "2021-03",
+      "system": "Legacy",
+      "reports": 282
+    },
+    {
+      "month": "2021-03",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2021-04",
+      "system": "Legacy",
+      "reports": 329
+    },
+    {
+      "month": "2021-04",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2021-05",
+      "system": "Legacy",
+      "reports": 323
+    },
+    {
+      "month": "2021-05",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2021-06",
+      "system": "Legacy",
+      "reports": 312
+    },
+    {
+      "month": "2021-06",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2021-07",
+      "system": "Legacy",
+      "reports": 320
+    },
+    {
+      "month": "2021-07",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2021-08",
+      "system": "Legacy",
+      "reports": 406
+    },
+    {
+      "month": "2021-08",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2021-09",
+      "system": "Legacy",
+      "reports": 444
+    },
+    {
+      "month": "2021-10",
+      "system": "Legacy",
+      "reports": 422
+    },
+    {
+      "month": "2021-11",
+      "system": "Legacy",
+      "reports": 398
+    },
+    {
+      "month": "2021-11",
+      "system": "NIBRS",
+      "reports": 2
+    },
+    {
+      "month": "2021-12",
+      "system": "Legacy",
+      "reports": 367
+    },
+    {
+      "month": "2022-01",
+      "system": "Legacy",
+      "reports": 360
+    },
+    {
+      "month": "2022-01",
+      "system": "NIBRS",
+      "reports": 5
+    },
+    {
+      "month": "2022-02",
+      "system": "Legacy",
+      "reports": 434
+    },
+    {
+      "month": "2022-02",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2022-03",
+      "system": "Legacy",
+      "reports": 428
+    },
+    {
+      "month": "2022-03",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2022-04",
+      "system": "Legacy",
+      "reports": 458
+    },
+    {
+      "month": "2022-04",
+      "system": "NIBRS",
+      "reports": 2
+    },
+    {
+      "month": "2022-05",
+      "system": "Legacy",
+      "reports": 461
+    },
+    {
+      "month": "2022-06",
+      "system": "Legacy",
+      "reports": 447
+    },
+    {
+      "month": "2022-06",
+      "system": "NIBRS",
+      "reports": 4
+    },
+    {
+      "month": "2022-07",
+      "system": "Legacy",
+      "reports": 405
+    },
+    {
+      "month": "2022-07",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2022-08",
+      "system": "Legacy",
+      "reports": 481
+    },
+    {
+      "month": "2022-08",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2022-09",
+      "system": "Legacy",
+      "reports": 492
+    },
+    {
+      "month": "2022-09",
+      "system": "NIBRS",
+      "reports": 3
+    },
+    {
+      "month": "2022-10",
+      "system": "Legacy",
+      "reports": 560
+    },
+    {
+      "month": "2022-11",
+      "system": "Legacy",
+      "reports": 512
+    },
+    {
+      "month": "2022-12",
+      "system": "Legacy",
+      "reports": 453
+    },
+    {
+      "month": "2022-12",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2023-01",
+      "system": "Legacy",
+      "reports": 468
+    },
+    {
+      "month": "2023-01",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2023-02",
+      "system": "Legacy",
+      "reports": 486
+    },
+    {
+      "month": "2023-02",
+      "system": "NIBRS",
+      "reports": 3
+    },
+    {
+      "month": "2023-03",
+      "system": "Legacy",
+      "reports": 413
+    },
+    {
+      "month": "2023-03",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2023-04",
+      "system": "Legacy",
+      "reports": 464
+    },
+    {
+      "month": "2023-04",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2023-05",
+      "system": "Legacy",
+      "reports": 415
+    },
+    {
+      "month": "2023-06",
+      "system": "Legacy",
+      "reports": 331
+    },
+    {
+      "month": "2023-06",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2023-07",
+      "system": "Legacy",
+      "reports": 385
+    },
+    {
+      "month": "2023-07",
+      "system": "NIBRS",
+      "reports": 2
+    },
+    {
+      "month": "2023-08",
+      "system": "Legacy",
+      "reports": 626
+    },
+    {
+      "month": "2023-08",
+      "system": "NIBRS",
+      "reports": 5
+    },
+    {
+      "month": "2023-09",
+      "system": "Legacy",
+      "reports": 498
+    },
+    {
+      "month": "2023-09",
+      "system": "NIBRS",
+      "reports": 3
+    },
+    {
+      "month": "2023-10",
+      "system": "Legacy",
+      "reports": 486
+    },
+    {
+      "month": "2023-10",
+      "system": "NIBRS",
+      "reports": 2
+    },
+    {
+      "month": "2023-11",
+      "system": "Legacy",
+      "reports": 430
+    },
+    {
+      "month": "2023-11",
+      "system": "NIBRS",
+      "reports": 1
+    },
+    {
+      "month": "2023-12",
+      "system": "Legacy",
+      "reports": 383
+    },
+    {
+      "month": "2023-12",
+      "system": "NIBRS",
+      "reports": 2
+    },
+    {
+      "month": "2024-01",
+      "system": "Legacy",
+      "reports": 472
+    },
+    {
+      "month": "2024-01",
+      "system": "NIBRS",
+      "reports": 11
+    },
+    {
+      "month": "2024-02",
+      "system": "Legacy",
+      "reports": 455
+    },
+    {
+      "month": "2024-02",
+      "system": "NIBRS",
+      "reports": 4
+    },
+    {
+      "month": "2024-03",
+      "system": "Legacy",
+      "reports": 390
+    },
+    {
+      "month": "2024-03",
+      "system": "NIBRS",
+      "reports": 43
+    },
+    {
+      "month": "2024-04",
+      "system": "Legacy",
+      "reports": 383
+    },
+    {
+      "month": "2024-04",
+      "system": "NIBRS",
+      "reports": 64
+    },
+    {
+      "month": "2024-05",
+      "system": "Legacy",
+      "reports": 285
+    },
+    {
+      "month": "2024-05",
+      "system": "NIBRS",
+      "reports": 173
+    },
+    {
+      "month": "2024-06",
+      "system": "Legacy",
+      "reports": 302
+    },
+    {
+      "month": "2024-06",
+      "system": "NIBRS",
+      "reports": 176
+    },
+    {
+      "month": "2024-07",
+      "system": "Legacy",
+      "reports": 220
+    },
+    {
+      "month": "2024-07",
+      "system": "NIBRS",
+      "reports": 173
+    },
+    {
+      "month": "2024-08",
+      "system": "Legacy",
+      "reports": 295
+    },
+    {
+      "month": "2024-08",
+      "system": "NIBRS",
+      "reports": 202
+    },
+    {
+      "month": "2024-09",
+      "system": "Legacy",
+      "reports": 348
+    },
+    {
+      "month": "2024-09",
+      "system": "NIBRS",
+      "reports": 181
+    },
+    {
+      "month": "2024-10",
+      "system": "Legacy",
+      "reports": 296
+    },
+    {
+      "month": "2024-10",
+      "system": "NIBRS",
+      "reports": 212
+    },
+    {
+      "month": "2024-11",
+      "system": "Legacy",
+      "reports": 272
+    },
+    {
+      "month": "2024-11",
+      "system": "NIBRS",
+      "reports": 196
+    },
+    {
+      "month": "2024-12",
+      "system": "Legacy",
+      "reports": 132
+    },
+    {
+      "month": "2024-12",
+      "system": "NIBRS",
+      "reports": 184
+    },
+    {
+      "month": "2025-01",
+      "system": "NIBRS",
+      "reports": 326
+    },
+    {
+      "month": "2025-02",
+      "system": "NIBRS",
+      "reports": 375
+    },
+    {
+      "month": "2025-03",
+      "system": "NIBRS",
+      "reports": 368
+    },
+    {
+      "month": "2025-04",
+      "system": "NIBRS",
+      "reports": 391
+    },
+    {
+      "month": "2025-05",
+      "system": "NIBRS",
+      "reports": 403
+    },
+    {
+      "month": "2025-06",
+      "system": "NIBRS",
+      "reports": 357
+    },
+    {
+      "month": "2025-07",
+      "system": "NIBRS",
+      "reports": 343
+    },
+    {
+      "month": "2025-08",
+      "system": "NIBRS",
+      "reports": 399
+    },
+    {
+      "month": "2025-09",
+      "system": "NIBRS",
+      "reports": 476
+    },
+    {
+      "month": "2025-10",
+      "system": "NIBRS",
+      "reports": 478
+    },
+    {
+      "month": "2025-11",
+      "system": "NIBRS",
+      "reports": 442
+    },
+    {
+      "month": "2025-12",
+      "system": "NIBRS",
+      "reports": 393
+    },
+    {
+      "month": "2026-01",
+      "system": "NIBRS",
+      "reports": 477
+    },
+    {
+      "month": "2026-02",
+      "system": "NIBRS",
+      "reports": 398
+    },
+    {
+      "month": "2026-03",
+      "system": "NIBRS",
+      "reports": 470
+    },
+    {
+      "month": "2026-04",
+      "system": "NIBRS",
+      "reports": 537
+    },
+    {
+      "month": "2026-05",
+      "system": "NIBRS",
+      "reports": 417
+    },
+    {
+      "month": "2026-06",
+      "system": "NIBRS",
+      "reports": 355
+    },
+    {
+      "month": "2026-07",
+      "system": "NIBRS",
+      "reports": 371
+    },
+    {
+      "month": "2026-08",
+      "system": "NIBRS",
+      "reports": 453
+    },
+    {
+      "month": "2026-09",
+      "system": "NIBRS",
+      "reports": 525
+    },
+    {
+      "month": "2026-10",
+      "system": "NIBRS",
+      "reports": 427
+    }
+  ],
+  "existing_osm_extracts": {
+    "files": [
+      {
+        "file": "streets-east.osm",
+        "bytes": 1161607
+      },
+      {
+        "file": "streets-north.osm",
+        "bytes": 4526205
+      },
+      {
+        "file": "streets-south.osm",
+        "bytes": 5597862
+      }
+    ],
+    "unique_nodes": 32007,
+    "unique_ways": 4126,
+    "named_highway_ways": 337,
+    "highway_types": {
+      "tertiary": 23,
+      "unclassified": 15,
+      "pedestrian": 8,
+      "secondary": 83,
+      "service": 292,
+      "footway": 784,
+      "primary": 105,
+      "construction": 1,
+      "residential": 77,
+      "motorway": 47,
+      "motorway_link": 46,
+      "primary_link": 4,
+      "steps": 3
+    },
+    "note": "Boundary-building extracts; walking connectivity, access restrictions, and completeness are not validated."
+  },
+  "limitations": [
+    "Counts are grouped public reports, not personal harm probabilities or unique victims.",
+    "No street name or verified street-segment ID exists in the normalized incident schema.",
+    "Current display categories are substring rules, not a forecasting taxonomy; inspect every offense label.",
+    "A revised snapshot cannot recreate historical publication availability.",
+    "Whole-hour and midnight times require sensitivity analysis; rounding is not proof of an invalid time."
+  ]
+}

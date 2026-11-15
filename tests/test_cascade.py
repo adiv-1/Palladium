@@ -180,7 +180,8 @@ def test_parse_zones_validation():
 # -- detector, verifier gating and cost ------------------------------------------------------
 
 def frame(t, index):
-    return Frame(t, index, encode(np.full((48, 64, 3), 90, np.uint8)))
+    # Distinct pixels per frame: the review gate rejects windows whose cited frames are byte-identical.
+    return Frame(t, index, encode(np.full((48, 64, 3), 90 + index % 50, np.uint8)))
 
 
 async def drive(detector, frames):

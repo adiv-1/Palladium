@@ -7,7 +7,7 @@ from collections import deque
 from .config import settings
 from .db import Source, Incident, Job, ReviewAction, save, get
 from .schemas import Detection
-from .video import CircularBuffer, LightingGate, Frame, decode, encode, digest, read_video, write_clip
+from .video import CircularBuffer, LightingGate, Frame, decode, encode, digest, read_video, write_clip, select_evidence
 from ml.adapters import MossDetector, FixtureDetector, TemporalGate, ByteTracker, UnavailableModel, PERSON_CLASSES, PERSON_AND_BIKE_CLASSES
 from ml.cascade import CascadeDetector, PoseEstimator, RuleConfig, RuleGate, RulesEngine, parse_zones
 
@@ -36,13 +36,14 @@ pairings={}
 
 class VideoSession:
     def __init__(self,source):
-        self.source=source; self.buffer=CircularBuffer(settings.pre_event_seconds+settings.post_event_seconds+5)
+        self.source=source; self.buffer=CircularBuffer(settings.pre_event_seconds+max(settings.post_event_seconds,settings.object_post_event_seconds)+settings.max_inference_lag_seconds+5)
+        self.review_copies=source.telemetry.get('review_copies',True)
         # The cascade's rules already demand persistence over time, so it only needs evidence bounds.
         self.gate=RuleGate() if cascade_mode() else TemporalGate(settings.alert_confidence_threshold,settings.alert_cooldown_seconds,settings.alert_agreement_seconds)
         self.light=LightingGate(settings.dark_luminance_threshold,settings.light_luminance_threshold)
         self.detector=make_detector()
         self.tracking=settings.enable_tracking or cascade_mode()
-        self.pending=[]; self.latest=None; self.enhanced_latest=None; self.last_sample=-100
+        self.pending=[]; self.latest=None; self.latest_frame=None; self.enhanced_latest=None; self.last_sample=-100
         self.tracker=None; self.tracks=[]; self.error=None; self.count=0; self.started=time.monotonic()
         self.enhancer=None; self.enhanced={}; self.observations=[]; self.last_observation=None
         self.inference_task=None; self.inference_queue=asyncio.Queue(maxsize=1)
@@ -50,6 +51,19 @@ class VideoSession:
         self.inference_state='not_started'
         self.last_saved=0
         self.last_bookmark=-1e9
+        self.persistence_tasks=set();self.review_alert=None;self.chat_notes=[];self.last_chat_id=0
+        self.last_published=0;self.persistence_errors=[];self.review_alerts=[];self.previous_thumbnail=None
+    def set_alert(self,alert):
+        self.review_alert=alert
+        for n,item in enumerate(self.review_alerts):
+            if item['id']==alert['id']:self.review_alerts[n]=alert;break
+        else:self.review_alerts.append(alert);self.review_alerts=self.review_alerts[-10:]
+    def update_alert(self,notice_id,**changes):
+        for n,alert in enumerate(self.review_alerts):
+            if alert['id']==notice_id:
+                changed={**alert,**changes};self.review_alerts[n]=changed
+                if self.review_alert and self.review_alert['id']==notice_id:self.review_alert=changed
+                break
     def make_tracker(self):
         return ByteTracker(settings.sample_fps,PERSON_AND_BIKE_CLASSES if cascade_mode() else PERSON_CLASSES,settings.detector_weights)
     def bookmark(self):
@@ -101,8 +115,12 @@ class VideoSession:
                 sampled=Frame(frame.timestamp,frame.index,encode(output[-1])); self.enhanced_latest=sampled.jpeg
                 self.enhanced[frame.index]=sampled
             if settings.streaming_model=='onestreamer': raise UnavailableModel('OneStreamer checkpoint not configured')
-            evidence=self.buffer.window(max(0,frame.timestamp-4),frame.timestamp)
-            if len(evidence)>4:evidence=[evidence[round(i*(len(evidence)-1)/3)] for i in range(4)]
+            previous=getattr(self.detector,'last_verified',frame.timestamp-4)
+            coverage=min(10,max(4,frame.timestamp-max(0,previous)+1))
+            pool=self.buffer.window(max(0,frame.timestamp-coverage),frame.timestamp)
+            self.detector.evidence_pool=list(pool)
+            count=settings.verification_frame_count
+            evidence=select_evidence(pool,count)
             self.detector.evidence_frames=evidence
             self.inference_state='loading' if not getattr(self.detector,'ws',True) else 'observing'
             await self.detector.observe([sampled],[frame.timestamp],self.tracks)
@@ -131,15 +149,37 @@ class VideoSession:
             self.last_observation=detection.model_dump()
             self.observations.append(self.last_observation);self.observations=self.observations[-100:]
             event_end=max((event.timestamp_end for event in detection.observable_events),default=current_time)
+            if current_time-event_end>settings.max_inference_lag_seconds:
+                self.gate.last_reason='evidence_too_old';continue
             eligible=self.buffer.window(max(0,event_end-settings.pre_event_seconds),event_end)
+            from hashlib import sha256
+            visual_evidence={sha256(f.jpeg).digest() for f in eligible if f.index in detection.supporting_frames}
+            if not detection.simulated and detection.state in ['REVIEW_REQUIRED','HIGH_PRIORITY_REVIEW'] and len(visual_evidence)<2:
+                self.gate.last_reason='duplicate_visual_evidence';continue
             if self.gate.consider(detection,current_time,[f.index for f in eligible]):
                 # Center evidence on the observed event, not late model completion.
-                self.pending.append({'trigger':event_end,'detection':detection,
+                notice_id=secrets.token_hex(8)
+                post_seconds=max(settings.post_event_seconds,settings.object_post_event_seconds) if detection.action=='object_taking' else settings.post_event_seconds
+                self.set_alert({'id':notice_id,'status':'saving_context','timestamp':event_end,
+                    'received_stream_time':current_time,'action':detection.action,
+                    'confidence':detection.confidence,'threshold':settings.alert_confidence_threshold,
+                    'message':detection.observable_events[0].observation,'post_seconds':post_seconds,
+                    'label':'Possible incident — review required','origin':'temporal_review_gate',
+                    'evidence_rule':'Two corroborating original-frame sets; human review required'})
+                self.pending.append({'trigger':event_end,'detection':detection,'notice_id':notice_id,'post_seconds':post_seconds,
                     'output_audit':list(getattr(self.detector,'response_audit',[]))})
     async def push(self,frame):
-        self.buffer.append(frame); self.latest=frame.jpeg; self.count+=1
+        self.buffer.append(frame); self.count+=1
         image=await asyncio.to_thread(decode,frame.jpeg)
-        lighting=self.light.update(image)
+        import cv2
+        import numpy as np
+        thumbnail=cv2.resize(cv2.cvtColor(image,cv2.COLOR_BGR2GRAY),(96,54))
+        if self.previous_thumbnail is not None:
+            difference=cv2.absdiff(thumbnail,self.previous_thumbnail).ravel()
+            frame.motion=float(np.mean(np.partition(difference,-max(1,len(difference)//10))[-max(1,len(difference)//10):]))
+        self.previous_thumbnail=thumbnail
+        self.latest=frame.jpeg;self.latest_frame=frame
+        lighting=await asyncio.to_thread(self.light.update,image)
         if frame.timestamp-self.last_sample>=1/settings.sample_fps:
             self.last_sample=frame.timestamp
             if settings.streaming_model=='fixture':
@@ -151,17 +191,30 @@ class VideoSession:
                 self.inference_queue.put_nowait((frame,image,lighting))
         self.collect_detections(frame.timestamp)
         for candidate in list(self.pending):
-            if frame.timestamp>=candidate['trigger']+settings.post_event_seconds:
-                await self.persist(candidate,frame.timestamp)
+            if frame.timestamp>=candidate['trigger']+candidate.get('post_seconds',settings.post_event_seconds):
+                # Snapshot references now; CPU clip encoding must not stall phone ACKs.
+                frozen=self.buffer.window(max(0,candidate['trigger']-settings.pre_event_seconds),min(frame.timestamp,candidate['trigger']+candidate.get('post_seconds',settings.post_event_seconds)))
+                task=asyncio.create_task(self.persist_safely(candidate,frame.timestamp,frozen))
+                self.persistence_tasks.add(task);task.add_done_callback(self.persistence_tasks.discard)
                 self.pending.remove(candidate)
         keep={f.index for f in self.buffer.frames}
         self.enhanced={i:f for i,f in self.enhanced.items() if i in keep}
+        previous_chat_id=self.last_chat_id
+        for note in getattr(self.detector,'observer_notes',[]):
+            if note['id']>self.last_chat_id:
+                self.chat_notes.append({**note,'received_stream_time':frame.timestamp})
+                self.chat_notes=self.chat_notes[-30:];self.last_chat_id=note['id']
         self.source.status='streaming'
-        self.source.telemetry={'timestamp':frame.timestamp,'frame_count':self.count,'lighting':lighting,
+        self.source.telemetry={'review_copies':self.review_copies,'timestamp':frame.timestamp,'frame_count':self.count,'lighting':lighting,
             'frame_width':int(image.shape[1]),'frame_height':int(image.shape[0]),
             'buffer_seconds':frame.timestamp-self.buffer.frames[0].timestamp,'buffer_bytes':self.buffer.size,
             'model':settings.streaming_model,'model_status':'error' if self.error else ('waiting_for_gpu' if self.inference_state=='waiting_for_gpu' else getattr(self.detector,'phase',self.inference_state)),
             'error':self.error,'tracks':self.tracks,'pending_incidents':len(self.pending),
+            'moss_chat':self.chat_notes,'review_alert':self.review_alert,'review_alerts':self.review_alerts,
+            'alert_gate':{'threshold':settings.alert_confidence_threshold,'reason':self.gate.last_reason},
+            'verification_windows':list(getattr(self.detector,'verification_summaries',[])),
+            'recording_errors':self.persistence_errors,
+            'moss_objects':{k:v for k,v in (getattr(self.detector,'object_sample',None) or {}).items() if k!='jpeg'},
             'safety_state':self.last_observation['state'] if self.last_observation else 'AWAITING_ASSESSMENT',
             'last_observation':self.last_observation,'simulated':settings.streaming_model=='fixture',
             'visual_verifier':settings.observation_verifier_model,
@@ -173,25 +226,34 @@ class VideoSession:
             'cascade':self.detector.stats.snapshot(settings.sample_fps) if hasattr(self.detector,'stats') else None}
         if time.monotonic()-self.last_saved>=1 or self.count==1:
             await asyncio.to_thread(save,self.source);self.last_saved=time.monotonic()
-        await hub.publish('source',self.source.model_dump())
-    async def persist(self,candidate,end):
+        if time.monotonic()-self.last_published>=.4 or self.count==1 or self.last_chat_id!=previous_chat_id:
+            await hub.publish('source',self.source.model_dump());self.last_published=time.monotonic()
+    async def persist_safely(self,candidate,end,frames):
+        try:await self.persist(candidate,end,frames)
+        except Exception as error:
+            self.persistence_errors.append(str(error))
+            self.update_alert(candidate.get('notice_id'),status='failed',error=str(error))
+            await hub.publish('recording_error',{'source_id':self.source.id,'error':str(error)})
+    async def persist(self,candidate,end,frozen_frames=None):
         trigger=candidate['trigger']; d=candidate['detection']
-        frames=self.buffer.window(max(0,trigger-settings.pre_event_seconds),min(end,trigger+settings.post_event_seconds))
+        frames=frozen_frames if frozen_frames is not None else self.buffer.window(max(0,trigger-settings.pre_event_seconds),min(end,trigger+candidate.get('post_seconds',settings.post_event_seconds)))
         if not frames: return
         incident=Incident(source_id=self.source.id,start_time=frames[0].timestamp,end_time=frames[-1].timestamp,
             severity=d.state,confidence=d.confidence,simulated=d.simulated)
         folder=settings.data_dir/'incidents'/incident.id; folder.mkdir(parents=True)
         original=folder/'original.mp4'
+        enhanced=[self.enhanced[f.index] for f in frames if f.index in self.enhanced]
+        lighting_at_save=self.light.state
         await asyncio.to_thread(write_clip,frames,original)
         thumbnail=folder/'thumbnail.jpg'; thumbnail.write_bytes(frames[len(frames)//2].jpeg)
         source_hash=self.source.original_sha256
-        record={'observable_events':[x.model_dump() for x in d.observable_events], 'uncertainties':d.uncertainties,
+        record={'action':d.action,'observable_events':[x.model_dump() for x in d.observable_events], 'uncertainties':d.uncertainties,
             'incident_type':d.incident_type,'rule_evidence':d.rule_evidence,
             'supporting_frames':d.supporting_frames,'model':{'name':settings.streaming_model,'revision':settings.model_revision},
             'visual_verifier':settings.observation_verifier_model,
             'observation_model':{'name':'Qwen/Qwen3-VL-4B-Instruct','revision':getattr(getattr(self.detector,'verifier',None),'revision','unconfigured'),
                 'adapter_sha256':getattr(getattr(self.detector,'verifier',None),'adapter','') or None,'research_mode':settings.verifier_research_mode} if settings.observation_verifier_model=='qwen3vl' else {'name':settings.streaming_model,'revision':settings.model_revision},
-            'lighting_condition':self.light.state,'enhancement_used':bool(self.enhanced),
+            'lighting_condition':lighting_at_save,'enhancement_used':bool(enhanced),
             'original_sha256':await asyncio.to_thread(digest,original),'source_sha256':source_hash,
             'source_file':self.source.path,'files':{'original':'original.mp4','thumbnail':'thumbnail.jpg'},
             'simulated':d.simulated,'trigger_time':trigger,'clip_offset':frames[0].timestamp,
@@ -199,10 +261,14 @@ class VideoSession:
             'transforms':[{'operation':'incident extraction and H.264 encoding','source':'received camera JPEGs or decoded uploaded video',
                 'timestamps':'original stream seconds; clip starts at zero','original_upload_untouched':bool(source_hash)}],
             'prompt_version':'safesc-cascade-rules-v1' if cascade_mode() else 'safesc-observable-v2','analysis_only_transforms':['Source index/time margin and anonymous track boxes; not applied to stored originals'],
+            'moss_observations':[n for n in self.chat_notes if frames[0].timestamp-10<=n['received_stream_time']<=end],
+            'alert_gate':{'threshold':settings.alert_confidence_threshold,'rule':'two original-frame sets','score':d.confidence},
+            'sampling_policy':'Original context and motion transitions; motion only selects frames, never triggers incidents',
+            'review_copies_requested':self.review_copies,
+            'capture_window':{'pre_seconds':settings.pre_event_seconds,'post_seconds':candidate.get('post_seconds',settings.post_event_seconds)},
             'model_output_audit':candidate.get('output_audit',list(getattr(self.detector,'response_audit',[]))),
             'confidence_note':'Uncalibrated model score, not probability of harm',
             'inference_error':self.error,'frame_timestamps':[{'index':f.index,'timestamp':f.timestamp} for f in frames]}
-        enhanced=[self.enhanced[f.index] for f in frames if f.index in self.enhanced]
         if enhanced:
             await asyncio.to_thread(write_clip,enhanced,folder/'enhanced.mp4','AI-ENHANCED REVIEW COPY')
             record['files']['enhanced']='enhanced.mp4'
@@ -212,8 +278,9 @@ class VideoSession:
             incident.record={**incident.record,'confidence_note':'Human bookmark; no AI detection score is asserted'}
             await asyncio.to_thread(save,incident)
             await asyncio.to_thread(save,ReviewAction(incident_id=incident.id,decision='needs_review',note='Reviewer marked this moment from the source feed'))
-        for kind,enabled in [('relayvsr',settings.enable_relay_vsr),('relift',settings.enable_relift)]:
-            if enabled: await asyncio.to_thread(save,Job(incident_id=incident.id,kind=kind,priority=2 if kind=='relayvsr' else 3))
+        self.update_alert(candidate.get('notice_id'),status='saved',incident_id=incident.id)
+        for kind,enabled in [('review_brief',settings.enable_clip_review),('relayvsr',settings.enable_relay_vsr),('relift',settings.enable_relift)]:
+            if enabled and (kind=='review_brief' or self.review_copies): await asyncio.to_thread(save,Job(incident_id=incident.id,kind=kind,priority=0 if kind=='review_brief' else 2 if kind=='relayvsr' else 3))
         await hub.publish('incident',incident.model_dump())
     async def close(self):
         self.closing=True
@@ -227,7 +294,9 @@ class VideoSession:
         if self.buffer.frames:self.collect_detections(self.buffer.frames[-1].timestamp)
         for candidate in self.pending:
             if self.buffer.frames: await self.persist(candidate,self.buffer.frames[-1].timestamp)
-        self.pending.clear(); await self.detector.close()
+        self.pending.clear()
+        if self.persistence_tasks:await asyncio.gather(*list(self.persistence_tasks))
+        await self.detector.close()
         # Compatible realtime models stay warm; the idle job worker unloads them
         # before a heavy subprocess, and API shutdown releases them explicitly.
         self.enhancer=None; self.tracker=None
@@ -237,6 +306,10 @@ class VideoSession:
         self.source.status='failed' if self.error else 'completed'; await asyncio.to_thread(save,self.source)
         self.source.telemetry={**self.source.telemetry,'error':self.error,
             'model_status':'error' if self.error else 'completed','last_observation':self.last_observation,
+            'moss_chat':self.chat_notes,'review_alert':self.review_alert,'review_alerts':self.review_alerts,
+            'alert_gate':{'threshold':settings.alert_confidence_threshold,'reason':self.gate.last_reason},
+            'verification_windows':list(getattr(self.detector,'verification_summaries',[])),
+            'recording_errors':self.persistence_errors,
             'safety_state':self.last_observation['state'] if self.last_observation else 'AWAITING_ASSESSMENT',
             'inference_frames':self.inference_frames}
         await asyncio.to_thread(save,self.source)

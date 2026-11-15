@@ -116,3 +116,7 @@ Keys on Live: **D** stages an incident (the first is an altercation at Lyon Recr
 All colour comes from semantic tokens in `src/theme.css` (light and dark): soft grey canvas, large rounded cards, thin Urbanist type, a black "ink" pill for the active state, and red and yellow as light accents only. No stylesheet should hard-code a grey, white or hex colour; use the tokens (`--surface`, `--text`, `--muted`, `--tint-1..3`, `--red`, `--yellow`, ...).
 
 The round sun/moon button in the top bar switches the theme. The choice is saved in `localStorage` (`safesc-theme`); with no saved choice the app follows the system setting, except in the embedded reviewer-home frame, which starts light. The basemap (`src/mapStyle.ts`) and the deck.gl text colours follow the theme too.
+
+## Inside the reviewer site
+
+In hosted mode the reviewer web app (`apps/web`) lists this app's pages in its sidebar and shows each in an iframe: Command center (`/command/?embedded=1`), Trends (`#/trends`), Incidents (`#/incidents`) and How it works (`#/about`). Embedded frames hide their own top bar (`src/embedded.css`) because the sidebar provides navigation. Both apps use the same design tokens (`theme.css`, copied into `apps/web/src/`; keep the two copies in sync) and the same `safesc-theme` storage key, so the theme toggle in either one changes everything.

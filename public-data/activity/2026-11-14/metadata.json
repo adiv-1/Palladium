@@ -1,0 +1,182 @@
+{
+  "downloaded_at": "2026-11-14T09:26:30.999771+00:00",
+  "count": 75686,
+  "date_min": "2010-01-01",
+  "date_max": "2026-10-31",
+  "boundary": {
+    "type": "Feature",
+    "properties": {
+      "name": "USC UPC Lyft service area (published boundary approximation)",
+      "source_url": "https://transnet.usc.edu/index.php/how-to-use-lyft/",
+      "map_url": "https://transnet.usc.edu/wp-content/uploads/2024/01/UPC-Boundaries.pdf",
+      "verified_on": "2026-11-14",
+      "method": "Digitized street intersections from USC's published UPC map: Normandie, Washington (including its diagonal segment), Main, and Martin Luther King Jr. This is not an official machine-readable Lyft geofence.",
+      "historical_scope": "Current published area applied to all historical records; historical ride boundaries may differ.",
+      "ride_eligibility": "Check the Lyft app for actual coverage.",
+      "coordinate_reference": "Published USC map, aligned to OpenStreetMap street intersections retrieved 2026-11-14; \u00a9 OpenStreetMap contributors, ODbL."
+    },
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            -118.3001932,
+            34.010856
+          ],
+          [
+            -118.3008536,
+            34.0399708
+          ],
+          [
+            -118.2847627,
+            34.0400403
+          ],
+          [
+            -118.2647057,
+            34.0309941
+          ],
+          [
+            -118.274031,
+            34.0111326
+          ],
+          [
+            -118.3001932,
+            34.010856
+          ]
+        ]
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "63jg-8b9z",
+      "name": "Crime Data from 2010 to 2019",
+      "url": "https://data.lacity.org/d/63jg-8b9z",
+      "select": "dr_no,date_occ,date_rptd,time_occ,lat,lon,crm_cd,crm_cd_desc",
+      "where": "lat between 34.010656 and 34.0402403 AND lon between -118.3010536 and -118.26450569999999 AND date_occ >= \"2010-01-01T00:00:00\" AND date_occ < \"2026-11-14T23:59:59\"",
+      "downloaded_rows": 54595,
+      "pages": [
+        {
+          "file": "63jg-8b9z-eeef9ec209-0000000.json.gz",
+          "sha256": "e033eaff82822e54675fb54692ab9a615020d04c04fb6e766216ab7a4dde2bf4",
+          "rows": 10000
+        },
+        {
+          "file": "63jg-8b9z-eeef9ec209-0010000.json.gz",
+          "sha256": "b571509e801d675910761c5223e9b1ff4156811475b87098d728840da64452b9",
+          "rows": 10000
+        },
+        {
+          "file": "63jg-8b9z-eeef9ec209-0020000.json.gz",
+          "sha256": "93ec46df1423ddf61a0b6daf1d7caecb66e88d2c8e14ac63efab44702792b803",
+          "rows": 10000
+        },
+        {
+          "file": "63jg-8b9z-eeef9ec209-0030000.json.gz",
+          "sha256": "21bfc96d038820838a2a2719e6318ab30b887413b723af24d44c274065d43d34",
+          "rows": 10000
+        },
+        {
+          "file": "63jg-8b9z-eeef9ec209-0040000.json.gz",
+          "sha256": "fb0dd8ddae5daed4730a6ed939ca9968590a4818f90f2651667f661c6ce7cfd5",
+          "rows": 10000
+        },
+        {
+          "file": "63jg-8b9z-eeef9ec209-0050000.json.gz",
+          "sha256": "206a8657b52a53937ceb8e5a11aa995637bc4ef06ba1c9c982a37099bbdce14c",
+          "rows": 4595
+        }
+      ]
+    },
+    {
+      "id": "2nrs-mtv8",
+      "name": "Crime Data from 2020 to 2024",
+      "url": "https://data.lacity.org/d/2nrs-mtv8",
+      "select": "dr_no,date_occ,date_rptd,time_occ,lat,lon,crm_cd,crm_cd_desc",
+      "where": "lat between 34.010656 and 34.0402403 AND lon between -118.3010536 and -118.26450569999999 AND date_occ >= \"2010-01-01T00:00:00\" AND date_occ < \"2026-11-14T23:59:59\"",
+      "downloaded_rows": 28984,
+      "pages": [
+        {
+          "file": "2nrs-mtv8-eeef9ec209-0000000.json.gz",
+          "sha256": "98fc9d1848cc021fde29faff4d1f703d7ccc6738cc6aef9b439673ce578ce68f",
+          "rows": 10000
+        },
+        {
+          "file": "2nrs-mtv8-eeef9ec209-0010000.json.gz",
+          "sha256": "e4279a31ffa75d32d52e06fdac55f20489f4145c62d9613acdb2865bc7e5c9b6",
+          "rows": 10000
+        },
+        {
+          "file": "2nrs-mtv8-eeef9ec209-0020000.json.gz",
+          "sha256": "d16ec7cfc82bccbc4c73f67e5e5b3206dd36cf40fbc8c3ad0a1b90d623880b3c",
+          "rows": 8984
+        }
+      ]
+    },
+    {
+      "id": "k7nn-b2ep",
+      "name": "LAPD NIBRS Offenses Dataset",
+      "url": "https://data.lacity.org/d/k7nn-b2ep",
+      "select": "caseno,uniquenibrno,date_occ,date_rptd,time_occ,hndrdth_lat,hndrdth_lon,nibr_code,nibr_description",
+      "where": "hndrdth_lat between 34.010656 and 34.0402403 AND hndrdth_lon between -118.3010536 and -118.26450569999999 AND date_occ >= \"2010-01-01T00:00:00\" AND date_occ < \"2026-11-14T23:59:59\"",
+      "downloaded_rows": 15729,
+      "pages": [
+        {
+          "file": "k7nn-b2ep-4b986ae637-0000000.json.gz",
+          "sha256": "9d61a6ee50ae39769e0d784d68740f57a7b60911c5f9c19f0ed21ec7225a9949",
+          "rows": 10000
+        },
+        {
+          "file": "k7nn-b2ep-4b986ae637-0010000.json.gz",
+          "sha256": "62a9c6abeff654b5057266f3db9a88791dc6469e5f3e2524fb801aef48a50f97",
+          "rows": 5729
+        }
+      ]
+    }
+  ],
+  "quality": {
+    "outside_boundary": 22247,
+    "merged_same_case_rows": 1375
+  },
+  "sqlite_bytes": 21901312,
+  "categories": {
+    "Sexual offense": 1982,
+    "Vehicle-related report": 15022,
+    "Theft or burglary": 21438,
+    "Other reported activity": 9602,
+    "Assault or threat": 16895,
+    "Property damage": 6525,
+    "Robbery": 3647,
+    "Fraud or forgery": 476,
+    "Homicide": 99
+  },
+  "years": {
+    "2010": 4068,
+    "2011": 3896,
+    "2012": 4011,
+    "2013": 3823,
+    "2014": 3602,
+    "2015": 3974,
+    "2016": 4664,
+    "2017": 4656,
+    "2018": 4636,
+    "2019": 4718,
+    "2020": 3841,
+    "2021": 4230,
+    "2022": 5510,
+    "2023": 5407,
+    "2024": 5469,
+    "2025": 4751,
+    "2026": 4430
+  },
+  "notes": [
+    "Reported incidents, not verified findings or personal risk. Missing or unreported events are absent.",
+    "Locations are approximate, generally rounded to a hundred block; several reports can share one marker.",
+    "Occurrence times are as listed by the source and can be uncertain; midnight may reflect an estimated or unspecified time.",
+    "Current published UPC Lyft boundary is applied to every historical year; it is a digitized approximation, not a ride-eligibility guarantee.",
+    "Legacy and NIBRS reporting systems differ. NIBRS offenses are grouped by exact case number; matching legacy case numbers are merged. Other duplicates may remain.",
+    "This is a current data snapshot, not a historical as-of dataset. Report date is retained for later leakage-aware forecasting.",
+    "No forecasts or street safety ratings are displayed. No victim demographics or precise addresses were downloaded."
+  ],
+  "sqlite_sha256": "ca9812ec8a198d72eaa4645cc3ef6988fccdbdfd8f27a7a8d93f0c604ea9b0ec"
+}

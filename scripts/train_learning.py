@@ -13,10 +13,11 @@ def main():
     import torch
     from PIL import Image
     from transformers import AutoProcessor,Qwen3VLForConditionalGeneration
-    from peft import LoraConfig,TaskType,get_peft_model
-    from ml.verifier import StructuredVisualVerifier,verification_messages
+    from peft import LoraConfig,TaskType,get_peft_model,PeftModel
+    from ml.verifier import StructuredVisualVerifier,verification_messages,generation_target
     from apps.api.schemas import Detection
-    p=argparse.ArgumentParser();p.add_argument('--data',default='data/learning/pilot');p.add_argument('--checkpoint',default='weights/qwen3vl-4b');p.add_argument('--out',default='data/learning/candidate');p.add_argument('--steps',type=int,default=60);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--data',default='data/learning/pilot');p.add_argument('--checkpoint',default='weights/qwen3vl-4b');p.add_argument('--out',default='data/learning/candidate');p.add_argument('--steps',type=int,default=60)
+    p.add_argument('--resume-adapter',default='');p.add_argument('--learning-rate',type=float,default=1e-4);a=p.parse_args()
     torch.manual_seed(42);random.seed(42);root=Path(a.data);out=Path(a.out);out.mkdir(parents=True,exist_ok=True)
     records=[json.loads(line) for line in (root/'records.jsonl').read_text().splitlines()];provenance=json.loads((root/'provenance.json').read_text())
     if sha(root/'records.jsonl')!=provenance['records_sha256']:raise ValueError('Records hash mismatch')
@@ -31,9 +32,14 @@ def main():
     started=time.monotonic();print('Loading pinned base model',flush=True)
     processor=AutoProcessor.from_pretrained(a.checkpoint,min_pixels=56*56,max_pixels=336*336)
     model=Qwen3VLForConditionalGeneration.from_pretrained(a.checkpoint,dtype=torch.bfloat16,attn_implementation='sdpa',device_map='cuda:0')
+    parent_report=None
+    if a.resume_adapter:
+        from ml.verifier import validate_adapter
+        parent_report=validate_adapter(a.resume_adapter,provenance['base_revision'],research_mode=True)
+        model=PeftModel.from_pretrained(model,a.resume_adapter,is_trainable=True)
     model.config.use_cache=True
     verifier=StructuredVisualVerifier.__new__(StructuredVisualVerifier);verifier.torch=torch;verifier.processor=processor;verifier.model=model;verifier.revision=provenance['base_revision'];verifier.adapter='';verifier.research_mode=False;verifier.last_audit={}
-    def frames(r):return [SimpleNamespace(index=i,timestamp=t,jpeg=(root/f).read_bytes()) for i,(f,t) in enumerate(zip(r['frames'],r['timestamps']))]
+    def frames(r):return [SimpleNamespace(index=i,timestamp=t,jpeg=(root/f).read_bytes()) for i,f,t in zip(r.get('frame_indices',range(len(r['frames']))),r['frames'],r.get('model_timestamps',r['timestamps']))]
     def evaluate(label):
         results=[];model.eval()
         for r in held:
@@ -57,17 +63,17 @@ def main():
     baseline=evaluate('BASELINE');(out/'baseline.json').write_text(json.dumps(baseline,indent=2))
     # Only language attention adapters train; the vision encoder and base weights
     # remain frozen. The optimizer consumes training records exclusively.
-    model=get_peft_model(model,LoraConfig(task_type=TaskType.CAUSAL_LM,r=8,lora_alpha=16,lora_dropout=.05,target_modules=['q_proj','v_proj']))
+    if not a.resume_adapter:model=get_peft_model(model,LoraConfig(task_type=TaskType.CAUSAL_LM,r=8,lora_alpha=16,lora_dropout=.05,target_modules=['q_proj','v_proj']))
     model.config.use_cache=False
     verifier.model=model
     model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={'use_reentrant':False});model.enable_input_require_grads();model.train()
-    optimizer=torch.optim.AdamW([p for p in model.parameters() if p.requires_grad],lr=1e-4,weight_decay=.01)
+    optimizer=torch.optim.AdamW([p for p in model.parameters() if p.requires_grad],lr=a.learning_rate,weight_decay=.01)
     trainable=sum(p.numel() for p in model.parameters() if p.requires_grad);print('Trainable LoRA parameters',trainable,flush=True)
     cached=[]
     for r in train:
         fs=frames(r);messages,_=verification_messages(fs);prompt=processor.apply_chat_template(messages,tokenize=False,add_generation_prompt=True)
         images=[Image.open(io.BytesIO(f.jpeg)).convert('RGB') for f in fs]
-        target=json.dumps(r['target'],separators=(',',':'))+'<|im_end|>'
+        target=json.dumps(generation_target(r['target']),separators=(',',':'))+'<|im_end|>'
         inputs=processor(text=[prompt+target],images=images,return_tensors='pt')
         prefix=processor(text=[prompt],images=images,return_tensors='pt')['input_ids'].shape[-1]
         labels=inputs['input_ids'].clone();labels[:,:prefix]=-100;inputs['labels']=labels
@@ -92,13 +98,19 @@ def main():
     bm={s:metrics(baseline,s) for s in ['val','test']};cm={s:metrics(candidate,s) for s in ['val','test']}
     # Small pilot: require strictly better action recognition, no lost positive
     # review recall, no added normal-clip false positives, and valid JSON.
-    passed=all(cm[s]['action_accuracy']>bm[s]['action_accuracy'] and cm[s]['review_recall']>=bm[s]['review_recall'] and cm[s]['false_positive_examples']<=bm[s]['false_positive_examples'] and cm[s]['invalid_outputs']==0 for s in ['val','test'])
+    nonregression=all(cm[s]['action_accuracy']>=bm[s]['action_accuracy'] and cm[s]['review_recall']>=bm[s]['review_recall'] and cm[s]['false_positive_examples']<=bm[s]['false_positive_examples'] and cm[s]['invalid_outputs']==0 for s in ['val','test'])
+    passed=nonregression and any(cm[s]['action_accuracy']>bm[s]['action_accuracy'] or cm[s]['false_positive_examples']<bm[s]['false_positive_examples'] for s in ['val','test'])
     report={'kind':'research LoRA pilot','base_model':provenance['base_model'],'base_revision':provenance['base_revision'],
         'dataset':provenance,'training_examples':len(train),'steps':a.steps,'seed':42,'trainable_parameters':trainable,
+        'unique_training_videos':len({r['group_id'] for r in train}),'learning_rate':a.learning_rate,
+        'baseline_adapter_sha256':parent_report['adapter_sha256'] if parent_report else None,
         'losses':losses,'trained_lora_b_norm':trained_norm,'optimizer_updates_performed':True,
         'runtime_seconds':time.monotonic()-started,'optimization_seconds':optimization_seconds,
         'peak_allocated_vram_mb':torch.cuda.max_memory_allocated()/1024**2,'baseline':bm,'candidate':cm,
-        'promotion_passed':passed,'deployed':False,'adapter_sha256':sha(adapter/'adapter_model.safetensors'),
+        'promotion_passed':passed and not(parent_report and not parent_report.get('promotion_passed')),
+        'improved_over_parent':passed,'nonregression':nonregression,'deployed':False,
+        'adapter_sha256':sha(adapter/'adapter_model.safetensors'),'adapter_config_sha256':sha(adapter/'adapter_config.json'),
+        'inference_max_pixels':336*336,'generation_schema_version':'explicit-times-v1',
         'limitations':['Tiny academic research sample; not production validation.','Clips were prelocalized; this does not measure live temporal-gate recall or false alerts per hour.','Unknown foundation pretraining overlap.','Research-only source footage; no campus-footage rights inferred.'],
         'candidate_predictions':candidate}
     (out/'evaluation.json').write_text(json.dumps(report,indent=2));(adapter/'evaluation.json').write_text(json.dumps(report,indent=2));print(json.dumps({k:report[k] for k in ['baseline','candidate','promotion_passed','runtime_seconds','peak_allocated_vram_mb']},indent=2),flush=True)

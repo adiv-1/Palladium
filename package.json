@@ -6,6 +6,7 @@
   "scripts": {
     "build": "npm ci --prefix apps/web --include=dev && npm run build --prefix apps/web -- --mode hosted && npm ci --prefix apps/dashboard --include=dev && npm run build --prefix apps/dashboard -- --mode hosted",
     "start": "node apps/gateway/server.mjs",
-    "test:gateway": "node --test apps/gateway/server.test.mjs"
+    "test:gateway": "node --test apps/gateway/server.test.mjs",
+    "test:activity": "node --test apps/web/src/activityRouting.test.mjs"
   }
 }

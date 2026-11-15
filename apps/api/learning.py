@@ -68,6 +68,10 @@ class LearningRun(SQLModel,table=True):
     status:str='prepared'
     record:dict=Field(default_factory=dict,sa_column=Column(JSON))
 
+class TrainingRequest(BaseModel):
+    steps:int=InputField(80,ge=20,le=120)
+    learning_rate:float=InputField(0.00001,gt=0,le=0.0001)
+
 class PermissionInput(BaseModel):
     permission:Literal['unknown','permitted','academic_research','denied']
     note:str=InputField(min_length=8,max_length=2000)
@@ -301,6 +305,57 @@ def run_examples(run_id):
     path=root/'records.jsonl'
     if digest(path)!=run.record.get('records_sha256'):raise HTTPException(409,'Experiment bundle hash changed')
     return root,[json.loads(line) for line in path.read_text().splitlines()]
+
+@router.post('/train')
+async def queue_training(payload:TrainingRequest):
+    from .db import Job
+    if any(r.status in ['queued','running'] for r in rows(LearningRun)):
+        raise HTTPException(409,'A training run is already queued or running')
+    parents=sorted([r for r in rows(LearningRun) if r.status=='completed' and r.record.get('data_relative_path')],key=lambda r:r.created_at,reverse=True)
+    if not parents:raise HTTPException(409,'Prepare an approved training dataset first')
+    parent=parents[0];snapshot=get(DatasetSnapshot,parent.snapshot_id)
+    if not snapshot:raise HTTPException(409,'Dataset snapshot is missing')
+    try:
+        validate_snapshot_current(json.loads(Path(snapshot.path).read_text()))
+        root,_=run_examples(parent.id)
+        if not settings.verifier_adapter:raise ValueError('An evaluated parent adapter is required')
+        run=LearningRun(snapshot_id=snapshot.id,status='prepared')
+        output=folder()/'datasets'/run.id
+        from scripts.augment_event_training import augment
+        provenance=await asyncio.to_thread(augment,root,output)
+    except ValueError as e:raise HTTPException(409,str(e))
+    run.status='queued';run.record={'model':'Qwen3-VL-4B LoRA event follow-up','parent_run_id':parent.id,
+        'data_relative_path':str(output.relative_to(folder())),'records_sha256':provenance['records_sha256'],
+        'steps':payload.steps,'learning_rate':payload.learning_rate,'resume_adapter':settings.verifier_adapter,
+        'unique_training_videos':provenance['training_source_videos'],
+        'training_examples':provenance['training_examples_including_variants'],
+        'summary':'Owner-requested training queued; weights are not automatically activated.'}
+    save(run);job=save(Job(incident_id=run.id,kind='learning_train',priority=1))
+    return {'run':run,'job':job}
+
+async def run_training_job(job):
+    from .jobs import command
+    run=get(LearningRun,job.incident_id)
+    if not run:raise ValueError('Training run does not exist')
+    run.status='running';save(run)
+    try:
+        snapshot=get(DatasetSnapshot,run.snapshot_id)
+        validate_snapshot_current(json.loads(Path(snapshot.path).read_text()))
+        root,_=run_examples(run.id);output=folder()/'candidates'/run.id
+        execution=await command([Path.cwd()/'.venv/bin/python','-m','scripts.train_learning',
+            '--data',root,'--checkpoint',settings.verifier_checkpoint,'--out',output,
+            '--resume-adapter',run.record['resume_adapter'],'--steps',str(run.record['steps']),
+            '--learning-rate',str(run.record['learning_rate'])])
+        report=json.loads((output/'evaluation.json').read_text())
+        run.status='completed';run.record={**run.record,'evaluation':report,
+            'candidate_relative_path':str(output.relative_to(folder())),
+            'summary':f"Trained {report['training_examples']} variants from {report['unique_training_videos']} source videos. Non-regression: {report['nonregression']}. Candidate is not automatically deployed."}
+        save(run)
+        return {'run_id':run.id,'status':'completed','execution':execution,
+            'adapter_sha256':report['adapter_sha256'],'nonregression':report['nonregression'],
+            'improved_over_parent':report['improved_over_parent'],'deployed':False}
+    except BaseException as error:
+        run.status='failed';run.record={**run.record,'error':str(error) or 'Training interrupted'};save(run);raise
 
 @router.get('/runs/{run_id}/examples')
 def examples(run_id:str):

@@ -10,12 +10,14 @@ import './style.css';
 import './dispatch.css';
 import './agent.css';
 import './pages.css';
+import './embedded.css';
 import {useRoute} from './Nav';
 import {initTheme} from './theme';
 import './command.css';
 
 setWorkerUrl(maplibreWorkerUrl);
 initTheme();
+document.documentElement.classList.toggle('embedded', new URLSearchParams(location.search).get('embedded') === '1');
 
 const Trends = lazy(() => import('./Trends'));
 const Incidents = lazy(() => import('./Incidents'));
@@ -32,13 +34,14 @@ function Root() {
   const unit = params.get('unit'), room = params.get('room');
   let page: React.ReactNode;
   const embedded = params.get('embedded') === '1';
+  // Inside the reviewer site the frame opens on Live unless the parent asks for another page (#/trends ...).
+  const effective = embedded && !location.hash ? 'live' : route;
   if (unit && room) page = <OfficerView unitId={unit} room={room} />;
-  else if (embedded) page = <Live embedded />;
   else if (params.get('app')) {
     let saved = '';
     try {saved = localStorage.getItem('safesc-dispatch-room') ?? '';} catch { /* storage blocked */ }
     page = <StudentApp room={room ?? saved} />;
-  } else page = route === 'live' ? <Live embedded={false} /> : route === 'incidents' ? <Incidents /> : route === 'about' ? <About /> : <Trends />;
+  } else page = effective === 'live' ? <Live embedded={embedded} /> : effective === 'incidents' ? <Incidents /> : effective === 'about' ? <About /> : <Trends />;
   return <Suspense fallback={<div className="boot"><i />Loading SafeSC…</div>}>{page}</Suspense>;
 }
 

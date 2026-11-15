@@ -5,6 +5,20 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+def prepare_inputs(frames,size):
+    h,w=frames[-1].shape[:2];clip=list(frames[-5:])
+    while len(clip)<5:clip.insert(0,clip[0])
+    ratio=size/max(h,w);rh=max(1,round(h*ratio));rw=max(1,round(w*ratio))
+    top=(size-rh)//2;left=(size-rw)//2
+    x=np.stack([cv2.copyMakeBorder(cv2.resize(f,(rw,rh)),top,size-rh-top,
+        left,size-rw-left,cv2.BORDER_REFLECT_101) for f in clip])
+    return x.astype(np.float32)/127.5-1,(h,w,top,left,rh,rw)
+
+def restore_output(output,shape):
+    h,w,top,left,rh,rw=shape
+    pixels=((np.clip(output,-1,1)+1)*127.5).round().astype(np.uint8)
+    return cv2.resize(pixels[top:top+rh,left:left+rw],(w,h))
+
 class BVIMamba:
     def __init__(self,checkpoint,repo='third_party/BVI-Mamba',size=512):
         import torch
@@ -22,12 +36,10 @@ class BVIMamba:
         state=state.get('state_dict',state)
         self.net.load_state_dict({k.removeprefix('module.'):v for k,v in state.items()},strict=True)
     def enhance(self,frames,metadata):
-        torch=self.torch;h,w=frames[-1].shape[:2]
-        clip=list(frames[-5:])
-        while len(clip)<5:clip.insert(0,clip[0])
-        x=np.stack([cv2.resize(f,(self.size,self.size))[:,:,::-1].copy() for f in clip])
-        tensor=torch.from_numpy(x).permute(0,3,1,2).unsqueeze(0).float().cuda()/255
+        torch=self.torch
+        # Official inference uses BGR and [-1,1]. Preserve portrait aspect ratio.
+        x,shape=prepare_inputs(frames,self.size)
+        tensor=torch.from_numpy(x).permute(0,3,1,2).unsqueeze(0).cuda()
         with torch.inference_mode():result=self.net(tensor)[0]
         if not torch.isfinite(result).all():raise RuntimeError('BVI-Mamba returned non-finite pixels')
-        output=result.clamp(0,1).permute(1,2,0).cpu().numpy()
-        return [cv2.resize((output[:,:,::-1]*255).astype(np.uint8),(w,h))]
+        return [restore_output(result.permute(1,2,0).cpu().numpy(),shape)]
