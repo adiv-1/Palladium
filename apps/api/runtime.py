@@ -8,7 +8,19 @@ from .config import settings
 from .db import Source, Incident, Job, ReviewAction, save, get
 from .schemas import Detection
 from .video import CircularBuffer, LightingGate, Frame, decode, encode, digest, read_video, write_clip
-from ml.adapters import MossDetector, FixtureDetector, TemporalGate, ByteTracker, UnavailableModel
+from ml.adapters import MossDetector, FixtureDetector, TemporalGate, ByteTracker, UnavailableModel, PERSON_CLASSES, PERSON_AND_BIKE_CLASSES
+from ml.cascade import CascadeDetector, PoseEstimator, RuleConfig, RuleGate, RulesEngine, parse_zones
+
+def cascade_mode(): return settings.streaming_model=='cascade'
+
+def make_detector():
+    if settings.streaming_model=='fixture': return FixtureDetector()
+    if cascade_mode():
+        rules=RulesEngine(RuleConfig(down_seconds=settings.person_down_seconds,rack_dwell_seconds=settings.rack_dwell_seconds,
+            cooldown_seconds=settings.cascade_cooldown_seconds,zones=parse_zones(settings.rack_zones)))
+        pose=(lambda:PoseEstimator(settings.pose_weights)) if settings.cascade_pose else None
+        return CascadeDetector(rules,pose,settings.observation_verifier_model=='qwen3vl',settings.verifier_checkpoint)
+    return MossDetector(settings.moss_ws_url)
 
 class Hub:
     def __init__(self): self.listeners=set()
@@ -25,9 +37,11 @@ pairings={}
 class VideoSession:
     def __init__(self,source):
         self.source=source; self.buffer=CircularBuffer(settings.pre_event_seconds+settings.post_event_seconds+5)
-        self.gate=TemporalGate(settings.alert_confidence_threshold,settings.alert_cooldown_seconds,settings.alert_agreement_seconds)
+        # The cascade's rules already demand persistence over time, so it only needs evidence bounds.
+        self.gate=RuleGate() if cascade_mode() else TemporalGate(settings.alert_confidence_threshold,settings.alert_cooldown_seconds,settings.alert_agreement_seconds)
         self.light=LightingGate(settings.dark_luminance_threshold,settings.light_luminance_threshold)
-        self.detector=FixtureDetector() if settings.streaming_model=='fixture' else MossDetector(settings.moss_ws_url)
+        self.detector=make_detector()
+        self.tracking=settings.enable_tracking or cascade_mode()
         self.pending=[]; self.latest=None; self.enhanced_latest=None; self.last_sample=-100
         self.tracker=None; self.tracks=[]; self.error=None; self.count=0; self.started=time.monotonic()
         self.enhancer=None; self.enhanced={}; self.observations=[]; self.last_observation=None
@@ -36,6 +50,8 @@ class VideoSession:
         self.inference_state='not_started'
         self.last_saved=0
         self.last_bookmark=-1e9
+    def make_tracker(self):
+        return ByteTracker(settings.sample_fps,PERSON_AND_BIKE_CLASSES if cascade_mode() else PERSON_CLASSES,settings.detector_weights)
     def bookmark(self):
         if len(self.buffer.frames)<2:raise ValueError('Wait for a few video frames before marking a moment')
         end=self.buffer.frames[-1].timestamp
@@ -54,23 +70,28 @@ class VideoSession:
         self.source.status='waiting_for_gpu';save(self.source)
         while jobs.gpu_busy:await asyncio.sleep(.2)
         self.source.status='warming';save(self.source)
-        if settings.enable_tracking:
-            self.tracker=await asyncio.to_thread(ByteTracker,settings.sample_fps)
+        if self.tracking:
+            self.tracker=await asyncio.to_thread(self.make_tracker)
             # Warm the detector before advancing an uploaded clip's playback clock.
             import numpy as np
             await asyncio.to_thread(self.tracker.update,np.zeros((360,640,3),dtype=np.uint8),0)
         if settings.enhancement_model=='fastllve':
             from ml.fastllve import FastLLVE
             self.enhancer=await asyncio.to_thread(FastLLVE,settings.fastllve_checkpoint)
-        from ml.service import model_service
-        await model_service.ensure()
+        if not cascade_mode():
+            from ml.service import model_service
+            await model_service.ensure()
         if hasattr(self.detector,'prepare_verifier'):await self.detector.prepare_verifier()
     async def observe(self,frame,image,lighting):
         started=time.monotonic()
         try:
-            if settings.enable_tracking:
-                if not self.tracker: self.tracker=await asyncio.to_thread(ByteTracker,settings.sample_fps)
+            if self.tracking:
+                if not self.tracker: self.tracker=await asyncio.to_thread(self.make_tracker)
+                tracking_started=time.perf_counter()
                 self.tracks=await asyncio.to_thread(self.tracker.update,image,frame.timestamp)
+                self.detector.tier0_ms=(time.perf_counter()-tracking_started)*1000
+            # Rules need pixel geometry; pose (Tier 1) runs on the original frame when flagged.
+            self.detector.frame_size=(int(image.shape[1]),int(image.shape[0]));self.detector.current_image=image
             sampled=frame
             if lighting['state']!='well_lit' and settings.enhancement_model=='fastllve':
                 from ml.fastllve import FastLLVE
@@ -148,7 +169,8 @@ class VideoSession:
             'frame_processing_ms':getattr(self,'last_processing_ms',0),
             'model_transport_ms':getattr(self.detector,'latency_ms',0),
             'inference_frames':self.inference_frames,'skipped_inference_frames':self.skipped_inference_frames,
-            'processing_fps':self.count/max(.01,time.monotonic()-self.started)}
+            'processing_fps':self.count/max(.01,time.monotonic()-self.started),
+            'cascade':self.detector.stats.snapshot(settings.sample_fps) if hasattr(self.detector,'stats') else None}
         if time.monotonic()-self.last_saved>=1 or self.count==1:
             await asyncio.to_thread(save,self.source);self.last_saved=time.monotonic()
         await hub.publish('source',self.source.model_dump())
@@ -164,6 +186,7 @@ class VideoSession:
         thumbnail=folder/'thumbnail.jpg'; thumbnail.write_bytes(frames[len(frames)//2].jpeg)
         source_hash=self.source.original_sha256
         record={'observable_events':[x.model_dump() for x in d.observable_events], 'uncertainties':d.uncertainties,
+            'incident_type':d.incident_type,'rule_evidence':d.rule_evidence,
             'supporting_frames':d.supporting_frames,'model':{'name':settings.streaming_model,'revision':settings.model_revision},
             'visual_verifier':settings.observation_verifier_model,
             'observation_model':{'name':'Qwen/Qwen3-VL-4B-Instruct','revision':getattr(getattr(self.detector,'verifier',None),'revision','unconfigured'),
@@ -175,7 +198,7 @@ class VideoSession:
             'trigger_origin':candidate.get('origin','model'),
             'transforms':[{'operation':'incident extraction and H.264 encoding','source':'received camera JPEGs or decoded uploaded video',
                 'timestamps':'original stream seconds; clip starts at zero','original_upload_untouched':bool(source_hash)}],
-            'prompt_version':'safesc-observable-v2','analysis_only_transforms':['Source index/time margin and anonymous track boxes; not applied to stored originals'],
+            'prompt_version':'safesc-cascade-rules-v1' if cascade_mode() else 'safesc-observable-v2','analysis_only_transforms':['Source index/time margin and anonymous track boxes; not applied to stored originals'],
             'model_output_audit':candidate.get('output_audit',list(getattr(self.detector,'response_audit',[]))),
             'confidence_note':'Uncalibrated model score, not probability of harm',
             'inference_error':self.error,'frame_timestamps':[{'index':f.index,'timestamp':f.timestamp} for f in frames]}

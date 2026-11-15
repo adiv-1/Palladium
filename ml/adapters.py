@@ -212,12 +212,23 @@ class TemporalGate:
         if len({tuple(sorted(h[2])) for h in adjacent})<2: return False
         self.last_alert=now; self.history.clear(); return True
 
+PERSON_CLASSES=(0,)
+# COCO has no e-scooter class; motorcycle (3) catches many e-bikes and some scooters.
+PERSON_AND_BIKE_CLASSES=(0,1,3)
+
 class ByteTracker:
-    def __init__(self,frame_rate=2):
+    """Motion-only tracking: IDs are per camera and temporary, with no appearance re-identification."""
+    def __init__(self,frame_rate=2,classes=PERSON_CLASSES,weights='yolo11n.pt'):
         import supervision as sv
         from ultralytics import YOLO
-        self.sv=sv; self.detector=YOLO('yolo11n.pt'); self.tracker=sv.ByteTrack(frame_rate=frame_rate)
+        self.sv=sv; self.classes=list(classes); self.detector=YOLO(weights); self.tracker=sv.ByteTrack(frame_rate=frame_rate)
     def update(self,frame,timestamp):
-        result=self.detector(frame,classes=[0],verbose=False)[0]
+        result=self.detector(frame,classes=self.classes,verbose=False)[0]
         tracks=self.tracker.update_with_detections(self.sv.Detections.from_ultralytics(result))
-        return [{'id':f'person_{int(i)}','box':box.tolist()} for box,i in zip(tracks.xyxy,tracks.tracker_id)] if tracks.tracker_id is not None else []
+        if tracks.tracker_id is None:return []
+        classes=tracks.class_id if tracks.class_id is not None else [0]*len(tracks.tracker_id)
+        output=[]
+        for box,i,cls in zip(tracks.xyxy,tracks.tracker_id,classes):
+            kind='person' if int(cls)==0 else 'bike'
+            output.append({'id':f'{kind}_{int(i)}','kind':kind,'box':box.tolist()})
+        return output

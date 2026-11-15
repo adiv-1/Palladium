@@ -1,0 +1,42 @@
+/* AI dispatch agent recommendation card (dark glass side panel) */
+.agent-card { position: relative; overflow: hidden; margin: 8px 0; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); color: #E6E8EB; font-family: 'DM Sans', system-ui, sans-serif; }
+.agent-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, #CC1F34, #FFCC00, #CC1F34); background-size: 200% 100%; animation: agent-shimmer 2.4s linear infinite; }
+@keyframes agent-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* Loading: three pulsing dots */
+.agent-loading { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.agent-loading::after { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 9px 0 0 currentColor, 18px 0 0 currentColor; animation: agent-dots 1.2s ease-in-out infinite; }
+@keyframes agent-dots { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+
+/* Urgency pill */
+.urgency { display: inline-block; padding: 3px 9px; border-radius: 999px; font-family: 'Manrope', sans-serif; font-size: 10px; font-weight: 700; line-height: 1.4; letter-spacing: .06em; text-transform: uppercase; }
+.urgency.critical { background: #CC1F34; color: #fff; animation: agent-pulse 1.6s ease-in-out infinite; }
+.urgency.high { background: #F26E30; color: #fff; }
+.urgency.moderate { background: #FFCC00; color: #1a1600; }
+.urgency.low { background: #5FB3A8; color: #062320; }
+@keyframes agent-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(204,31,52,.6); } 50% { box-shadow: 0 0 0 6px rgba(204,31,52,0); } }
+
+.agent-source { font-size: 11px; color: var(--muted); }
+.agent-source::before { content: "\2726"; color: #FFCC00; margin-right: 5px; }
+.agent-overview { margin: 8px 0; font-size: 14px; line-height: 1.5; color: #f1f2f4; }
+
+/* Unit row */
+.agent-unit { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 6px 0; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.08); }
+.agent-unit.on { border-color: #CC1F34; background: rgba(204,31,52,.08); }
+.agent-unit input[type="checkbox"] { margin: 0; accent-color: #CC1F34; }
+.agent-unit strong { font-family: 'Manrope', sans-serif; font-size: 14px; color: #E6E8EB; }
+.agent-unit .role { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: #FFCC00; }
+.agent-unit .reason { flex-basis: 100%; font-size: 12px; color: var(--muted); }
+.agent-unit .eta { margin-left: auto; font-family: 'Manrope', sans-serif; font-size: 13px; font-variant-numeric: tabular-nums; }
+
+.agent-message { margin: 6px 0 0; padding: 8px 10px; border-left: 2px solid #FFCC00; background: rgba(255,204,0,.06); font-size: 12.5px; font-style: normal; color: #e9e3c9; }
+.agent-cautions { margin: 6px 0; padding-left: 16px; font-size: 12px; color: #f2a65a; }
+.agent-latency { font-size: 10px; color: var(--muted); }
+
+/* Officer phone page outreach */
+.agent-outreach { margin: 10px 0; padding: 12px; border-left: 3px solid #FFCC00; border-radius: 12px; background: rgba(255,204,0,.07); font-size: 15px; line-height: 1.5; }
+.agent-outreach::before { content: "From dispatch agent"; display: block; margin-bottom: 6px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: #FFCC00; }
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-card::before, .agent-loading::after, .urgency.critical { animation: none; }
+}

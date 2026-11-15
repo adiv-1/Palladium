@@ -217,6 +217,44 @@ async def events(ws:WebSocket):
     except (WebSocketDisconnect,RuntimeError): pass
     finally: hub.listeners.discard(q)
 
+from . import dispatch_agent
+
+@app.post('/api/dispatch/recommend',dependencies=[Depends(authenticated)])
+async def dispatch_recommend(body:dispatch_agent.RecommendRequest):
+    return await dispatch_agent.recommend(body)
+
+@app.post('/api/dispatch/approve',dependencies=[Depends(authenticated)])
+def dispatch_approve(body:dispatch_agent.ApproveRequest):
+    try: return dispatch_agent.approve(body)
+    except dispatch_agent.ApprovalError as e: raise HTTPException(e.status,e.detail)
+
+# Dispatch relay between the command dashboard and officer phones. The room id is a random
+# 128-bit capability the dashboard generates and shares through the officer pairing link;
+# the relay only forwards small JSON messages between peers in the same room and keeps nothing.
+dispatch_rooms:dict[str,set]={}
+DISPATCH_ROOM=__import__('re').compile(r'[A-Za-z0-9_-]{22,64}')
+
+@app.websocket('/ws/dispatch/{room}')
+async def dispatch_relay(ws:WebSocket,room:str):
+    if not DISPATCH_ROOM.fullmatch(room): await ws.close(4400); return
+    peers=dispatch_rooms.setdefault(room,set())
+    if len(peers)>=32: await ws.close(4429); return
+    await ws.accept(); peers.add(ws)
+    try:
+        while True:
+            text=await ws.receive_text()
+            if len(text)>16384: continue
+            try: json.loads(text)
+            except ValueError: continue
+            for peer in list(peers):
+                if peer is ws: continue
+                try: await peer.send_text(text)
+                except Exception: peers.discard(peer)
+    except (WebSocketDisconnect,RuntimeError): pass
+    finally:
+        peers.discard(ws)
+        if not peers: dispatch_rooms.pop(room,None)
+
 @app.websocket('/ws/capture')
 async def capture(ws:WebSocket):
     await ws.accept(); session=None
