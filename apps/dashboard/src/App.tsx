@@ -3,7 +3,8 @@ import DeckGL from '@deck.gl/react';
 import {FlyToInterpolator, type MapViewState, type PickingInfo} from '@deck.gl/core';
 import {Map} from 'react-map-gl/maplibre';
 import {buildLayers, type LayerToggles} from './layers';
-import {darkCampusStyle} from './mapStyle';
+import {campusStyle} from './mapStyle';
+import {isDark, labelRGBA, outlineRGBA, useTheme} from './theme';
 import {arcPath, CAMPUS_CENTER, demoIncident, distance, makeCameras, makeOfficers, simulatedHistory} from './sim';
 import {existingIncidents, fromSafeSC, login, review, subscribe, type CascadeStats} from './live';
 import {BottomBar, ConnectDialog, IncidentQueue, Legend, StatusStrip} from './Panels';
@@ -31,6 +32,7 @@ const fly = new FlyToInterpolator();
 type Mode = 'orbit' | 'focus' | 'dispatch';
 
 export default function App({embedded}: {embedded: boolean}) {
+  const [theme] = useTheme();
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [racks, setRacks] = useState<Rack[]>([]);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
@@ -543,7 +545,7 @@ export default function App({embedded}: {embedded: boolean}) {
                 }
               }}
             >
-              {mapMode === 'maplibre' && <Map mapStyle={darkCampusStyle} reuseMaps attributionControl={{compact: true}} />}
+              {mapMode === 'maplibre' && <Map mapStyle={campusStyle(theme)} reuseMaps attributionControl={{compact: true}} />}
             </DeckGL>
           </div>
           {mapMode === 'google' && <div className="credits">Google · {credits}</div>}

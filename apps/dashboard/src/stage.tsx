@@ -2,7 +2,8 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 import DeckGL from '@deck.gl/react';
 import {FlyToInterpolator, type Layer, type MapViewState, type PickingInfo} from '@deck.gl/core';
 import {Map} from 'react-map-gl/maplibre';
-import {darkCampusStyle} from './mapStyle';
+import {campusStyle} from './mapStyle';
+import {useTheme} from './theme';
 import {CAMPUS_CENTER} from './sim';
 
 export const HOME: MapViewState = {longitude: CAMPUS_CENTER[0], latitude: CAMPUS_CENTER[1], zoom: 16.1, pitch: 58, bearing: -20};
@@ -45,6 +46,7 @@ export function useStage(orbit = true) {
 export function Stage({stage, layers, tooltip, onClick}: {
   stage: ReturnType<typeof useStage>; layers: Layer[]; tooltip?: (i: PickingInfo) => {text: string} | null; onClick?: (i: PickingInfo) => void;
 }) {
+  const [theme] = useTheme();
   return (
     <DeckGL
       viewState={stage.viewState}
@@ -57,7 +59,7 @@ export function Stage({stage, layers, tooltip, onClick}: {
         stage.setViewState(viewState as View);
       }}
     >
-      <Map mapStyle={darkCampusStyle} reuseMaps attributionControl={{compact: true}} />
+      <Map mapStyle={campusStyle(theme)} reuseMaps attributionControl={{compact: true}} />
     </DeckGL>
   );
 }

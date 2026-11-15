@@ -1,42 +1,43 @@
-/* AI dispatch agent recommendation card (dark glass side panel) */
-.agent-card { position: relative; overflow: hidden; margin: 8px 0; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); color: #E6E8EB; font-family: 'DM Sans', system-ui, sans-serif; }
-.agent-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, #CC1F34, #FFCC00, #CC1F34); background-size: 200% 100%; animation: agent-shimmer 2.4s linear infinite; }
+/* AI dispatch agent recommendation card. Sits on a var(--surface) card in both themes. */
+.agent-card { position: relative; overflow: hidden; margin: 8px 0; padding: 16px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-family: var(--font); font-weight: 400; }
+.agent-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--red), var(--yellow), var(--red)); background-size: 200% 100%; opacity: .75; animation: agent-shimmer 2.4s linear infinite; }
 @keyframes agent-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 /* Loading: three pulsing dots */
-.agent-loading { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.agent-loading { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 300; color: var(--muted); }
 .agent-loading::after { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 9px 0 0 currentColor, 18px 0 0 currentColor; animation: agent-dots 1.2s ease-in-out infinite; }
 @keyframes agent-dots { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 
-/* Urgency pill */
-.urgency { display: inline-block; padding: 3px 9px; border-radius: 999px; font-family: 'Manrope', sans-serif; font-size: 10px; font-weight: 700; line-height: 1.4; letter-spacing: .06em; text-transform: uppercase; }
-.urgency.critical { background: #CC1F34; color: #fff; animation: agent-pulse 1.6s ease-in-out infinite; }
-.urgency.high { background: #F26E30; color: #fff; }
-.urgency.moderate { background: #FFCC00; color: #1a1600; }
-.urgency.low { background: #5FB3A8; color: #062320; }
-@keyframes agent-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(204,31,52,.6); } 50% { box-shadow: 0 0 0 6px rgba(204,31,52,0); } }
+/* Urgency pill: soft tints, never a solid fill */
+.urgency { display: inline-block; padding: 4px 11px; border-radius: 999px; font-family: var(--font); font-size: 10px; font-weight: 600; line-height: 1.4; letter-spacing: .12em; text-transform: uppercase; background: var(--tint-2); color: var(--muted); }
+.urgency.critical { background: var(--red-soft); color: var(--red-text); animation: agent-pulse 1.6s ease-in-out infinite; }
+.urgency.high { background: var(--yellow-soft); color: var(--yellow-text); }
+.urgency.moderate, .urgency.low { background: var(--tint-2); color: var(--muted); }
+@keyframes agent-pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--red) 40%, transparent); } 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--red) 0%, transparent); } }
 
-.agent-source { font-size: 11px; color: var(--muted); }
-.agent-source::before { content: "\2726"; color: #FFCC00; margin-right: 5px; }
-.agent-overview { margin: 8px 0; font-size: 14px; line-height: 1.5; color: #f1f2f4; }
+.agent-source { font-size: 11px; font-weight: 400; letter-spacing: .04em; color: var(--muted); }
+.agent-source::before { content: "\2726"; color: var(--yellow); margin-right: 6px; }
+.agent-overview { margin: 10px 0; font-size: 14px; font-weight: 400; line-height: 1.55; color: var(--text); }
 
 /* Unit row */
-.agent-unit { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 6px 0; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.08); }
-.agent-unit.on { border-color: #CC1F34; background: rgba(204,31,52,.08); }
-.agent-unit input[type="checkbox"] { margin: 0; accent-color: #CC1F34; }
-.agent-unit strong { font-family: 'Manrope', sans-serif; font-size: 14px; color: #E6E8EB; }
-.agent-unit .role { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: #FFCC00; }
-.agent-unit .reason { flex-basis: 100%; font-size: 12px; color: var(--muted); }
-.agent-unit .eta { margin-left: auto; font-family: 'Manrope', sans-serif; font-size: 13px; font-variant-numeric: tabular-nums; }
+.agent-unit { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 8px 0; padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); transition: border-color .18s ease, background .18s ease; }
+.agent-unit.on { border-color: color-mix(in srgb, var(--red) 40%, transparent); background: var(--surface); box-shadow: inset 3px 0 0 var(--red); }
+.agent-unit input[type="checkbox"] { margin: 0; accent-color: var(--ink); }
+.agent-unit input[type="checkbox"]:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.agent-unit strong { font-family: var(--font); font-size: 14px; font-weight: 500; color: var(--text); }
+.agent-unit .role { font-size: 10px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--yellow-text); }
+.agent-unit .reason { flex-basis: 100%; font-size: 12px; font-weight: 300; color: var(--muted); }
+.agent-unit .eta { margin-left: auto; font-family: var(--font); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
 
-.agent-message { margin: 6px 0 0; padding: 8px 10px; border-left: 2px solid #FFCC00; background: rgba(255,204,0,.06); font-size: 12.5px; font-style: normal; color: #e9e3c9; }
-.agent-cautions { margin: 6px 0; padding-left: 16px; font-size: 12px; color: #f2a65a; }
-.agent-latency { font-size: 10px; color: var(--muted); }
+.agent-message { margin: 8px 0 0; padding: 10px 12px; border-left: 2px solid var(--yellow); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background: var(--yellow-soft); font-size: 12.5px; font-weight: 400; font-style: normal; color: var(--text); }
+.agent-cautions { margin: 8px 0; padding-left: 16px; font-size: 12px; font-weight: 400; color: var(--yellow-text); }
+.agent-latency { font-size: 10px; letter-spacing: .06em; color: var(--muted); }
 
 /* Officer phone page outreach */
-.agent-outreach { margin: 10px 0; padding: 12px; border-left: 3px solid #FFCC00; border-radius: 12px; background: rgba(255,204,0,.07); font-size: 15px; line-height: 1.5; }
-.agent-outreach::before { content: "From dispatch agent"; display: block; margin-bottom: 6px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: #FFCC00; }
+.agent-outreach { margin: 10px 0; padding: 14px 16px; border-left: 3px solid var(--yellow); border-radius: var(--radius); background: var(--yellow-soft); font-size: 15px; font-weight: 400; line-height: 1.5; color: var(--text); }
+.agent-outreach::before { content: "From dispatch agent"; display: block; margin-bottom: 6px; font-size: 10px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--yellow-text); }
 
 @media (prefers-reduced-motion: reduce) {
   .agent-card::before, .agent-loading::after, .urgency.critical { animation: none; }
+  .agent-unit { transition: none; }
 }

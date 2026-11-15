@@ -272,11 +272,11 @@ export default function About() {
             <div className="diagram-scroll" ref={scrollRef} tabIndex={0} role="region" aria-label="Multi-agent architecture diagram, scrollable">
               <svg className="diagram" viewBox={`0 0 ${VB_W} 720`} role="img" aria-label="Architecture diagram. Live lane: CCTV feeds, Detector agent, Debate, Verifier agent, Admin approval, Dispatch agent, then Alert, Interception and Report agents. Trends lane: Past incidents, Trend analyst, then Ambassador planner, Safe-route agent and What-if wargame, then the Public map.">
                 <defs>
-                  <marker id="arr-live" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e52a40" /></marker>
-                  <marker id="arr-trends" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5fb3a8" /></marker>
-                  <marker id="arr-fb" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ffcc00" /></marker>
+                  <marker id="arr-live" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" style={{fill: 'var(--red)'}} /></marker>
+                  <marker id="arr-trends" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" style={{fill: 'var(--green)'}} /></marker>
+                  <marker id="arr-fb" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" style={{fill: 'var(--yellow)'}} /></marker>
                   <radialGradient id="pk" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor="#fff6c2" /><stop offset="45%" stopColor="#ffcc00" /><stop offset="100%" stopColor="#ffcc00" stopOpacity="0" />
+                    <stop offset="0%" style={{stopColor: 'color-mix(in srgb, var(--yellow) 30%, var(--surface-strong))'}} /><stop offset="45%" style={{stopColor: 'var(--yellow)'}} /><stop offset="100%" style={{stopColor: 'var(--yellow)', stopOpacity: 0}} />
                   </radialGradient>
                 </defs>
 
@@ -307,7 +307,7 @@ export default function About() {
 
                 <g ref={packetRef} className="packet" style={{opacity: 0}}>
                   <circle r={16} fill="url(#pk)" />
-                  <circle r={5.5} fill="#fff6c2" />
+                  <circle r={5.5} style={{fill: 'color-mix(in srgb, var(--yellow) 30%, var(--surface-strong))'}} />
                 </g>
               </svg>
             </div>

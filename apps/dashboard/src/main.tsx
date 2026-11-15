@@ -5,14 +5,17 @@ import {setWorkerUrl} from 'maplibre-gl';
 // pre-bundling breaks that relative path, so let Vite bundle the worker and hand over its URL.
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import './theme.css';
 import './style.css';
 import './dispatch.css';
 import './agent.css';
 import './pages.css';
 import {useRoute} from './Nav';
+import {initTheme} from './theme';
 import './command.css';
 
 setWorkerUrl(maplibreWorkerUrl);
+initTheme();
 
 const Trends = lazy(() => import('./Trends'));
 const Incidents = lazy(() => import('./Incidents'));

@@ -109,3 +109,10 @@ One app, four pages behind the hash router: **Trends** (`#/trends`, the default)
 | Intercept vector | Live, after Approve | Projects the escape heading over the walkway graph for 45 s, hands off to cameras, picks choke points other units can reach first, and routes the victim to a safe haven. A second human approval moves the units | Heuristic; the heading is a **simulated input**. Some headings give no interceptable path and the panel says so |
 
 Keys on Live: **D** stages an incident (the first is an altercation at Lyon Recreation Center), **F** stages a false alarm.
+
+
+## Design system and themes
+
+All colour comes from semantic tokens in `src/theme.css` (light and dark): soft grey canvas, large rounded cards, thin Urbanist type, a black "ink" pill for the active state, and red and yellow as light accents only. No stylesheet should hard-code a grey, white or hex colour; use the tokens (`--surface`, `--text`, `--muted`, `--tint-1..3`, `--red`, `--yellow`, ...).
+
+The round sun/moon button in the top bar switches the theme. The choice is saved in `localStorage` (`safesc-theme`); with no saved choice the app follows the system setting, except in the embedded reviewer-home frame, which starts light. The basemap (`src/mapStyle.ts`) and the deck.gl text colours follow the theme too.

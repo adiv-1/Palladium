@@ -8,7 +8,7 @@ import './incidents.css';
 
 const TYPES: IncidentType[] = ['altercation', 'person_down', 'rack_activity'];
 const STACK: IncidentType[] = ['rack_activity', 'person_down', 'altercation', 'other'];
-const COLOR: Record<IncidentType, string> = {altercation: '#cc1f34', person_down: '#f26e30', rack_activity: '#ffcc00', other: '#8a919b'};
+const COLOR: Record<IncidentType, string> = {altercation: 'var(--red)', person_down: 'color-mix(in srgb, var(--yellow) 70%, var(--red))', rack_activity: 'var(--yellow)', other: 'var(--faint)'};
 const DAY = 864e5;
 const PAGE = 60;
 const WEEKS = 13;
@@ -129,7 +129,7 @@ function TrendChart({s}: {s: Stats}) {
           <defs>
             {TYPES.map((t) => (
               <linearGradient key={t} id={`inc-g-${t}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor={COLOR[t]} stopOpacity="0.32" /><stop offset="1" stopColor={COLOR[t]} stopOpacity="0" />
+                <stop offset="0" stopColor={COLOR[t]} stopOpacity="0.16" /><stop offset="1" stopColor={COLOR[t]} stopOpacity="0" />
               </linearGradient>
             ))}
           </defs>
@@ -149,7 +149,7 @@ function TrendChart({s}: {s: Stats}) {
             );
           })}
           {hover != null && <line x1={x(hover)} x2={x(hover)} y1={T} y2={H - B} className="guide" />}
-          {hover != null && active.map((t) => <circle key={t} cx={x(hover)} cy={y(s.weeks[hover][t])} r={4} fill={COLOR[t]} stroke="#121417" strokeWidth={2} />)}
+          {hover != null && active.map((t) => <circle key={t} cx={x(hover)} cy={y(s.weeks[hover][t])} r={4} fill={COLOR[t]} stroke="var(--surface)" strokeWidth={2} />)}
           {s.weeks.map((w, i) => (
             <rect key={i} x={x(i) - step / 2} y={T} width={step} height={H - T - B} className="hit" tabIndex={0}
               aria-label={`Week of ${fmtDate(s.weekStart[i])}: ${TYPES.map((t) => `${w[t]} ${INCIDENT_LABEL[t]}`).join(', ')}`}

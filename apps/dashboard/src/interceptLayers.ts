@@ -1,3 +1,4 @@
+import {outlineRGBA} from './theme';
 // deck.gl layers for the Dynamic Intercept Vector. Heuristic prediction from a SIMULATED heading (see intercept.ts).
 // startedAt and time are both in seconds on the same clock (the dashboard's animation time); t = time - startedAt
 // is "seconds since the incident was confirmed". Unit routes only animate once `approved` is true.
@@ -52,7 +53,7 @@ export function interceptLayers(plan: InterceptPlan, startedAt: number, time: nu
     layers.push(new ScatterplotLayer<LngLat>({id: 'icpt-exit-dot', data: [plan.exit.position], getPosition: (p) => p, radiusUnits: 'pixels', getRadius: 5,
       getFillColor: [229, 42, 64, 255]}) as unknown as Layer);
     layers.push(new TextLayer<LngLat>({id: 'icpt-exit-label', data: [plan.exit.position], getPosition: (p) => p, getText: () => 'Predicted exit', getSize: 12,
-      getColor: [255, 190, 196, 255], getPixelOffset: [0, -20], fontFamily: 'DM Sans, sans-serif', fontWeight: 700, outlineWidth: 3, outlineColor: [18, 20, 23, 255],
+      getColor: [255, 190, 196, 255], getPixelOffset: [0, -20], fontFamily: 'DM Sans, sans-serif', fontWeight: 700, outlineWidth: 3, outlineColor: outlineRGBA(),
       fontSettings: {sdf: true}}) as unknown as Layer);
   }
 
@@ -80,7 +81,7 @@ export function interceptLayers(plan: InterceptPlan, startedAt: number, time: nu
       getFillColor: [255, 204, 0, 255], stroked: true, lineWidthUnits: 'pixels', getLineWidth: 2, getLineColor: [18, 20, 23, 255]}) as unknown as Layer);
     layers.push(new TextLayer<ChokePoint>({id: 'icpt-choke-labels', data: plan.chokePoints, getPosition: (c) => c.position,
       getText: (c) => `${c.unit.callsign}  +${Math.round(c.marginS)} s`, getSize: 12, getColor: [255, 226, 120, 255], getPixelOffset: [0, -20],
-      fontFamily: 'DM Sans, sans-serif', fontWeight: 700, outlineWidth: 3, outlineColor: [18, 20, 23, 255], fontSettings: {sdf: true}, characterSet: 'auto'}) as unknown as Layer);
+      fontFamily: 'DM Sans, sans-serif', fontWeight: 700, outlineWidth: 3, outlineColor: outlineRGBA(), fontSettings: {sdf: true}, characterSet: 'auto'}) as unknown as Layer);
   }
 
   // Victim safe-haven route: teal, with light flowing toward the destination.
@@ -94,7 +95,7 @@ export function interceptLayers(plan: InterceptPlan, startedAt: number, time: nu
     layers.push(new ScatterplotLayer<LngLat>({id: 'icpt-haven-dot', data: [v.path[v.path.length - 1]], getPosition: (p) => p, radiusUnits: 'pixels', getRadius: 8 + 2 * pulse,
       getFillColor: [95, 179, 168, 255], stroked: true, lineWidthUnits: 'pixels', getLineWidth: 2, getLineColor: [255, 255, 255, 230], updateTriggers: {getRadius: pulse}}) as unknown as Layer);
     layers.push(new TextLayer<LngLat>({id: 'icpt-haven-label', data: [v.path[v.path.length - 1]], getPosition: (p) => p, getText: () => `Safe haven: ${v.to.name}`, getSize: 12,
-      getColor: [170, 240, 228, 255], getPixelOffset: [0, -22], fontFamily: 'DM Sans, sans-serif', fontWeight: 700, outlineWidth: 3, outlineColor: [18, 20, 23, 255],
+      getColor: [170, 240, 228, 255], getPixelOffset: [0, -22], fontFamily: 'DM Sans, sans-serif', fontWeight: 700, outlineWidth: 3, outlineColor: outlineRGBA(),
       fontSettings: {sdf: true}, characterSet: 'auto'}) as unknown as Layer);
   }
   return layers;
