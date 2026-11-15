@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     pre_event_seconds: float = Field(10, ge=0, le=60)
     post_event_seconds: float = Field(10, ge=0, le=60)
     sample_fps: float = Field(2, ge=0.2, le=10)
-    capture_fps: float = Field(8, ge=1, le=15)
+    capture_fps: float = Field(12, ge=1, le=15)
     dark_luminance_threshold: float = 45
     light_luminance_threshold: float = 70
     alert_confidence_threshold: float = 0.75
@@ -35,7 +35,9 @@ class Settings(BaseSettings):
     relift_python: str = ''
     relift_frame_limit: int = Field(84, ge=2, le=84)
     enable_tracking: bool = False
+    moss_spatial_output: bool = False
     enable_bvimamba: bool = False
+    enable_clip_review: bool = False
     allow_rtsp: bool = False
     max_upload_mb: int = 500
 
