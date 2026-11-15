@@ -71,6 +71,8 @@ For the actual GPU stack, follow [model setup and licenses](docs/overview/models
 
 `apps/dashboard` is a full-screen 3D view of campus for the dispatcher: live incident beams, approve-and-dispatch arcs, hourly history columns and camera coverage cones. It runs on Google Photorealistic 3D Tiles when a key is set, and otherwise on a free MapLibre fallback.
 
+The hosted workspace opens the **Command center** after sign-in and loads incidents with the existing session. The sidebar also gives reviewers access to the overview and other workspace views. The [Replit hosting guide](docs/overview/replit.md) covers building and publishing the command view and officer links.
+
 ```bash
 cd apps/dashboard && npm install && npm run dev   # http://localhost:5174
 ```

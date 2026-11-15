@@ -3,8 +3,8 @@ import {Nav} from './Nav';
 import type {FormEvent} from 'react';
 import {severityColor} from './layers';
 import type {LayerToggles} from './layers';
-import {INCIDENT_LABEL, SEVERITY_LABEL} from './types';
-import type {Funnel, Incident, Officer, Provenance} from './types';
+import {INCIDENT_LABEL} from './types';
+import type {Funnel, Incident, Provenance} from './types';
 
 const rgb = (c: ArrayLike<number>) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
 
@@ -30,10 +30,6 @@ function useNow(every = 1000) {
   return now;
 }
 
-function eta(seconds: number) {
-  return seconds < 60 ? `${Math.round(seconds)} s` : `${Math.round(seconds / 60)} min`;
-}
-
 function hourLabel(h: number) {
   const suffix = h < 12 ? 'AM' : 'PM';
   const twelve = h % 12 === 0 ? 12 : h % 12;
@@ -43,16 +39,39 @@ function hourLabel(h: number) {
 export function StatusStrip(p: {
   camerasTriaged: number; watchedLive: number; vlmCalls: number; costToday: number; costProvenance: 'estimate';
   mapMode: 'google' | 'maplibre'; googleAvailable: boolean; onToggleMap: () => void; liveStatus: string | null;
+  liveMetrics: boolean; demoReady: boolean; onDemo: () => void; onConnect: () => void;
 }) {
   const chips: [string, string, Provenance, string?][] = [
     ['AI-triaged cameras', p.camerasTriaged.toLocaleString(), 'simulated'],
     ['Watched live', p.watchedLive.toLocaleString(), 'simulated'],
-    ['VLM checks today', p.vlmCalls.toLocaleString(), p.liveStatus === 'connected' ? 'live' : 'demo'],
+    ['VLM checks today', p.vlmCalls.toLocaleString(), p.liveMetrics ? 'live' : 'demo'],
     ['Est. cost today', `$${p.costToday.toFixed(2)}`, p.costProvenance, 'L4 GPU at $0.60/h, about 40 cameras per GPU'],
   ];
+  const embedded = new URLSearchParams(location.search).get('embedded') === '1';
   return (
     <header className="strip">
+      {embedded ? (
+      <div className="command-heading">
+        <div>
+          <h1>3D command center</h1>
+          <p>Review campus incidents and coordinate simulated response units.</p>
+        </div>
+        <div className="strip-right">
+          {p.liveStatus && <span className={`live-status ${p.liveStatus}`}>SafeSC {p.liveStatus}</span>}
+          {p.liveStatus !== 'connected' && <button type="button" onClick={p.onConnect} disabled={!p.demoReady}>Connect SafeSC</button>}
+          {p.googleAvailable && <button type="button" onClick={p.onToggleMap}>{p.mapMode === 'google' ? 'Use campus map' : 'Use photoreal 3D'}</button>}
+          <button type="button" disabled={!p.demoReady} onClick={p.onDemo}>Stage demo incident</button>
+        </div>
+      </div>
+      ) : (<>
       <Nav active="live" />
+        <div className="strip-right">
+          {p.liveStatus && <span className={`live-status ${p.liveStatus}`}>SafeSC {p.liveStatus}</span>}
+          {p.liveStatus !== 'connected' && <button type="button" onClick={p.onConnect} disabled={!p.demoReady}>Connect SafeSC</button>}
+          {p.googleAvailable && <button type="button" onClick={p.onToggleMap}>{p.mapMode === 'google' ? 'Use campus map' : 'Use photoreal 3D'}</button>}
+          <button type="button" disabled={!p.demoReady} onClick={p.onDemo}>Stage demo incident</button>
+        </div>
+      </>)}
       <div className="chips">
         {chips.map(([label, value, kind, title]) => (
           <div className="chip" key={label} title={title}>
@@ -62,18 +81,11 @@ export function StatusStrip(p: {
           </div>
         ))}
       </div>
-      <div className="strip-right">
-        {p.liveStatus && <span className={`live-status ${p.liveStatus}`}>SafeSC {p.liveStatus}</span>}
-        <button type="button" className="ghost" onClick={p.onToggleMap} disabled={!p.googleAvailable && p.mapMode === 'maplibre'}
-          title={p.googleAvailable ? 'Switch basemap (M)' : 'Set VITE_GOOGLE_MAPS_API_KEY to enable photoreal 3D tiles'}>
-          {p.mapMode === 'google' ? 'Photoreal 3D' : 'Fallback map'}{p.googleAvailable ? ' · M' : ''}
-        </button>
-      </div>
     </header>
   );
 }
 
-export function IncidentQueue(p: {incidents: Incident[]; selectedId: string | null; onSelect: (id: string) => void; onDemo: () => void; onConnect: () => void}) {
+export function IncidentQueue(p: {incidents: Incident[]; selectedId: string | null; onSelect: (id: string) => void}) {
   const now = useNow();
   const open = p.incidents.filter((i) => i.status === 'unreviewed').length;
   return (
@@ -82,14 +94,10 @@ export function IncidentQueue(p: {incidents: Incident[]; selectedId: string | nu
         <h2>Incident queue</h2>
         <span className="count">{open} open · {p.incidents.length} total</span>
       </div>
-      <div className="queue-actions">
-        <button type="button" className="primary" onClick={p.onDemo}>Stage demo incident</button>
-        <button type="button" className="ghost" onClick={p.onConnect}>Connect SafeSC</button>
-      </div>
       <div className="queue-list">
-        {p.incidents.length === 0 && <p className="empty">No incidents yet. Stage a demo incident or connect a running SafeSC.</p>}
+        {p.incidents.length === 0 && <p className="empty">No incidents to review.</p>}
         {p.incidents.map((i) => (
-          <button type="button" key={i.id} className={`queue-item ${i.status} ${i.id === p.selectedId ? 'selected' : ''}`} onClick={() => p.onSelect(i.id)}>
+          <button type="button" key={i.id} className={`queue-item ${i.status} ${i.id === p.selectedId ? 'selected' : ''}`} aria-pressed={i.id === p.selectedId} onClick={() => p.onSelect(i.id)}>
             <span className="dot" style={{background: rgb(severityColor(i.severity))}} />
             <span className="queue-copy">
               <strong>{INCIDENT_LABEL[i.type]}</strong>
@@ -100,53 +108,6 @@ export function IncidentQueue(p: {incidents: Incident[]; selectedId: string | nu
           </button>
         ))}
       </div>
-    </aside>
-  );
-}
-
-export function IncidentDetail(p: {incident: Incident | null; recommendation: {officer: Officer; eta: number} | null; onApprove: () => void; onDismiss: () => void; onClose: () => void}) {
-  const i = p.incident;
-  if (!i) return null;
-  return (
-    <aside className="panel detail">
-      <div className="panel-head">
-        <div>
-          <h2>{INCIDENT_LABEL[i.type]}</h2>
-          <span className="sev" style={{background: rgb(severityColor(i.severity))}}>{SEVERITY_LABEL[i.severity]}</span>
-          <Tag kind={i.origin} />
-        </div>
-        <button type="button" className="ghost close" onClick={p.onClose} aria-label="Close">×</button>
-      </div>
-      <p className="place">{i.place} · {i.cameraId}</p>
-      {i.thumbnail ? <img className="clip" src={i.thumbnail} alt="Incident frame" /> : <div className="clip empty">Demo event · no footage</div>}
-      <p className="observation">{i.observation}</p>
-      {i.evidence.length > 0 && (<>
-        <h3>Evidence</h3>
-        <ul className="evidence">{i.evidence.map((e) => <li key={e}>{e}</li>)}</ul>
-      </>)}
-      {i.uncertainties.length > 0 && (<>
-        <h3>Uncertainty</h3>
-        <ul className="uncertainty">{i.uncertainties.map((u) => <li key={u}>{u}</li>)}</ul>
-      </>)}
-      <p className="fine">Score {(i.confidence * 100).toFixed(0)}% · uncalibrated, not a probability of harm</p>
-      <h3>Recommended responder</h3>
-      {p.recommendation ? (
-        <div className="responder">
-          <strong>{p.recommendation.officer.callsign}</strong>
-          <span>{p.recommendation.officer.mode} · ETA ≈ {eta(p.recommendation.eta)}</span>
-          <Tag kind="simulated" />
-        </div>
-      ) : <p className="fine">No officer available.</p>}
-      {i.status === 'unreviewed' ? (
-        <div className="actions">
-          <button type="button" className="primary approve" onClick={p.onApprove} disabled={!p.recommendation}>Approve & dispatch</button>
-          <button type="button" className="ghost" onClick={p.onDismiss}>Dismiss</button>
-        </div>
-      ) : (
-        <p className={`decided ${i.status}`}>{i.status === 'approved' ? 'Approved and dispatched' : 'Dismissed'}
-          {i.decidedAt ? ` at ${new Date(i.decidedAt).toLocaleTimeString()}` : ''}</p>
-      )}
-      <p className="fine">A person decides. Nothing is dispatched automatically.</p>
     </aside>
   );
 }
@@ -229,13 +190,13 @@ export function Legend() {
     ['High priority', severityColor('HIGH_PRIORITY_REVIEW')], ['Review', severityColor('REVIEW_REQUIRED')], ['Watch', severityColor('WATCH')],
   ];
   return (
-    <div className="panel legend">
+    <details className="panel legend"><summary>Map legend</summary><div className="legend-items">
       {beams.map(([label, c]) => <div key={label}><span className="swatch beam" style={{background: rgb(c)}} />{label}</div>)}
       <div><span className="swatch cone gold" />Watched live</div>
       <div><span className="swatch cone teal" />AI-triaged</div>
       <div><span className="swatch dot rack" />Bike rack <Tag kind="real" /></div>
       <div><span className="swatch dot officer" />Officer <Tag kind="simulated" /></div>
-      <p className="fine">Camera positions and officers are simulated. Never real DPS locations.</p>
-    </div>
+      <p className="fine">Camera positions and officers are simulated.</p>
+    </div></details>
   );
 }

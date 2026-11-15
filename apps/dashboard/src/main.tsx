@@ -10,6 +10,7 @@ import './dispatch.css';
 import './agent.css';
 import './pages.css';
 import {useRoute} from './Nav';
+import './command.css';
 
 setWorkerUrl(maplibreWorkerUrl);
 
@@ -27,12 +28,14 @@ function Root() {
   const route = useRoute();
   const unit = params.get('unit'), room = params.get('room');
   let page: React.ReactNode;
+  const embedded = params.get('embedded') === '1';
   if (unit && room) page = <OfficerView unitId={unit} room={room} />;
+  else if (embedded) page = <Live embedded />;
   else if (params.get('app')) {
     let saved = '';
     try {saved = localStorage.getItem('safesc-dispatch-room') ?? '';} catch { /* storage blocked */ }
     page = <StudentApp room={room ?? saved} />;
-  } else page = route === 'live' ? <Live /> : route === 'incidents' ? <Incidents /> : route === 'about' ? <About /> : <Trends />;
+  } else page = route === 'live' ? <Live embedded={false} /> : route === 'incidents' ? <Incidents /> : route === 'about' ? <About /> : <Trends />;
   return <Suspense fallback={<div className="boot"><i />Loading SafeSC…</div>}>{page}</Suspense>;
 }
 

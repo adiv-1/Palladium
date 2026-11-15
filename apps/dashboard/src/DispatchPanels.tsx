@@ -63,23 +63,22 @@ export function IncidentDetail(p: {
         <button type="button" className="ghost close" onClick={p.onClose} aria-label="Close">×</button>
       </div>
       <p className="place">{i.place} · {i.cameraId}</p>
-      {i.thumbnail ? <img className="clip" src={i.thumbnail} alt="Incident frame" /> : <div className="clip empty">Demo event · no footage</div>}
       <p className="observation">{i.observation}</p>
-      {i.evidence.length > 0 && (<>
-        <h3>Evidence</h3>
-        <ul className="evidence">{i.evidence.map((e) => <li key={e}>{e}</li>)}</ul>
-      </>)}
-      {i.uncertainties.length > 0 && (<>
+      {i.uncertainties.length > 0 && <div className="incident-uncertainty">
         <h3>Uncertainty</h3>
         <ul className="uncertainty">{i.uncertainties.map((u) => <li key={u}>{u}</li>)}</ul>
-      </>)}
-      <p className="fine">Score {(i.confidence * 100).toFixed(0)}% · uncalibrated, not a probability of harm</p>
-
-      {p.building && (<>
-        <h3>Building <Tag kind="real" title="OpenStreetMap" /></h3>
-        <p className="building-name">{p.building.name}</p>
-        <BuildingFacts building={p.building} />
-      </>)}
+      </div>}
+      <details className="incident-evidence">
+        <summary>Evidence and location</summary>
+        {i.thumbnail ? <img className="clip" src={i.thumbnail} alt="Incident frame" /> : <p className="fine">Demo event · no footage</p>}
+        {i.evidence.length > 0 && <ul className="evidence">{i.evidence.map((e) => <li key={e}>{e}</li>)}</ul>}
+        <p className="fine">Uncalibrated confidence score {(i.confidence * 100).toFixed(0)}%</p>
+        {p.building && <>
+          <h3>Building <Tag kind="real" title="OpenStreetMap" /></h3>
+          <p className="building-name">{p.building.name}</p>
+          <BuildingFacts building={p.building} />
+        </>}
+      </details>
 
       {i.status === 'unreviewed' && (
         <div className="agent-card">
@@ -92,10 +91,9 @@ export function IncidentDetail(p: {
             <p className="agent-loading">Dispatch agent is assessing units…</p>
           ) : (<>
             <p className="agent-source">
-              {p.rec.source === 'agent' ? <Tag kind="live" title={p.rec.model} /> : <Tag kind="estimate" title={p.rec.note} />}
-              <span>{p.rec.source === 'agent' ? `AI agent · ${p.rec.model ?? ''}` : 'Rules fallback'}</span>
+              <span>{p.rec.source === 'agent' ? 'AI recommendation' : 'Rules-based recommendation'}</span>
             </p>
-            {p.rec.note && <p className="fine">{p.rec.note}</p>}
+            {p.rec.source === 'agent' && p.rec.note && <p className="fine">{p.rec.note}</p>}
             <p className="agent-overview">{p.rec.overview}</p>
             <div className="agent-units">
               {p.rec.units.length === 0 && <p className="fine">The agent found no available unit.</p>}
@@ -122,15 +120,16 @@ export function IncidentDetail(p: {
             {p.rec.cautions.length > 0 && <ul className="agent-cautions">{p.rec.cautions.map((c) => <li key={c}>{c}</li>)}</ul>}
             {p.rec.latency_ms !== undefined && <small className="fine">Assessed in {Math.round(p.rec.latency_ms)} ms</small>}
           </>)}
-          <div className="actions">
+        </div>
+      )}
+      {i.status === 'unreviewed' && (
+          <div className="actions dispatch-decisions">
             <button type="button" className="primary approve" onClick={p.onDispatch} disabled={!p.chosen.length || p.recLoading || !p.rec}>
-              Approve — agent contacts {p.chosen.length} unit{p.chosen.length === 1 ? '' : 's'}
+              Approve dispatch · {p.chosen.length} unit{p.chosen.length === 1 ? '' : 's'}
             </button>
             <button type="button" className="ghost" onClick={p.onDismiss}>Dismiss</button>
             <button type="button" className="ghost" onClick={p.onReassess} disabled={p.recLoading}>Re-assess</button>
           </div>
-          <p className="fine">The agent recommends; a person approves. Nothing is sent until you approve. {policy.priority} by policy.</p>
-        </div>
       )}
 
       {p.dispatch && (<>
@@ -203,12 +202,12 @@ export function UnitsPanel({officers, devices, room, relay, onFocus}: {officers:
   return (
     <>
       <div className={`panel units ${open ? '' : 'collapsed'}`}>
-        <button type="button" className="units-head" onClick={() => setOpen(!open)}>
+        <button type="button" className="units-head" aria-expanded={open} onClick={() => setOpen(!open)}>
           <strong>Units</strong>
           <span>{officers.filter((o) => o.status === 'available').length} available</span>
           <Tag kind="simulated" />
         </button>
-        {open && officers.map((o) => {
+        {open && <div className="unit-list">{officers.map((o) => {
           const paired = devices[o.id] && now - devices[o.id] < 7000;
           return (
             <div key={o.id} className={`unit-item ${o.status}`}>
@@ -222,22 +221,20 @@ export function UnitsPanel({officers, devices, room, relay, onFocus}: {officers:
               </button>
             </div>
           );
-        })}
-      </div>
-      {pairing && (
-        <div className="modal-backdrop" onClick={() => setPairing(null)}>
-          <div className="panel modal pair" onClick={(e) => e.stopPropagation()}>
+        })}</div>}
+        {open && pairing && (
+          <section className="unit-pairing" aria-label={`Pair ${pairing.callsign}`}>
             <h2>Open {pairing.callsign} on a phone</h2>
             <div className="qr"><QRCodeSVG value={officerLink(room, pairing.id)} size={190} bgColor="#ffffff" fgColor="#111318" /></div>
-            <a className="pair-link" href={officerLink(room, pairing.id)} target="_blank" rel="noreferrer">{officerLink(room, pairing.id)}</a>
+            <a className="pair-link" href={officerLink(room, pairing.id)} target="_blank" rel="noreferrer">Open officer view</a>
             {location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-              ? <p className="fine warn">This link uses localhost, so it only works on this computer (open it in another tab). For a phone, open the dashboard through your network address, which Vite prints as "Network:".</p>
+              ? <p className="fine">This preview link opens on this computer.</p>
               : null}
-            <p className="fine">{relay ? 'Relay connected: phones on the same network receive dispatches.' : 'SafeSC relay not reachable: only tabs on this computer receive dispatches. Start the SafeSC API for phones.'}</p>
+            <p className="fine">{relay ? 'Dispatch relay connected.' : 'Dispatches are available in browser tabs on this computer.'}</p>
             <div className="actions"><button type="button" className="ghost" onClick={() => setPairing(null)}>Done</button></div>
-          </div>
-        </div>
-      )}
+          </section>
+        )}
+      </div>
     </>
   );
 }

@@ -10,6 +10,8 @@ npm install
 npm run dev        # http://localhost:5174
 ```
 
+The hosted site opens the **Command center** in the signed-in reviewer workspace. The dashboard also has a direct route at `/command/`. Officer links use that route with the unit and room in the query string.
+
 Press **D**, or click **Stage demo incident**, to fire a staged event.
 
 | Key | Action |
@@ -25,7 +27,7 @@ Press **D**, or click **Stage demo incident**, to fire a staged event.
 ### Connect to a live SafeSC
 
 1. Run the SafeSC API on `:8000` (`STREAMING_MODEL=cascade` is recommended).
-2. In the dashboard, click **Connect SafeSC** and enter the token from `data/app_token`.
+2. In the dashboard, click **Connect SafeSC**. If prompted, enter the token from `data/app_token`.
 
 Vite proxies `/api` and `/ws` to the API. Set `SAFESC_API` to point the proxy somewhere else. SafeSC sources carry no location, so live incidents are pinned to **simulated** camera positions.
 
@@ -87,5 +89,5 @@ When an incident is selected, the SafeSC backend's dispatch agent (Claude, model
 ## Known limits
 
 - Google 3D Tiles are not desaturated, and that mode is untested with a real key.
-- There is no officer phone app; the ping is an on-screen toast.
+- Officer links open a browser-based view for simulated units.
 - History is simulated until a geocoded DPS log is added.

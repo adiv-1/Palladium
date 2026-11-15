@@ -116,3 +116,7 @@ header.strip .chips { margin-left: 8px; }
 @media (max-width: 1100px) { .alert-panel { left: var(--gutter); transform: none; width: calc(100vw - 24px); animation-name: rise; } .post-detail { width: 300px; } }
 @media (max-width: 800px) { .panel.side { width: auto; right: var(--gutter); bottom: auto; max-height: 52vh; } .post-detail { top: auto; bottom: var(--gutter); width: auto; left: var(--gutter); max-height: 40vh; } .legend-lite { display: none; } .tabs { overflow-x: auto; } }
 @media (prefers-reduced-motion: reduce) { .logo i, .pulse-dot, .siren, .pending, .alert-card, .student.danger, .boot i { animation: none !important; } }
+
+/* inside PR 1's command-center map panel the banner and alert sit relative to the panel */
+.command-map .pending { top: 46px; }
+.command-map .alert-panel { bottom: 14px; }

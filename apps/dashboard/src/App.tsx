@@ -18,12 +18,13 @@ import {approvePlan, requestRecommendation, type Recommendation} from './agent';
 import type {Building, Dispatch, DispatchRecord, Funnel, HistoryPoint, Incident, Officer, Rack} from './types';
 
 const GOOGLE_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || '';
+const OSM_PATH = `${import.meta.env.BASE_URL}osm/`;
 const HOME: MapViewState = {longitude: CAMPUS_CENTER[0], latitude: CAMPUS_CENTER[1], zoom: 16.3, pitch: 58, bearing: -20};
 const fly = new FlyToInterpolator();
 
 type Mode = 'orbit' | 'focus' | 'dispatch';
 
-export default function App() {
+export default function App({embedded}: {embedded: boolean}) {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [racks, setRacks] = useState<Rack[]>([]);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
@@ -82,14 +83,17 @@ export default function App() {
   // ---- data ------------------------------------------------------------------------
   useEffect(() => {
     (async () => {
-      const [r, b] = await Promise.all([fetch(`${import.meta.env.BASE_URL}osm/racks.json`).then((x) => x.json()), fetch(`${import.meta.env.BASE_URL}osm/buildings.json`).then((x) => x.json())]);
+      const [r, b] = await Promise.all([
+        fetch(`${OSM_PATH}racks.json`).then((response) => response.json()),
+        fetch(`${OSM_PATH}buildings.json`).then((response) => response.json()),
+      ]);
       const rackList: Rack[] = r.racks.map((x: any) => ({id: x.id, position: [x.lng, x.lat], capacity: x.capacity}));
       const buildingList = parseBuildings(b.buildings);
       setRacks(rackList);
       setBuildings(buildingList);
       setDs({officers: makeOfficers(buildingList), dispatches: []});
       try {
-        const h = await fetch(`${import.meta.env.BASE_URL}osm/history.json`);
+        const h = await fetch(`${OSM_PATH}history.json`);
         if (!h.ok || !(h.headers.get('content-type') || '').includes('json')) throw new Error('none');
         const rows = await h.json();
         setHistory(rows.map((p: any) => ({position: [p.lng, p.lat], hour: p.hour, type: p.type})));
@@ -372,9 +376,11 @@ export default function App() {
   // ---- live SafeSC ------------------------------------------------------------------------------
   const unsubscribe = useRef<(() => void) | null>(null);
   useEffect(() => () => unsubscribe.current?.(), []);
-  const connect = useCallback(async (token: string) => {
-    await login(token);
-    const existing = await existingIncidents();
+  const connect = useCallback(async (token?: string, signal?: AbortSignal) => {
+    if (!cameras.length) throw new Error('Campus data is still loading');
+    if (token !== undefined) await login(token);
+    const existing = await existingIncidents(signal);
+    if (signal?.aborted) return;
     setIncidents((list) => [...existing.map((raw) => {
       const i = fromSafeSC(raw, cameras);
       return {...i, buildingId: buildingAt(buildings, i.position)?.id};
@@ -387,8 +393,16 @@ export default function App() {
     });
     setLiveStatus('connected');
     setConnectOpen(false);
-    showToast(`Connected to SafeSC: ${existing.length} incidents loaded`);
+    if (!signal) showToast(`Connected to SafeSC: ${existing.length} incidents loaded`);
   }, [cameras, buildings, addIncident, showToast]);
+  useEffect(() => {
+    if (!embedded || !cameras.length) return;
+    const attempt = new AbortController();
+    void connect(undefined, attempt.signal).catch(() => {
+      if (!attempt.signal.aborted) setLiveStatus('disconnected');
+    });
+    return () => attempt.abort();
+  }, [embedded, cameras.length, connect]);
 
   // ---- counters -----------------------------------------------------------------------------------
   const approvedCount = incidents.filter((i) => i.status === 'approved' || i.status === 'resolved').length;
@@ -417,55 +431,68 @@ export default function App() {
   const camsNear = selectedBuilding ? cameras.filter((c) => distance(c.position, selectedBuilding.position) < 60).length : 0;
 
   return (
-    <div className="app">
-      <DeckGL
-        viewState={viewState}
-        controller={{inertia: 300}}
-        layers={layers}
-        getTooltip={tooltip as any}
-        onViewStateChange={({viewState: v, interactionState}) => {
-          if (interactionState?.isDragging || interactionState?.isZooming || interactionState?.isPanning || interactionState?.isRotating) {
-            lastInteraction.current = Date.now();
-          }
-          setViewState(v as MapViewState);
-        }}
-        onClick={({object, layer}) => {
-          if (layer?.id === 'beams' && object) focus(object as Incident);
-          else if (layer?.id === 'footprints' && object) {
-            const b = object as Building;
-            setSelectedId(null);
-            setSelectedBuildingId(b.id);
-            setMode('focus');
-            flyTo({longitude: b.position[0], latitude: b.position[1], zoom: 18, pitch: 60}, 1400);
-          }
-        }}
-      >
-        {mapMode === 'maplibre' && <Map mapStyle={darkCampusStyle} reuseMaps attributionControl={{compact: true}} />}
-      </DeckGL>
-      {mapMode === 'google' && <div className="credits">Google · {credits}</div>}
+    <div className={`app command-center${embedded ? ' embedded' : ''}`}>
       <StatusStrip camerasTriaged={aiCameras} watchedLive={watchedLive} vlmCalls={funnel.vlmChecks} costToday={costToday}
-        costProvenance="estimate" mapMode={mapMode} googleAvailable={!!GOOGLE_KEY}
-        onToggleMap={() => GOOGLE_KEY && setMapMode((m) => (m === 'google' ? 'maplibre' : 'google'))} liveStatus={liveStatus} />
-      <IncidentQueue incidents={incidents} selectedId={selectedId} onSelect={(id: string) => {const i = incidents.find((x) => x.id === id); if (i) focus(i);}}
-        onDemo={stageDemo} onConnect={() => setConnectOpen(true)} />
-      {selected ? (
-        <IncidentDetail incident={selected} building={selectedBuilding} officers={officers} proposals={proposals} chosen={chosen}
-          onToggleUnit={(id) => setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))}
-          dispatch={selectedDispatch} devices={devices} onDispatch={dispatchUnits} onDismiss={dismiss}
-          rec={recs[selected.id] ?? null} recLoading={!!recLoading[selected.id]} onReassess={() => void assess(selected)}
-          onResolve={() => selectedDispatch && finishIncident('resolved', selectedDispatch.id)}
-          onCancel={() => selectedDispatch && cancelDispatch(selectedDispatch.id)}
-          onClose={() => {setSelectedId(null); backToOrbit();}} />
-      ) : (
-        <BuildingCard building={selectedBuilding} racksNearby={racksNear} camerasNearby={camsNear}
-          onClose={() => {setSelectedBuildingId(null); backToOrbit();}} />
-      )}
-      <UnitsPanel officers={officers} devices={devices} room={room} relay={relayUp}
-        onFocus={(o) => {lastInteraction.current = Date.now(); flyTo({longitude: o.position[0], latitude: o.position[1], zoom: 18, pitch: 55}, 1200);}} />
-      <BottomBar hour={hour} setHour={setHour} playing={playing} setPlaying={setPlaying} funnel={funnel} toggles={toggles} setToggles={setToggles} />
-      <PendingBanner incidents={incidents} onReview={focus} />
-      {alertState && <AlertPanel alert={alertState} devices={devices} onClose={() => setAlertState(null)} />}
-      <Legend />
+        liveMetrics={!!cascade} costProvenance="estimate" mapMode={mapMode} googleAvailable={!!GOOGLE_KEY}
+        onToggleMap={() => GOOGLE_KEY && setMapMode((m) => (m === 'google' ? 'maplibre' : 'google'))}
+        liveStatus={liveStatus} demoReady={!!buildings.length} onDemo={stageDemo}
+        onConnect={() => {void connect().catch(() => setConnectOpen(true));}} />
+      <main className="command-grid">
+        <section className="panel command-map" aria-label="Interactive 3D campus map">
+          <div className="command-map-label"><strong>University Park</strong><span>3D campus map</span></div>
+          <div className="command-canvas">
+            <DeckGL
+              viewState={viewState}
+              controller={{inertia: 300}}
+              layers={layers}
+              getTooltip={tooltip as any}
+              onViewStateChange={({viewState: v, interactionState}) => {
+                if (interactionState?.isDragging || interactionState?.isZooming || interactionState?.isPanning || interactionState?.isRotating) {
+                  lastInteraction.current = Date.now();
+                }
+                setViewState(v as MapViewState);
+              }}
+              onClick={({object, layer}) => {
+                if (layer?.id === 'beams' && object) focus(object as Incident);
+                else if (layer?.id === 'footprints' && object) {
+                  const b = object as Building;
+                  setSelectedId(null);
+                  setSelectedBuildingId(b.id);
+                  setMode('focus');
+                  flyTo({longitude: b.position[0], latitude: b.position[1], zoom: 18, pitch: 60}, 1400);
+                }
+              }}
+            >
+              {mapMode === 'maplibre' && <Map mapStyle={darkCampusStyle} reuseMaps attributionControl={{compact: true}} />}
+            </DeckGL>
+          </div>
+          {mapMode === 'google' && <div className="credits">Google · {credits}</div>}
+          <Legend />
+          <PendingBanner incidents={incidents} onReview={focus} />
+          {alertState && <AlertPanel alert={alertState} devices={devices} onClose={() => setAlertState(null)} />}
+        </section>
+        <div className="command-review">
+          <IncidentQueue incidents={incidents} selectedId={selectedId} onSelect={(id: string) => {const i = incidents.find((x) => x.id === id); if (i) focus(i);}}
+          />
+          {selected ? (
+            <IncidentDetail incident={selected} building={selectedBuilding} officers={officers} proposals={proposals} chosen={chosen}
+              onToggleUnit={(id) => setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))}
+              dispatch={selectedDispatch} devices={devices} onDispatch={dispatchUnits} onDismiss={dismiss}
+              rec={recs[selected.id] ?? null} recLoading={!!recLoading[selected.id]} onReassess={() => void assess(selected)}
+              onResolve={() => selectedDispatch && finishIncident('resolved', selectedDispatch.id)}
+              onCancel={() => selectedDispatch && cancelDispatch(selectedDispatch.id)}
+              onClose={() => {setSelectedId(null); backToOrbit();}} />
+          ) : (
+            <BuildingCard building={selectedBuilding} racksNearby={racksNear} camerasNearby={camsNear}
+              onClose={() => {setSelectedBuildingId(null); backToOrbit();}} />
+          )}
+        </div>
+      </main>
+      <div className="command-tools">
+        <UnitsPanel officers={officers} devices={devices} room={room} relay={relayUp}
+          onFocus={(o) => {lastInteraction.current = Date.now(); flyTo({longitude: o.position[0], latitude: o.position[1], zoom: 18, pitch: 55}, 1200);}} />
+        <BottomBar hour={hour} setHour={setHour} playing={playing} setPlaying={setPlaying} funnel={funnel} toggles={toggles} setToggles={setToggles} />
+      </div>
       {toast && <div className="toast" key={toast}>{toast}</div>}
       <ConnectDialog open={connectOpen} onClose={() => setConnectOpen(false)} onSubmit={connect} />
     </div>
