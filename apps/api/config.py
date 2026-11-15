@@ -17,13 +17,14 @@ class Settings(BaseSettings):
     verifier_adapter: str = ''
     verifier_research_mode: bool = False
     verification_interval_seconds: float = Field(4,ge=2,le=30)
-    verification_frame_count: int = Field(8,ge=4,le=8)
+    verification_frame_count: int = Field(4,ge=4,le=8)
     max_inference_lag_seconds: float = Field(60,ge=10,le=120)
     alert_agreement_seconds: float = Field(12,ge=2,le=30)
     enhancement_model: str = 'bypass'
     fastllve_checkpoint: str = ''
     pre_event_seconds: float = Field(10, ge=0, le=60)
     post_event_seconds: float = Field(10, ge=0, le=60)
+    object_post_event_seconds: float = Field(30,ge=0,le=60)
     sample_fps: float = Field(2, ge=0.2, le=10)
     capture_fps: float = Field(12, ge=1, le=15)
     dark_luminance_threshold: float = 45

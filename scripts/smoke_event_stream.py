@@ -22,18 +22,20 @@ def materialize(path,fps=6):
             frames.append((t,wire_jpeg(frame.to_image())));next_time=t+1/fps
     return duration,frames
 
-async def main(origin,output):
+async def main(origin,output,only=None):
     token=Path('data/runpod_app_token').read_text().strip();root=Path('data/learning-research/videos')
     neutral=wire_jpeg(Image.open('data/smoke/bus.jpg'))
     segments=[];at=0
     def add(name,duration,frames,expected=None):
         nonlocal at
         segments.append({'name':name,'start':at,'end':at+duration,'frames':frames,'expected':expected});at+=duration
-    add('neutral lead-up',12,[(0,neutral)])
     for name,action in [('Assault038_x264','physical_contact'),('Stealing081_x264','object_taking'),
                         ('Normal_Videos609_x264','ordinary_activity'),('Normal_Videos610_x264','ordinary_activity')]:
-        duration,frames=materialize(root/(name+'.mp4'));add(name,duration,frames,action)
-        add('neutral separation',24,[(0,neutral)])
+        if only and action!=only:continue
+        duration,frames=materialize(root/(name+'.mp4'))
+        add('same-camera static lead-up',12,[(0,frames[0][1])])
+        add(name,duration,frames,action)
+        add('same-camera static follow-through',24,[(0,frames[-1][1])])
     records=[json.loads(x) for x in Path('data/learning/pilot/records.jsonl').read_text().splitlines()]
     expected=[]
     for segment in segments:
@@ -45,9 +47,9 @@ async def main(origin,output):
     async with httpx.AsyncClient(base_url=origin,headers=headers,timeout=240) as c:
         h=await c.get('/api/health');h.raise_for_status();assert h.json()['active_sources']==0
         warm=await c.post('/api/models/moss/warm');warm.raise_for_status()
-        r=await c.post('/api/sources',json={'name':'Research acceptance · real video replay · no human bookmark','kind':'phone'})
+        r=await c.post('/api/sources',json={'name':'Research acceptance · real video replay · no human bookmark','kind':'phone','review_copies':False})
         r.raise_for_status();pair=r.json();source_id=pair['source']['id'];print('Source',source_id,'duration',round(at,1),flush=True)
-        ack_times=[];pending={};alerts={};started=time.monotonic();index=0;phase=-1
+        ack_times=[];pending={};alerts={};started=time.monotonic();index=0;phase=-1;first_wire_stamp=None
         async with websockets.connect(origin.replace('https:','wss:')+'/ws/capture',max_size=2**22) as ws:
             await ws.send(json.dumps({'token':pair['capture_url'].split('#')[1]}));assert json.loads(await ws.recv())['type']=='ready'
             async def receive():
@@ -75,6 +77,7 @@ async def main(origin,output):
                         source_time=elapsed-segment['start'];frames=segment['frames']
                         frame=frames[min(len(frames)-1,max(0,round(source_time*6)))]
                         pending[index]=time.monotonic()
+                        if first_wire_stamp is None:first_wire_stamp=elapsed
                         await ws.send(json.dumps({'type':'frame','timestamp':elapsed}));await ws.send(frame[1]);index+=1
                     await asyncio.sleep(1/12)
                 while pending:
@@ -92,19 +95,22 @@ async def main(origin,output):
             assert hashlib.sha256(media.content).hexdigest()==i['record']['original_sha256']
     results=[]
     for window in expected:
+        window={k:(v-first_wire_stamp if k in ['start','end','annotated_start','annotated_end'] else v) for k,v in window.items()}
         matching=[i for i in incidents if any(e['timestamp_end']>=window['start'] and e['timestamp_start']<=window['end'] for e in i['record']['observable_events'])]
         results.append({**window,'incident_ids':[i['id'] for i in matching],
-            'observed_actions':[i['record'].get('action') for i in matching]})
+            'observed_actions':[i['record'].get('action') for i in matching],
+            'annotated_activity_in_saved_original':any(i['start_time']<=window['annotated_start'] and i['end_time']>=window['annotated_end'] for i in matching)})
     report={'source_id':source_id,'input':'Full previously evaluated research videos through real phone wire protocol; labels retained only in this report',
         'physical_phone_tested':False,'independent_accuracy_benchmark':False,'simulated_inference':False,
-        'runtime_seconds':time.monotonic()-started,'frames_sent':index,'max_capture_ack_ms':max(ack_times),
+        'runtime_seconds':time.monotonic()-started,'first_wire_timestamp':first_wire_stamp,'frames_sent':index,'max_capture_ack_ms':max(ack_times),
         'windows':results,'incidents':incidents,'source':source}
     output.parent.mkdir(parents=True,exist_ok=True);output.write_text(json.dumps(report,indent=2))
     print(json.dumps({k:v for k,v in report.items() if k not in ['incidents','source']},indent=2),flush=True)
     assert all(w['incident_ids'] for w in results if w['expected']!='ordinary_activity'),'A positive scene produced no automatic incident'
     assert all(w['expected'] in w['observed_actions'] for w in results if w['expected']!='ordinary_activity'),'A positive scene was flagged with the wrong action category'
+    assert all(w['annotated_activity_in_saved_original'] for w in results if w['expected']!='ordinary_activity'),'A saved original did not cover the annotated activity'
     assert all(i['record']['original_sha256'] for i in incidents)
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--origin',required=True);p.add_argument('--output',type=Path,default=Path('data/event-stream-smoke.json'));a=p.parse_args()
-    asyncio.run(main(a.origin,a.output))
+    p=argparse.ArgumentParser();p.add_argument('--origin',required=True);p.add_argument('--output',type=Path,default=Path('data/event-stream-smoke-aligned.json'));p.add_argument('--only',choices=['physical_contact','object_taking','ordinary_activity']);a=p.parse_args()
+    asyncio.run(main(a.origin,a.output,a.only))

@@ -92,6 +92,15 @@ class MossDetector:
         self.last_object_request=0;self.last_object_output=0;self.spatial_enabled=settings.moss_spatial_output
         self.caption_text='';self.caption_finished=True;self.observer_notes=deque(maxlen=30);self.caption_sequence=0
         self.evidence_pool=[]
+        self.verification_summaries=deque(maxlen=30)
+    def record_verification(self,detection,frames,kind):
+        self.pending.append(detection)
+        self.response_audit.append({**dict(self.verifier.last_audit),'pass':kind})
+        self.verification_summaries.append({'pass':kind,'source_start':frames[0].timestamp,
+            'source_end':frames[-1].timestamp,'state':detection.state,'action':detection.action,
+            'confidence':detection.confidence,'supporting_frames':detection.supporting_frames,
+            'runtime_seconds':self.verifier.last_audit.get('runtime_seconds'),
+            'observation':detection.observable_events[0].observation if detection.observable_events else None})
     async def prepare_verifier(self):
         if self.use_verifier and self.verifier is None:
             from apps.api.config import settings
@@ -105,7 +114,7 @@ class MossDetector:
         self.ws=await websockets.connect(self.url,max_size=2**22,open_timeout=20)
         await self.ws.send(json.dumps({'type':'start','system_prompt':(OBJECT_PROMPT if self.spatial_enabled else OBSERVER_PROMPT) if self.use_verifier else SYSTEM_PROMPT,
             'prompt':('Describe visible objects and physical actions using the requested frame/objects/summary JSON.' if self.spatial_enabled else 'Briefly describe visible objects and physical actions. Do not infer identity or intent.') if self.use_verifier else 'Monitor observable physical events. Remain silent until evidence supports an observation.',
-            'frame_queue_size':2,'max_tokens_per_second':80,'max_new_tokens':4096,'do_sample':False}))
+            'frame_queue_size':1,'max_tokens_per_second':12,'max_new_tokens':4096,'do_sample':False}))
         while True:
             msg=json.loads(await asyncio.wait_for(self.ws.recv(),60))
             if msg['type']=='ready': break
@@ -195,6 +204,10 @@ class MossDetector:
     async def observe(self,frames,timestamps,tracks):
         if not self.ws: await self.connect()
         if self.task.done(): raise UnavailableModel(self.error or 'MOSS disconnected')
+        if self.use_verifier and self.verification_task and not self.verification_task.done():
+            # Both models stay resident. Stop adding native decoder work while
+            # the action verifier owns the GPU; camera receipt never waits here.
+            return
         started=time.monotonic()
         # Per-frame user prompts interrupt the native decoder, truncating JSON.
         # Put evidence alignment metadata in a separate image margin instead.
@@ -226,13 +239,12 @@ class MossDetector:
             idle=self.verification_task is None or self.verification_task.done()
             if idle and len(self.evidence_frames)>=4 and timestamps[-1]-self.last_verified>=settings.verification_interval_seconds:
                 self.last_verified=timestamps[-1]
-                self.verification_task=asyncio.create_task(self.verify_window(list(self.evidence_frames),self.observer_text,list(tracks),list(self.evidence_pool)))
+                self.verification_task=asyncio.create_task(self.verify_window(list(self.evidence_frames),'',list(tracks),list(self.evidence_pool)))
     async def verify_window(self,frames,notes,tracks,pool=None):
         try:
             await self.prepare_verifier();self.phase='verifying'
             detection=await asyncio.to_thread(self.verifier.verify_frames,frames,notes,tracks)
-            self.pending.append(detection);self.error=None
-            self.response_audit.append(dict(self.verifier.last_audit))
+            self.record_verification(detection,frames,'live_window');self.error=None
             from apps.api.config import settings
             if detection.state in ['REVIEW_REQUIRED','HIGH_PRIORITY_REVIEW'] and detection.confidence>=settings.alert_confidence_threshold:
                 fresh=[f for f in pool or [] if f.index not in set(detection.supporting_frames)]
@@ -243,8 +255,7 @@ class MossDetector:
                     confirm=select_evidence(fresh,min(4,len(fresh)))
                     self.phase='confirming_event'
                     checked=await asyncio.to_thread(self.verifier.verify_frames,confirm,'',tracks)
-                    self.pending.append(checked)
-                    self.response_audit.append({**dict(self.verifier.last_audit),'pass':'event_context_confirmation'})
+                    self.record_verification(checked,confirm,'event_context_confirmation')
         except Exception as error:
             self.error=f'Visual verification rejected: {error}'
             audit=dict(self.verifier.last_audit) if self.verifier else {}
