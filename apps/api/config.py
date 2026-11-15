@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     # Dispatch agent (apps/api/dispatch_agent.py): recommends units; a person approves.
     dispatch_agent_model: str = 'claude-opus-5-5'
     anthropic_api_key: str = ''
+    # Adversarial debate (apps/api/debate.py): 'auto' = claude if ANTHROPIC_API_KEY is set, else rules.
+    debate_gate: str = 'auto'  # 'auto' | 'rules' | 'claude' | 'jev'
+    debate_model: str = 'claude-haiku-5-5'
     allow_rtsp: bool = False
     max_upload_mb: int = 500
 

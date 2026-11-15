@@ -35,6 +35,8 @@ type Inputs = {
   focusBuildingId: string | null;
   now: number; // Date.now(), for unit routes and drop-in timing
   orbiting: boolean;
+  alert?: {center: LngLat; startedAt: number; radius: number; users: {id: string; position: LngLat; inside: boolean}[]} | null;
+  extra?: Layer[]; // layers from other agents (intercept vector, etc.)
 };
 
 export function buildLayers(x: Inputs): Layer[] {
@@ -204,5 +206,19 @@ export function buildLayers(x: Inputs): Layer[] {
       getColor: [255, 204, 0, 70], widthUnits: 'pixels', getWidth: 2, trailLength: 1e6, currentTime: now, fadeTrail: false,
     }) as unknown as Layer);
   }
+  if (x.alert) {
+    const a = x.alert, age = x.time - a.startedAt, grow = Math.min(1, age / 2.4), r = a.radius * (1 - (1 - grow) ** 3);
+    layers.push(new ScatterplotLayer({id: 'alert-zone', data: [a], getPosition: (d: typeof a) => d.center, radiusUnits: 'meters', getRadius: r,
+      stroked: true, lineWidthUnits: 'pixels', getLineWidth: 2.5, getFillColor: [204, 31, 52, 26 + 12 * pulse], getLineColor: [255, 90, 100, 230],
+      updateTriggers: {getRadius: r, getFillColor: pulse}}) as unknown as Layer);
+    layers.push(new ScatterplotLayer({id: 'alert-wave', data: [a], getPosition: (d: typeof a) => d.center, radiusUnits: 'meters', stroked: true, filled: false,
+      lineWidthUnits: 'pixels', getLineWidth: 3, getRadius: (a.radius * ((age * 0.55) % 1)), getLineColor: [255, 120, 120, 200 * (1 - ((age * 0.55) % 1))],
+      updateTriggers: {getRadius: age, getLineColor: age}}) as unknown as Layer);
+    layers.push(new ScatterplotLayer({id: 'app-users', data: a.users, getPosition: (u: any) => u.position, radiusUnits: 'pixels', stroked: true, lineWidthUnits: 'pixels',
+      getLineWidth: 1.5, getRadius: (u: any) => (u.inside && distance(u.position, a.center) <= r ? 5 + 2 * pulse : 3.2),
+      getFillColor: (u: any) => (u.inside && distance(u.position, a.center) <= r ? [255, 204, 0, 255] : [150, 190, 255, u.inside ? 190 : 110]),
+      getLineColor: [18, 20, 23, 255], updateTriggers: {getRadius: [r, pulse], getFillColor: r}}) as unknown as Layer);
+  }
+  if (x.extra) layers.push(...x.extra);
   return layers;
 }

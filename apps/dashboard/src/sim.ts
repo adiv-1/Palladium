@@ -160,7 +160,7 @@ const SCRIPTS: Script[] = [
     uncertainty: 'Someone resting or sitting low can trigger this.', confidence: 0.79},
 ];
 
-let demoCount = 0;
+let demoCount = 2; // first staged incident is the altercation
 export function demoIncident(buildings: Building[], racks: Rack[], cameras: Camera[]): Incident {
   const script = SCRIPTS[demoCount % SCRIPTS.length];
   demoCount += 1;

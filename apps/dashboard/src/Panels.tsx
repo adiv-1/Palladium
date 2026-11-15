@@ -1,4 +1,5 @@
 import {useEffect, useState} from 'react';
+import {Nav} from './Nav';
 import type {FormEvent} from 'react';
 import {severityColor} from './layers';
 import type {LayerToggles} from './layers';
@@ -51,7 +52,7 @@ export function StatusStrip(p: {
   ];
   return (
     <header className="strip">
-      <div className="brand"><strong>SafeSC</strong><span>Command view</span></div>
+      <Nav active="live" />
       <div className="chips">
         {chips.map(([label, value, kind, title]) => (
           <div className="chip" key={label} title={title}>

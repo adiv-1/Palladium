@@ -12,6 +12,8 @@ import {buildingAt, parseBuildings} from './buildings';
 import {acknowledge, arrive, AUTO_ACK_MS, cancel, clearUnit, createDispatch, POLICY, proposeUnits, remainingSeconds, resolve, tick, type DispatchState} from './dispatch';
 import {dashboardRoom, openBus, type Assignment, type Bus, type BusMessage} from './bus';
 import {INCIDENT_LABEL} from './types';
+import {AlertPanel, PendingBanner} from './AlertPanel';
+import {composeAlert, makeAppUsers, type ActiveAlert} from './alerts';
 import {approvePlan, requestRecommendation, type Recommendation} from './agent';
 import type {Building, Dispatch, DispatchRecord, Funnel, HistoryPoint, Incident, Officer, Rack} from './types';
 
@@ -70,6 +72,10 @@ export default function App() {
   const bus = useRef<Bus | null>(null);
 
   const cameras = useMemo(() => (buildings.length ? makeCameras(buildings) : []), [buildings]);
+  const appUsers = useMemo(() => makeAppUsers(buildings), [buildings]);
+  const [alertState, setAlertState] = useState<ActiveAlert | null>(null);
+  const alertRef = useRef<ActiveAlert | null>(null);
+  alertRef.current = alertState;
   const aiCameras = cameras.filter((c) => !c.watchedLive).length;
   const watchedLive = cameras.length - aiCameras;
 
@@ -238,7 +244,7 @@ export default function App() {
       }
       return;
     }
-    if (m.type === 'state') return;
+    if (m.type === 'state' || m.type === 'alert') return;
     const unit = dsRef.current.officers.find((o) => o.id === m.unitId);
     if (!unit || unit.dispatchId !== m.dispatchId) return;
     const d = dsRef.current.dispatches.find((x) => x.id === m.dispatchId);
@@ -312,18 +318,27 @@ export default function App() {
     setIncidents((list) => list.map((i) => (i.id === incident.id ? {...i, status: 'approved', dispatchId: dispatch.id, officerId: units[0].id, decidedAt: t} : i)));
     setArcs((list) => [...list, ...units.map((u) => ({incidentId: incident.id, officerId: u.id, path: arcPath(u.position, incident.position), startedAt: timeRef.current, seconds: 2.2}))]);
     setTimeout(() => setArcs((list) => list.filter((a) => a.incidentId !== incident.id)), 4500);
+    // The alert agent: notify every DPS unit and app users within 200 m, and file the incident report.
+    const alertNow = composeAlert(incident, buildings.find((b) => b.id === incident.buildingId), dsRef.current.officers, appUsers, units, timeRef.current);
+    setAlertState(alertNow);
+    bus.current?.send({type: 'alert', alert: alertNow.msg});
     setMode('dispatch');
     const far = units.reduce((m, u) => Math.max(m, distance(u.position, incident.position)), 0);
     flyTo({longitude: incident.position[0], latitude: incident.position[1], zoom: far > 400 ? 16.4 : 17.1, pitch: 58}, 1600);
     const phones = units.filter((u) => devicesRef.current[u.id] && Date.now() - devicesRef.current[u.id] < 7000);
     showToast(`Agent contacted ${units.map((u) => u.callsign).join(' + ')}${phones.length ? ` · ${phones.length} phone${phones.length > 1 ? 's' : ''} notified` : ' · no phones linked, auto-acknowledging'}`);
-  }, [selectedId, chosen, apply, flyTo, showToast]);
+  }, [selectedId, chosen, apply, flyTo, showToast, buildings, appUsers]);
 
   const finishIncident = useCallback((status: 'resolved', dispatchId: string) => {
     const t = Date.now();
     apply((s) => resolve(s, dispatchId, t));
     setIncidents((list) => list.map((i) => (i.dispatchId === dispatchId ? {...i, status} : i)));
     showToast('Incident resolved, units back in service');
+    const open = alertRef.current;
+    if (open) {
+      bus.current?.send({type: 'alert', alert: {...open.msg, id: open.msg.id.replace('alert-', 'clear-'), kind: 'clear', title: 'All clear', message: 'The incident is resolved.', at: Date.now()}});
+      setAlertState(null);
+    }
   }, [apply, showToast]);
 
   // Resolve the incident once every unit has cleared from the phones.
@@ -386,7 +401,8 @@ export default function App() {
 
   const google = mapMode === 'google' && GOOGLE_KEY ? {key: GOOGLE_KEY, onCredits: setCredits} : null;
   const layers = buildLayers({time, incidents, selectedId, officers, cameras, racks, history, hour, dispatches: arcs, toggles, google,
-    buildings, focusBuildingId: selectedBuildingId ?? selected?.buildingId ?? null, now, orbiting: mode === 'orbit'});
+    buildings, focusBuildingId: selectedBuildingId ?? selected?.buildingId ?? null, now, orbiting: mode === 'orbit',
+    alert: alertState ? {center: alertState.msg.center, startedAt: alertState.startedAt, radius: alertState.msg.radius, users: alertState.users} : null});
 
   const tooltip = ({object, layer}: PickingInfo) => {
     if (!object || !layer) return null;
@@ -447,6 +463,8 @@ export default function App() {
       <UnitsPanel officers={officers} devices={devices} room={room} relay={relayUp}
         onFocus={(o) => {lastInteraction.current = Date.now(); flyTo({longitude: o.position[0], latitude: o.position[1], zoom: 18, pitch: 55}, 1200);}} />
       <BottomBar hour={hour} setHour={setHour} playing={playing} setPlaying={setPlaying} funnel={funnel} toggles={toggles} setToggles={setToggles} />
+      <PendingBanner incidents={incidents} onReview={focus} />
+      {alertState && <AlertPanel alert={alertState} devices={devices} onClose={() => setAlertState(null)} />}
       <Legend />
       {toast && <div className="toast" key={toast}>{toast}</div>}
       <ConnectDialog open={connectOpen} onClose={() => setConnectOpen(false)} onSubmit={connect} />
