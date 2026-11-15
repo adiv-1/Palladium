@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from apps.api.config import settings
 from apps.api.db import Incident, Source, ReviewAction, Job, init, save, get, rows
-from apps.api.incident_management import ReviewedLabel, deleted, set_queue_deleted, set_reviewed_label
+from apps.api.incident_management import ReviewedLabel, ReviewLocation, deleted, set_queue_deleted, set_reviewed_label, set_review_location
 from apps.api.main import app
 from apps.api.video import digest
 
@@ -40,6 +40,45 @@ def sample(**changes):
 
 def actions(item):
     return [action for action in rows(ReviewAction) if action.incident_id==item.id]
+
+
+def test_reviewer_location_is_audited_idempotent_and_kept_separate_from_gps_and_review():
+    gps={'status':'active','latitude':34.02,'longitude':-118.28,'accuracy_m':7,'provenance':'browser_permission'}
+    item=sample(geolocation=gps,reviewed_label={'title':'Existing human label'})
+    before=copy.deepcopy(item.record)
+    payload=ReviewLocation(latitude=34.02145,longitude=-118.2904,label='Approximate recording area',note='Owner supplied this area')
+    located=set_review_location(item.id,payload)
+    assert located.review_status==item.review_status=='pending'
+    assert located.record['reviewer_location']['precision']=='approximate'
+    assert located.record['reviewer_location']['provenance']=='reviewer_supplied'
+    assert 'accuracy_m' not in located.record['reviewer_location']
+    assert {k:v for k,v in located.record.items() if k!='reviewer_location'}==before
+    assert actions(item)[0].decision=='location_updated'
+    set_review_location(item.id,payload);assert len(actions(item))==1
+    cleared=set_review_location(item.id,ReviewLocation(active=False,note='Clear assigned area'))
+    assert not cleared.record['reviewer_location']['active']
+    assert cleared.record['geolocation']==gps
+    assert len(actions(item))==2
+
+
+def test_location_endpoint_requires_auth_and_rejects_fake_gps_or_review_fields():
+    item=sample()
+    with TestClient(app) as client:
+        body={'latitude':34.02,'longitude':-118.29,'label':'An approximate area'}
+        assert client.post(f'/api/incidents/{item.id}/location',json=body).status_code==401
+        headers={'Authorization':'Bearer '+settings.app_token}
+        for changes in ({'latitude':91},{'longitude':181},{'latitude':'NaN'},{'provenance':'browser_permission'},{'review_status':'confirmed'},{'label':''}):
+            assert client.post(f'/api/incidents/{item.id}/location',json={**body,**changes},headers=headers).status_code==422
+        response=client.post(f'/api/incidents/{item.id}/location',json=body,headers=headers)
+        assert response.status_code==200 and response.json()['review_status']=='pending'
+        assert response.json()['record']['reviewer_location']['provenance']=='reviewer_supplied'
+
+
+def test_location_change_waits_for_processing_instead_of_overwriting_job_output():
+    item=sample();save(Job(incident_id=item.id,kind='review_brief',status='running'))
+    with pytest.raises(ValueError,match='processing'):
+        set_review_location(item.id,ReviewLocation(latitude=34,longitude=-118,label='Area'))
+    assert 'reviewer_location' not in get(Incident,item.id).record
 
 
 def test_delete_restore_is_idempotent_audited_and_never_removes_held_media(tmp_path):

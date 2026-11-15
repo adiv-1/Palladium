@@ -2,7 +2,7 @@
 import json
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 from sqlmodel import Session, select
 
 from .db import Incident, Job, ReviewAction, engine, now
@@ -13,6 +13,45 @@ ACTIVE_JOBS = {'queued', 'running', 'cancelling'}
 
 class QueueChange(BaseModel):
     note: str = Field(default='', max_length=2000)
+
+
+class ReviewLocation(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    active: bool = True
+    latitude: float | None = Field(default=None, ge=-90, le=90, allow_inf_nan=False)
+    longitude: float | None = Field(default=None, ge=-180, le=180, allow_inf_nan=False)
+    label: str = Field(default='', max_length=200)
+    note: str = Field(default='', max_length=2000)
+
+    @model_validator(mode='after')
+    def located_when_active(self):
+        if self.active and (self.latitude is None or self.longitude is None or not self.label.strip()):
+            raise ValueError('Choose a named place or map point for the recording')
+        return self
+
+
+@guarded
+def set_review_location(incident_id, payload):
+    with Session(engine) as session:
+        incident=session.get(Incident,incident_id)
+        if incident is None:raise LookupError('Incident not found')
+        if active_processing(session,incident_id):
+            raise ValueError('Wait for this incident processing to finish before setting its location')
+        previous=incident.record.get('reviewer_location',{})
+        location={'active':payload.active,'provenance':'reviewer_supplied','precision':'approximate',
+            'label':payload.label.strip() if payload.active else '',
+            'latitude':payload.latitude if payload.active else None,
+            'longitude':payload.longitude if payload.active else None}
+        if all(previous.get(k)==v for k,v in location.items()):
+            session.expunge(incident);return incident
+        location['updated_at']=now()
+        incident.record={**incident.record,'reviewer_location':location}
+        session.add(incident)
+        session.add(ReviewAction(incident_id=incident_id,decision='location_updated',note=json.dumps({
+            'location':location,'previous':previous,'note':payload.note,
+            'notice':'Reviewer-supplied approximate area. Camera GPS, model predictions and review decisions are unchanged.'})))
+        session.commit();session.refresh(incident);session.expunge(incident)
+        return incident
 
 
 class ReviewedLabel(BaseModel):

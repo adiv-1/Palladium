@@ -14,7 +14,7 @@ const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
 const clock = (n: number) => `${String(n).padStart(2, '0')}:00`;
 const MODES = [['explore', 'Explore'], ['routes', 'Walking routes'], ['posts', 'Ambassador posts'], ['history', 'History']] as const;
 
-export default function ActivityForecast({bundle, focusMode,onModeChange}: {bundle: Data; focusMode?: 'posts' | 'routes';onModeChange?:(mode:CampusState['mode'])=>void}) {
+export default function ActivityForecast({bundle, focusMode,onModeChange,planningOnly=false}: {planningOnly?:boolean;bundle: Data; focusMode?: 'posts' | 'routes';onModeChange?:(mode:CampusState['mode'])=>void}) {
   const {campus: s, setCampus} = useWorkspaceState(), {places, error: placeError} = usePlaces();
   const patch = (values: Partial<CampusState>) => setCampus(old => ({...old, ...values}));
   useEffect(() => {if (focusMode) setCampus(old => ({...old, mode: focusMode}));}, [focusMode, setCampus]);
@@ -53,13 +53,14 @@ export default function ActivityForecast({bundle, focusMode,onModeChange}: {bund
   const choosePost = (i: number) => {patch({selectedPost: i, selected: posts[i].cell}); go(posts[i].coordinates);};
   const windowStart = Math.floor(s.hour / 3) * 3;
   const validation = bundle.evaluation.candidates.find((c: Data) => c.config.name === bundle.evaluation.selected);
+  const modes=planningOnly?MODES.filter(([id])=>id==='routes'||id==='posts'):MODES;
   const title = s.mode === 'posts' ? 'Ambassador positioning' : s.mode === 'routes' ? 'Get Somewhere' : s.mode === 'history' ? 'Reported history' : 'Campus outlook';
   const endpoints = useMemo(() => [...(s.start ? [{point: s.start.point, label: 'A'}] : []), ...(s.end ? [{point: s.end.point, label: 'B'}] : [])], [s.start, s.end]);
   const covered = useMemo(() => s.mode === 'posts' ? (posts.at(-1)?.covered_cells || []) : [], [s.mode, posts]);
 
   return <div className="campus-workspace">
     <div className="page-heading"><div><span className="eyebrow">Campus intelligence</span><h1>{title}</h1><p>{s.mode === 'posts' ? 'A limited team. A considered place for every post.' : s.mode === 'routes' ? 'Choose a destination. Compare the walk for your departure time.' : 'Reported activity, with the context to understand it.'}</p></div><span className="status-label"><i className="dot green"/>Public analysis loaded</span></div>
-    <div className="campus-toolbar"><div className="segmented" aria-label="Campus sections">{MODES.map(([id, label]) => <button key={id} className={s.mode === id ? 'selected' : ''} aria-pressed={s.mode === id} onClick={() => {patch({mode: id}); setPicking(null);onModeChange?.(id);}}>{label}</button>)}</div><div className="map-options"><div className="segmented" aria-label="Map perspective"><button aria-pressed={!s.threeD} className={!s.threeD ? 'selected' : ''} onClick={() => patch({threeD: false})}>2D</button><button aria-pressed={s.threeD} className={s.threeD ? 'selected' : ''} onClick={() => patch({threeD: true})}>3D</button></div><select aria-label="Map background" value={s.basemap} onChange={e => patch({basemap: e.target.value as CampusState['basemap']})}><option value="streets">Dark campus</option><option value="imagery">Satellite / aerial</option></select></div></div>
+    <div className="campus-toolbar"><div className="segmented" aria-label="Campus sections">{modes.map(([id, label]) => <button key={id} className={s.mode === id ? 'selected' : ''} aria-pressed={s.mode === id} onClick={() => {patch({mode: id}); setPicking(null);onModeChange?.(id);}}>{id==='posts'?'Ambassador positioning':label}</button>)}</div><div className="map-options"><div className="segmented" aria-label="Map perspective"><button aria-pressed={!s.threeD} className={!s.threeD ? 'selected' : ''} onClick={() => patch({threeD: false})}>2D</button><button aria-pressed={s.threeD} className={s.threeD ? 'selected' : ''} onClick={() => patch({threeD: true})}>3D</button></div><select aria-label="Map background" value={s.basemap} onChange={e => patch({basemap: e.target.value as CampusState['basemap']})}><option value="streets">Dark campus</option><option value="imagery">Satellite / aerial</option></select></div></div>
     <div className="campus-grid">
       <aside className="campus-panel panel">
         {s.mode !== 'history' ? <>

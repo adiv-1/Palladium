@@ -15,14 +15,20 @@ incident database, archive, retention, or training policy.
    There is no separate demonstration-video selector. The three original public
    recordings remain in Git for reproducible evaluation, without being bundled
    into the frontend or prescribing model results.
-2. **Ambassador positioning:** choose date, Los Angeles time, report family and
-   1–8 ambassadors. Select a numbered recommendation to inspect its marginal
-   modeled coverage and location. The existing 400 m network coverage scenarios
-   count overlap once; no invented current deployment is used as a comparator.
-3. **Get Somewhere:** search the local OSM building/landmark index or select map
-   points. Compare the direct connected walk with an alternative within the
-   selected detour budget. Replay is illustrative. The index describes modeled
-   report activity, not a probability of personal harm or a validated safest path.
+2. **Incident response:** choosing **Needs review · Incident response** records the
+   human review decision and opens the same incident on the response map. A
+   **Past month** button overlays source-linked historical reports for the previous
+   calendar month through today in Los Angeles. The selected video has a separate
+   red destination marker. Four illustrative responders and pulsing contact rings
+   are a browser-session demonstration, clearly labeled **Demo response — no
+   officers contacted.** No real responder positions or message deliveries are
+   asserted. Resetting the illustration does not change a review decision.
+3. **Get Somewhere:** two choices, **Walking routes** and **Ambassador positioning**.
+   Routes use local building/landmark search and map picking, connected walking
+   paths, departure-time scoring and the existing detour budget. Ambassador posts
+   retain 1–8-person scenarios, 400 m network coverage, marginal contributions and
+   reasoning. Both presentations use the existing public-data analysis. These
+   indices describe report activity, not a probability of personal harm.
 
 The primary tabs remain available while scrolling. **Incidents** is the video
 review queue. The **More** menu contains campus exploration/history, learning,
@@ -48,23 +54,34 @@ and dataset links. Missing analysis is shown explicitly. Satellite imagery and
 basemap tiles load online; no external routing or geocoding service is called.
 Pedestrian survey totals remain separate from route and staffing calculations.
 
-## Event-map illustration
+## Recording locations and response illustration
 
-Incident review can open an event map when the saved record contains a usable
-permissioned camera fix. It shows accuracy and camera-position provenance;
-uploads and unavailable positions receive no inferred location.
+A phone can save its browser-reported camera position, measurement time and
+accuracy when location permission is granted. Location sharing is visibly
+selected before starting the camera and can be switched off. A 30-second GPS
+watch falls back to browser approximate positioning after timeout, retaining the
+actual reported accuracy. Denied permission has a retry control and instructions;
+video continues. Existing measurement-age and event-time gates remain in place.
+A fix received after an event does not retroactively locate it.
 
-The reviewer chooses a **Demo staging point** and starts **Simulate response**.
-A synthetic unit moves along the existing connected walking graph. Unsupported
-endpoints show an error and retain the camera pin. At the end, the state becomes
-**Awaiting demo arrival confirmation**. Only **Mark on scene** ends that state.
-**Reset demo** clears it. Reduced motion skips the travel animation.
+Reviewers can separately assign an approximate area with local place search or
+map picking in Incident response. `POST /api/incidents/{id}/location` saves an
+audited `reviewer_location`, preserving original camera GPS, predictions and
+review decisions. Clearing it reveals the original GPS again, when available.
+The three existing recordings were explicitly assigned by the owner to the
+Downey Way parking area near Ginsburg Hall. Those assignments live in the incident
+database, not in a filename/ID-based frontend rule. Unknown recordings stay unknown.
 
-The illustration is memory-only and independent of real incident decisions,
-reviewed labels, learning permissions, and training. It has no dispatch endpoint,
-phone bus, external message, officer acknowledgement, or student alert. The
-panel states **Demo response — no officers contacted.** Animations stop when
-hidden or unmounted; map and geometry modules load only when requested.
+Only human `needs_review` / `confirmed` classifications enter the response queue.
+A model-triggered saved incident can glow red while it awaits that classification;
+manual bookmarks and ordinary activity do not acquire an automatic model flag.
+The four demonstration positions are nearby real connected-network vertices,
+labeled as illustrative ambassador/DPS positions, without representing tracked
+people. Selecting **Needs review** starts the local illustration when a usable
+location and four positions exist. Missing data disables it. **Mark demo on scene**
+and **Reset demo** affect only memory, across views until reload. Dismissed or
+trashed incidents leave the response queue. Pulses pause when hidden and respect
+reduced motion. Map and geometry modules load only when requested.
 
 ## Verification and release boundary
 

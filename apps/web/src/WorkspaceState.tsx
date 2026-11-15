@@ -25,20 +25,24 @@ export function localDate(offset = 0) {
 }
 function initialCampus(): CampusState {
   const p = losAngelesParts();
-  return {mode: 'explore', date: localDate(), hour: +p.hour, minute: +p.minute, family: 'person',
+  return {mode: 'routes', date: localDate(), hour: +p.hour, minute: +p.minute, family: 'person',
     threeD: false, basemap: 'streets', surveys: false, selected: null, staff: 3, selectedPost: null,
     start: {id:'leavey',name:'Leavey Library',point:[-118.2829,34.0216]}, end: null, detour: .3, historyStart: '2016-01-01', historyEnd: localDate(), category: '', selectedReport: null};
 }
 type State = {
   campus: CampusState; setCampus: Dispatch<SetStateAction<CampusState>>;
   demos: Record<string, ResponseDemo>; setDemos: Dispatch<SetStateAction<Record<string, ResponseDemo>>>;
+  responseIncident: string|null; setResponseIncident: Dispatch<SetStateAction<string|null>>;
+  responseRuns: Record<string,'notified'|'on_scene'>; setResponseRuns: Dispatch<SetStateAction<Record<string,'notified'|'on_scene'>>>;
 };
 const Context = createContext<State | null>(null);
 export function WorkspaceStateProvider({children}: {children: ReactNode}) {
   const [campus, setCampus] = useState(initialCampus);
   // Deliberately memory-only: no review mutations, storage, dispatch API, or phone bus.
   const [demos, setDemos] = useState<Record<string, ResponseDemo>>({});
-  return <Context.Provider value={{campus, setCampus, demos, setDemos}}>{children}</Context.Provider>;
+  const [responseIncident,setResponseIncident]=useState<string|null>(null);
+  const [responseRuns,setResponseRuns]=useState<Record<string,'notified'|'on_scene'>>({});
+  return <Context.Provider value={{campus, setCampus, demos, setDemos,responseIncident,setResponseIncident,responseRuns,setResponseRuns}}>{children}</Context.Provider>;
 }
 export function useWorkspaceState() {
   const value = useContext(Context);

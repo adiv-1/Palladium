@@ -1,4 +1,5 @@
 import {useEffect, useId, useMemo, useRef, useState} from 'react';
+import './placeSearch.css';
 import type {Place} from './WorkspaceState';
 export default function PlaceSearch({label, value, places, onChange}: {label: string; value: Place | null; places: Place[]; onChange: (place: Place | null) => void}) {
   const id = useId(), [text, setText] = useState(value?.name || ''), [open, setOpen] = useState(false), [active, setActive] = useState(0);

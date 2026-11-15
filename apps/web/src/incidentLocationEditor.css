@@ -1,0 +1,11 @@
+.incident-location-editor{margin:16px 0}
+.incident-location-editor .camera-location{margin:0;padding:13px;gap:9px;align-items:flex-start}
+.incident-location-editor .camera-location strong{font-size:12px}
+.incident-location-editor .camera-location p{font-size:11px;margin:5px 0}
+.incident-location-editor .camera-location small{font-size:10px}
+.incident-location-editor .camera-location a{font-size:10px}
+.incident-location-editor>.text-button{font-size:11px;margin-top:8px}
+.location-form{padding:16px;border:1px solid var(--border);border-radius:9px;margin-top:10px;display:grid;gap:12px}
+.location-form p{margin:0}
+.location-form>button{font-size:11px}
+.location-form .response-actions{display:flex;flex-wrap:wrap;gap:8px}.location-form .response-actions button{font-size:11px}

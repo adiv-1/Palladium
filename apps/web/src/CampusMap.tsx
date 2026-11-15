@@ -14,13 +14,16 @@ type Props = {
   bundle:Data; places:Place[]; threeD:boolean; basemap:'streets'|'imagery'; surveys?:boolean;
   cells?:Data[]; streets?:Data; selected?:number|null; posts?:Data[]; covered?:number[];
   route?:Data|null; endpoints?:{point:Point;label:string}[]; history?:any[][];
-  focus?:MapFocus|null; unit?:Point|null; picking?:boolean; eventLocation?:{point:Point;accuracy:number}|null;
+  focus?:MapFocus|null; unit?:Point|null; picking?:boolean; eventLocation?:{point:Point;accuracy:number|null;provenance?:string;label?:string}|null;
+  responders?:{id:string;name:string;role:string;point:Point}[];responseActive?:boolean;
   onPick?:(point:Point)=>void; onSelect?:(cell:number)=>void; onReport?:(id:string)=>void; onPost?:(index:number)=>void;
 };
 export default function CampusMap(props:Props) {
   const host=useRef<HTMLDivElement>(null), map=useRef<MapView|null>(null), latest=useRef(props);
   latest.current=props;
   const [ready,setReady]=useState(false), [error,setError]=useState('');
+  const [visible,setVisible]=useState(!document.hidden);
+  useEffect(()=>{const change=()=>setVisible(!document.hidden);document.addEventListener('visibilitychange',change);return()=>document.removeEventListener('visibilitychange',change)},[]);
   useEffect(()=>{
     if(!host.current)return;
     let view:MapView;
@@ -31,7 +34,7 @@ export default function CampusMap(props:Props) {
     view.on('load',()=>{
       view.addSource('imagery',{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,attribution:'Imagery © Esri, Vantor, Earthstar Geographics and the GIS User Community'});
       view.addLayer({id:'imagery',type:'raster',source:'imagery',layout:{visibility:'none'},paint:{'raster-brightness-max':.8}},'street-names');
-      for(const name of ['zone','cells','streets','selection','coverage','surveys','routes','reports','buildings','building-names','unit']) view.addSource(name,{type:'geojson',data:empty()});
+      for(const name of ['zone','cells','streets','selection','coverage','surveys','routes','reports','buildings','building-names','unit','response-links']) view.addSource(name,{type:'geojson',data:empty()});
       view.addLayer({id:'zone',type:'line',source:'zone',paint:{'line-color':'#8c979f','line-width':1.5,'line-dasharray':[3,3]}});
       view.addLayer({id:'areas',type:'fill',source:'cells',paint:{'fill-color':['match',['get','level'],'elevated','#dc874b','moderate','#b29c77','#738a88'],'fill-opacity':.1}});
       view.addLayer({id:'sparse',type:'line',source:'cells',filter:['<',['get','recent'],5],paint:{'line-color':'#a3a5ab','line-opacity':.3,'line-width':1,'line-dasharray':[2,4]}});
@@ -46,6 +49,7 @@ export default function CampusMap(props:Props) {
       view.addLayer({id:'surveys',type:'circle',source:'surveys',paint:{'circle-color':'#7eafcf','circle-radius':8,'circle-stroke-width':2,'circle-stroke-color':'#ededed'}});
       view.addLayer({id:'building-names',type:'symbol',source:'building-names',minzoom:15,layout:{'text-field':['get','name'],'text-font':['Noto Sans Regular'],'text-size':12,'text-max-width':13,'text-padding':8},paint:{'text-color':'#e4e6eb','text-halo-color':'#16181c','text-halo-width':2}});
       view.addLayer({id:'unit',type:'circle',source:'unit',paint:{'circle-radius':7,'circle-color':'#c4c8ff','circle-stroke-width':2,'circle-stroke-color':'#15171c'}});
+      view.addLayer({id:'response-links',type:'line',source:'response-links',paint:{'line-color':'#b6adff','line-width':2,'line-opacity':.65,'line-dasharray':[1,3]}});
       view.on('click',e=>{
         const p:Point=[e.lngLat.lng,e.lngLat.lat];
         if(latest.current.picking){latest.current.onPick?.(p);return;}
@@ -59,7 +63,12 @@ export default function CampusMap(props:Props) {
       setReady(true);
     });
     view.on('error',e=>{if(/WebGL|Worker|Failed to fetch|AJAXError/.test(e.error?.message||''))setError('Some basemap tiles could not load. Local analysis remains available.');});
-    const resize=new ResizeObserver(()=>view.resize());resize.observe(host.current);
+    const resize=new ResizeObserver(()=>{
+      view.resize();
+      const focus=latest.current.focus;
+      if(focus?.bounds)view.fitBounds(focus.bounds,{padding:latest.current.responders?.length?{top:100,bottom:100,left:55,right:55}:55,maxZoom:17,duration:0});
+      else if(focus)view.jumpTo({center:focus.point,zoom:focus.zoom||15.5});
+    });resize.observe(host.current);
     return()=>{resize.disconnect();view.remove();map.current=null;};
   },[props.bundle]);
   useEffect(()=>{
@@ -83,6 +92,10 @@ export default function CampusMap(props:Props) {
   },[ready,props.unit]);
   useEffect(()=>{
     const view=map.current;if(!ready||!view)return;
+    (view.getSource('response-links') as GeoJSONSource).setData({type:'FeatureCollection',features:props.responseActive&&props.eventLocation?(props.responders||[]).map(r=>({type:'Feature' as const,properties:{},geometry:{type:'LineString' as const,coordinates:[r.point,props.eventLocation!.point]}})):[]});
+  },[ready,props.responders,props.responseActive,props.eventLocation]);
+  useEffect(()=>{
+    const view=map.current;if(!ready||!view)return;
     const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
     view.easeTo({pitch:props.threeD?58:0,bearing:props.threeD?-18:0,duration:reduced?0:700});
     view.setLayoutProperty('buildings-3d','visibility',props.threeD?'visible':'none');
@@ -91,17 +104,19 @@ export default function CampusMap(props:Props) {
   useEffect(()=>{
     const view=map.current;if(!ready||!view||!props.focus)return;
     const duration=matchMedia('(prefers-reduced-motion: reduce)').matches?0:700;
-    if(props.focus.bounds)view.fitBounds(props.focus.bounds,{padding:55,maxZoom:17,duration});
+    if(props.focus.bounds)view.fitBounds(props.focus.bounds,{padding:props.responders?.length?{top:100,bottom:100,left:55,right:55}:55,maxZoom:17,duration});
     else view.easeTo({center:props.focus.point,zoom:props.focus.zoom||15.5,duration});
   },[ready,props.focus]);
   useEffect(()=>{
     const view=map.current;if(!ready||!view)return;
     const markers:Marker[]=[];
-    const marker=(point:Point,label:string,kind:string,click?:()=>void)=>{const el=document.createElement(click?'button':'div');el.className=`map-pin ${kind}`;el.textContent=label;el.setAttribute('aria-label',kind==='post'?`Planning post ${label}`:label);if(click)el.addEventListener('click',click);markers.push(new Marker({element:el}).setLngLat(point).addTo(view));};
+    const marker=(point:Point,label:string,kind:string,click?:()=>void)=>{const el=document.createElement(click?'button':'div');el.className=`map-pin ${kind}`;el.textContent=label;el.setAttribute('aria-label',kind==='responder'?`Illustrative responder ${label} · demo`:kind==='post'?`Planning post ${label}`:label);if(click)el.addEventListener('click',click);markers.push(new Marker({element:el}).setLngLat(point).addTo(view));};
     props.endpoints?.forEach(p=>marker(p.point,p.label,'endpoint'));
     props.posts?.forEach((p,i)=>marker(p.coordinates,String(i+1),'post',()=>latest.current.onPost?.(i)));
-    if(props.eventLocation)marker(props.eventLocation.point,'Camera','event');
+    props.responders?.forEach((p,i)=>marker(p.point,String(i+1),'responder',undefined));
+    if(props.eventLocation)marker(props.eventLocation.point,props.responders?'Event':props.eventLocation.provenance==='reviewer_supplied'?'Area':'Camera','event');
     return()=>markers.forEach(m=>m.remove());
-  },[ready,props.endpoints,props.posts,props.eventLocation]);
-  return <div className={`campus-map-frame ${props.picking?'picking':''}`}><div ref={host} className="campus-map" aria-label={props.eventLocation?'Camera-reported position and simulated response':'UPC campus activity map'}/>{error&&<p className="map-error" role="status">{error}</p>}<span className="map-scope">{props.eventLocation?`Camera-reported · ±${Math.round(props.eventLocation.accuracy)} m`:'Published UPC Lyft zone · approximate'}</span></div>;
+  },[ready,props.endpoints,props.posts,props.eventLocation,props.responders]);
+  const locationLabel=props.eventLocation?(props.eventLocation.provenance==='reviewer_supplied'?'Reviewer-supplied area · approximate':`Camera-reported · ±${Math.round(props.eventLocation.accuracy||0)} m`):'Published UPC Lyft zone · approximate';
+  return <div className={`campus-map-frame ${props.picking?'picking':''} ${props.responseActive&&visible?'response-pulsing':''}`}><div ref={host} className="campus-map" aria-label={props.eventLocation?'Incident location and simulated response':'UPC campus activity map'}/>{error&&<p className="map-error" role="status">{error}</p>}<span className="map-scope">{locationLabel}</span></div>;
 }

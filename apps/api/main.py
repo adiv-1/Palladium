@@ -188,7 +188,16 @@ def incidents(deleted:bool=False):
     return [{**i.model_dump(),'processing_summary':processing_summary(i,jobs.get(i.id,[]))}
         for i in sorted(rows(Incident),key=lambda i:i.created_at,reverse=True) if is_deleted(i)==deleted]
 
-from .incident_management import QueueChange, ReviewedLabel
+from .incident_management import QueueChange, ReviewedLabel, ReviewLocation
+
+@app.post('/api/incidents/{incident_id}/location',dependencies=[Depends(authenticated)])
+async def incident_location(incident_id:str,payload:ReviewLocation):
+    from .incident_management import set_review_location
+    try:incident=await asyncio.to_thread(set_review_location,incident_id,payload)
+    except LookupError:raise HTTPException(404,'Incident not found')
+    except ValueError as error:raise HTTPException(409,str(error))
+    await hub.publish('incident',incident.model_dump())
+    return incident
 
 @app.delete('/api/incidents/{incident_id}',dependencies=[Depends(authenticated)])
 async def incident_delete(incident_id:str,payload:QueueChange|None=None):

@@ -1,3 +1,5 @@
+import {requiresReview} from './responseState.mjs';
+import {incidentLocation} from './campusModel.mjs';
 // Display actual stored inference, separately from reviewer labels and decisions.
 function modelAssessment(record) {
   const analysis=record.moss_analysis;
@@ -38,11 +40,13 @@ export function deriveIncidentCard(incident) {
     else locationLabel=gps.status==='active'?'Phone location pending':'Phone location unavailable';
   }
   const duration=Number(incident.end_time)-Number(incident.start_time);
+  const supplied=incidentLocation({record:{reviewer_location:record.reviewer_location}});
+  if(supplied)locationLabel=`${supplied.label} · approximate`;
   return {
     title:showAssessment?modelTitle:labelVisible?label.title.trim():'Saved video for review',
     description:showAssessment?(sentence.length>150?assessment.text:remaining||'AI pre-analysis. Review the original footage before deciding.'):labelVisible&&typeof label.description==='string'?label.description:'Review the preserved original footage and its context.',
     assessmentSource:showAssessment?assessment.source:null,assessmentText:assessment?.text||null,
-    reviewed,labelVisible,tags,deleted:record.queue_deleted?.active===true,
+    reviewed,labelVisible,tags,requiresReview:requiresReview(incident),deleted:record.queue_deleted?.active===true,
     manual,initialObservation,
     held:record.retention_hold?.active===true,locationLabel,
     reviewStatus:({pending:'Pending human review',confirmed:'Flagged for follow-up',dismissed:'Dismissed',needs_review:'Needs more context'})[incident.review_status]||'Pending human review',
