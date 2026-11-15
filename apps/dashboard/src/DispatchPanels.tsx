@@ -14,7 +14,7 @@ import type {Building, DispatchEvent, DispatchRecord, Incident, Officer} from '.
 const rgb = (c: ArrayLike<number>) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
 const clock = (ms: number) => new Date(ms).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit', second: '2-digit'});
 const secs = (s: number) => (s < 60 ? `${Math.ceil(s)} s` : `${Math.floor(s / 60)} min ${Math.ceil(s % 60)} s`);
-const MODE_ICON: Record<Officer['mode'], string> = {foot: '🚶', bike: '🚲', cart: '🛺'};
+const MODE_ICON: Record<Officer['mode'], string> = {foot: 'Foot', bike: 'Bike', cart: 'Cart'};
 
 function useNow(every = 250) {
   const [now, setNow] = useState(() => Date.now());
@@ -112,7 +112,7 @@ export function IncidentDetail(p: {
                       <strong>{u.callsign}</strong>
                       <span className="role">{u.role}</span>
                       {proposal && <span className="eta">{secs(proposal.eta)}</span>}
-                      {p.devices[u.unit_id] && now - p.devices[u.unit_id] < 7000 ? <span className="paired">📱</span> : null}
+                      {p.devices[u.unit_id] && now - p.devices[u.unit_id] < 7000 ? <span className="paired">Phone</span> : null}
                     </div>
                     <p className="agent-reason">{u.reason}</p>
                     <blockquote className="agent-message">{u.message}</blockquote>
@@ -221,7 +221,7 @@ export function UnitsPanel({officers, devices, room, relay, onFocus}: {officers:
                 <span className={`unit-status ${o.status}`}>{UNIT_STATUS_LABEL[o.status]}</span>
               </button>
               <button type="button" className={`pair ${paired ? 'on' : ''}`} onClick={() => setPairing(o)} title="Open this unit on a phone">
-                {paired ? '📱 linked' : 'Pair phone'}
+                {paired ? 'Phone linked' : 'Pair phone'}
               </button>
             </div>
           );

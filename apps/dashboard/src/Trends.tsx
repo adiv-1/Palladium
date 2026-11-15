@@ -16,7 +16,8 @@ import {PolygonLayer} from '@deck.gl/layers';
 import type {Camera} from './types';
 import {INCIDENT_LABEL, type Building, type IncidentType, type LngLat} from './types';
 
-const TYPE_COLOR: Record<IncidentType, Color> = {altercation: [204, 31, 52, 255], person_down: [242, 110, 48, 255], rack_activity: [255, 204, 0, 255], other: [150, 160, 170, 255]};
+// Three clearly different hues; ambassador posts are neutral white so they never read as an incident type.
+const TYPE_COLOR: Record<IncidentType, Color> = {altercation: [229, 72, 77, 255], person_down: [76, 154, 255, 255], rack_activity: [245, 165, 36, 255], other: [150, 160, 170, 255]};
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
 const lerp = (a: LngLat, b: LngLat, t: number): LngLat => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
@@ -35,7 +36,7 @@ export default function Trends() {
   const [selected, setSelected] = useState<number | null>(null);
   const [from, setFrom] = useState<Building | null>(null);
   const [to, setTo] = useState<Building | null>(null);
-  const [caution, setCaution] = useState(6);
+  const caution = 6; // fixed preference for safer streets
   const [heat, setHeat] = useState(true);
   const [showCams, setShowCams] = useState(true);
   // Simulated camera positions around real buildings (never real DPS locations); gold = watched live.
@@ -86,7 +87,6 @@ export default function Trends() {
     const mid = lerp(from.position, to.position, 0.5);
     stage.flyTo({longitude: mid[0], latitude: mid[1], zoom: 16.6 - Math.min(1.2, distance(from.position, to.position) / 900), pitch: 55}, 1600);
   };
-  useEffect(() => {if (routes) setRoutes(null);}, [caution]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const t = stage.time;
   const layers = useMemo(() => {
@@ -94,9 +94,9 @@ export default function Trends() {
     const out: Layer[] = [];
     if (showCams) {
       out.push(new PolygonLayer<Camera>({id: 'cam-cones', data: cameras, getPolygon: (c) => cameraCone(c), stroked: false,
-        getFillColor: (c) => (c.watchedLive ? [255, 204, 0, 70] : [120, 190, 200, 30]), pickable: true}) as unknown as Layer);
+        getFillColor: (c) => (c.watchedLive ? [95, 179, 168, 95] : [95, 179, 168, 28]), pickable: true}) as unknown as Layer);
       out.push(new ScatterplotLayer<Camera>({id: 'cams', data: cameras, getPosition: (c) => c.position, radiusUnits: 'pixels',
-        getRadius: (c) => (c.watchedLive ? 3.5 : 2.2), getFillColor: (c) => (c.watchedLive ? [255, 204, 0, 240] : [140, 200, 210, 190])}) as unknown as Layer);
+        getRadius: (c) => (c.watchedLive ? 3.5 : 2.2), getFillColor: (c) => (c.watchedLive ? [150, 230, 218, 255] : [95, 179, 168, 170])}) as unknown as Layer);
     }
     // A flat glow on the ground: it never hides streets or buildings the way extruded columns did.
     if (heat) out.push(new HeatmapLayer<Past>({id: 'heat', data: points, getPosition: (p) => p.position, getWeight: (p) => p.weight, radiusPixels: 44, intensity: 1.15, threshold: 0.06, opacity: 0.62,
@@ -109,18 +109,18 @@ export default function Trends() {
       const prog = (j: number) => ease(clamp((age - j * 0.12) / 2.4));
       const current = plan.moves.map((m, j) => ({...m, pos: lerp(m.from, m.to, prog(j)), p: prog(j)}));
       out.push(new ArcLayer({id: 'glide', data: current, getSourcePosition: (m: any) => m.from, getTargetPosition: (m: any) => m.to, getWidth: 2,
-        getSourceColor: [140, 150, 160, 120 * (1 - clamp((age - 3) / 2))], getTargetColor: [255, 204, 0, 220 * (1 - clamp((age - 3) / 2))], greatCircle: false,
+        getSourceColor: [140, 150, 160, 120 * (1 - clamp((age - 3) / 2))], getTargetColor: [236, 236, 238, 220 * (1 - clamp((age - 3) / 2))], greatCircle: false,
         updateTriggers: {getSourceColor: age > 5, getTargetColor: age > 5}} as any) as unknown as Layer);
       out.push(new ScatterplotLayer({id: 'cover', data: current, getPosition: (m: any) => m.pos, radiusUnits: 'meters', stroked: true, lineWidthUnits: 'pixels', getLineWidth: 2,
-        getRadius: (m: any) => COVER_M * m.p, getFillColor: (m: any) => [255, 204, 0, 22 + 16 * Math.sin(t * 3 + m.post)], getLineColor: (m: any) => [255, 204, 0, 160 * m.p],
+        getRadius: (m: any) => COVER_M * m.p, getFillColor: (m: any) => [236, 236, 238, 22 + 16 * Math.sin(t * 3 + m.post)], getLineColor: (m: any) => [236, 236, 238, 160 * m.p],
         updateTriggers: {getRadius: t, getFillColor: t, getLineColor: t}} as any) as unknown as Layer);
       out.push(new ScatterplotLayer({id: 'posts', data: current.filter((m) => m.p > 0.98), getPosition: (m: any) => m.to, radiusUnits: 'pixels', getRadius: (m: any) => 11 + 1.5 * Math.sin(t * 3 + m.post),
-        stroked: true, lineWidthUnits: 'pixels', getLineWidth: 3, getFillColor: (m: any) => (m.post === selected ? [255, 245, 170, 255] : [255, 204, 0, 255]), getLineColor: [18, 20, 23, 255],
+        stroked: true, lineWidthUnits: 'pixels', getLineWidth: 3, getFillColor: (m: any) => (m.post === selected ? [255, 255, 255, 255] : [236, 236, 238, 255]), getLineColor: [18, 20, 23, 255],
         pickable: true, updateTriggers: {getRadius: t, getFillColor: selected}} as any) as unknown as Layer);
       out.push(new TextLayer({id: 'post-rank', data: plan.posts.filter(() => age > 2.6), getPosition: (p: any) => p.position, getPixelOffset: [0, -20], getText: (p: any) => String(p.rank),
-        getSize: 15, getColor: [255, 235, 140, 255], fontFamily: 'Manrope, sans-serif', fontWeight: 800, outlineWidth: 4, outlineColor: [18, 20, 23, 255], fontSettings: {sdf: true}} as any) as unknown as Layer);
+        getSize: 15, getColor: [236, 236, 238, 255], fontFamily: 'Manrope, sans-serif', fontWeight: 800, outlineWidth: 4, outlineColor: [18, 20, 23, 255], fontSettings: {sdf: true}} as any) as unknown as Layer);
       out.push(new ScatterplotLayer({id: 'walkers', data: current, getPosition: (m: any) => m.pos, radiusUnits: 'pixels', getRadius: 6, stroked: true, lineWidthUnits: 'pixels', getLineWidth: 2,
-        getFillColor: [240, 243, 247, 255], getLineColor: [255, 204, 0, 255], updateTriggers: {getPosition: t}} as any) as unknown as Layer);
+        getFillColor: [240, 243, 247, 255], getLineColor: [236, 236, 238, 255], updateTriggers: {getPosition: t}} as any) as unknown as Layer);
     } else if (campus) {
       out.push(new ScatterplotLayer({id: 'baseline', data: baselinePosts(campus.buildings, count), getPosition: (p: LngLat) => p, radiusUnits: 'pixels', getRadius: 6, stroked: true, lineWidthUnits: 'pixels',
         getLineWidth: 2, getFillColor: [150, 160, 170, 220], getLineColor: [30, 34, 40, 255]} as any) as unknown as Layer);
@@ -188,7 +188,7 @@ export default function Trends() {
             <div className="field-label">Ambassadors available <b>{count}</b></div>
             <input className="range" type="range" min={3} max={12} value={count} onChange={(e) => setCount(Number(e.target.value))} aria-label="Number of ambassadors" />
             <button className="primary wide-btn" onClick={() => run()}>{plan ? 'Re-run placement' : 'Place ambassadors'}</button>
-            <p className="note">Weighted k-means over past incidents in this shift (altercation ×3, person down ×2.5, bike rack ×1), snapped to real walkways.</p>
+            <p className="note">Posts cover as many past incidents as possible on real walkways. Fights and medical calls count more than bike-rack activity.</p>
             {plan && (<>
               <div className="cov">
                 <div className="cov-head"><span>Incident risk covered within {COVER_M} m</span><Tag kind={campus.historyReal ? 'real' : 'simulated'} /></div>
@@ -209,8 +209,6 @@ export default function Trends() {
           </>) : (<>
             <PlaceInput label="From" buildings={campus.buildings} value={from} onPick={setFrom} placeholder="Where are you?" />
             <PlaceInput label="To" buildings={campus.buildings} value={to} onPick={setTo} placeholder="Where are you going? Try “Leavey”" />
-            <div className="field-label">Prefer safer routes <b>{caution === 0 ? 'off' : caution < 5 ? 'a little' : caution < 9 ? 'balanced' : 'strongly'}</b></div>
-            <input className="range" type="range" min={0} max={12} value={caution} onChange={(e) => setCaution(Number(e.target.value))} aria-label="How strongly to avoid risky streets" />
             <button className="primary wide-btn" onClick={findRoute} disabled={!from || !to}>Find safest route</button>
             {routeError && <p className="error">{routeError}</p>}
             {routes && <RouteCard r={routes} shiftLabel={shiftInfo.label} real={campus.historyReal} onReplay={() => setRoutes({...routes, startedAt: timeRef.current})} />}
@@ -222,7 +220,7 @@ export default function Trends() {
       {selectedPost && <PostDetail post={selectedPost} real={!!campus?.historyReal} onClose={() => setSelected(null)} />}
       <div className="panel legend-lite">
         {TYPES.map((k) => <span key={k}><i style={{background: `rgb(${TYPE_COLOR[k].slice(0, 3).join(',')})`}} />{INCIDENT_LABEL[k]}</span>)}
-        <span><i className="gold" />Ambassador post</span>
+        <span><i className="post" />Ambassador post</span>
         <label className="heat-toggle"><input type="checkbox" checked={heat} onChange={() => setHeat(!heat)} /> Incident heat</label>
         <label className="heat-toggle"><input type="checkbox" checked={showCams} onChange={() => setShowCams(!showCams)} /> Cameras ({cameras.filter((c) => c.watchedLive).length} watched live, {cameras.filter((c) => !c.watchedLive).length} AI-triaged)</label>
       </div>

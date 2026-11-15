@@ -8,7 +8,7 @@ import './incidents.css';
 
 const TYPES: IncidentType[] = ['altercation', 'person_down', 'rack_activity'];
 const STACK: IncidentType[] = ['rack_activity', 'person_down', 'altercation', 'other'];
-const COLOR: Record<IncidentType, string> = {altercation: '#cc1f34', person_down: '#f26e30', rack_activity: '#ffcc00', other: '#8a919b'};
+const COLOR: Record<IncidentType, string> = {altercation: '#e5484d', person_down: '#4c9aff', rack_activity: '#f5a524', other: '#8a919b'};
 const DAY = 864e5;
 const PAGE = 60;
 const WEEKS = 13;

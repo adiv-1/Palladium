@@ -1,7 +1,6 @@
 import {Logo} from './Logo';
 import {useEffect, useMemo, useRef, useState} from 'react';
-import {QRCodeSVG} from 'qrcode.react';
-import {Nav, studentLink} from './Nav';
+import {Nav} from './Nav';
 import {Tag} from './Panels';
 import './about.css';
 
@@ -24,7 +23,7 @@ const NODES: DNode[] = [
   {id: 'detector', x: 200, y: 107, w: 170, h: 90, title: 'Detector agent', sub: ['YOLO11n · ByteTrack · rules', 'pose only on flagged tracks'], lane: 'live'},
   {id: 'debate', x: 410, y: 87, w: 200, h: 130, title: 'Debate', sub: [], lane: 'live'},
   {id: 'verifier', x: 650, y: 107, w: 150, h: 90, title: 'Verifier agent', sub: ['Qwen3-VL', 'narrow yes/no check'], lane: 'live'},
-  {id: 'admin', x: 840, y: 107, w: 140, h: 90, title: 'Admin approval', sub: ['HUMAN IN THE LOOP', 'approve or dismiss'], kind: 'human', lane: 'live'},
+  {id: 'admin', x: 840, y: 107, w: 140, h: 90, title: 'Admin approval', sub: ['Human in the loop', 'approve or dismiss'], kind: 'human', lane: 'live'},
   {id: 'dispatch', x: 1020, y: 107, w: 150, h: 90, title: 'Dispatch agent', sub: ['Claude picks units by', 'position/ETA, urgency,', 'message text'], lane: 'live'},
   {id: 'alert', x: 1230, y: 40, w: 180, h: 70, title: 'Alert agent', sub: ['DPS units + app users', 'within 200 m'], kind: 'out', lane: 'live'},
   {id: 'intercept', x: 1230, y: 125, w: 180, h: 70, title: 'Interception agent', sub: ['escape-heading projection,', 'choke points, safe-haven route'], kind: 'out', lane: 'live'},
@@ -164,7 +163,6 @@ export default function About() {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const reduced = useReducedMotion();
-  const link = useMemo(() => studentLink(), []);
 
   const edgeRefs = useRef<Record<string, SVGPathElement | null>>({});
   const packetRef = useRef<SVGGElement | null>(null);
@@ -283,9 +281,9 @@ export default function About() {
                 </defs>
 
                 <rect className="lane live" x={10} y={10} width={1420} height={320} rx={18} />
-                <text className="lane-l live" x={30} y={36}>LIVE LANE · respond now</text>
+                <text className="lane-l live" x={30} y={36}>Live lane · respond now</text>
                 <rect className="lane trends" x={10} y={380} width={1420} height={320} rx={18} />
-                <text className="lane-l trends" x={200} y={405}>TRENDS LANE · prevent next time</text>
+                <text className="lane-l trends" x={200} y={405}>Trends lane · prevent next time</text>
                 <text className="fb-l" x={700} y={347} textAnchor="middle">confirmed incidents feed back into history</text>
 
                 {EDGES.map(e => (
@@ -298,7 +296,7 @@ export default function About() {
                 {NODES.map(n => <NodeShape key={n.id} n={n} active={n.id === activeNode} done={visitedNodes.has(n.id)} />)}
 
                 <g className="legend" transform="translate(1080 430)">
-                  <text className="s hi" x={0} y={0}>LEGEND</text>
+                  <text className="s hi" x={0} y={0}>Legend</text>
                   <rect x={0} y={14} width={22} height={14} rx={4} className="lg-std" /><text className="s" x={32} y={26}>agent (software)</text>
                   <rect x={0} y={40} width={22} height={14} rx={4} className="lg-human" /><text className="s" x={32} y={52}>human decision</text>
                   <rect x={0} y={66} width={22} height={14} rx={4} className="lg-out" /><text className="s" x={32} y={78}>output / action</text>
@@ -361,20 +359,6 @@ export default function About() {
             </ul>
           </section>
 
-          <section className="card student" aria-labelledby="stu-h">
-            <div className="qr">
-              <QRCodeSVG value={link} size={136} bgColor="#ffffff" fgColor="#121417" marginSize={2} title="QR code for the Palladium student app" />
-            </div>
-            <div className="stu-body">
-              <h2 id="stu-h">Try the student app</h2>
-              <a className="stu-link" href={link} target="_blank" rel="noreferrer">{link}</a>
-              <ol>
-                <li>Scan the code, or open the link, on a phone or in another tab.</li>
-                <li>Allow location so the 200 m alert geofence knows where you are.</li>
-                <li>Approve an incident on the dashboard and watch the alert arrive in the app.</li>
-              </ol>
-            </div>
-          </section>
         </div>
       </main>
     </>
