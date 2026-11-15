@@ -1,0 +1,8 @@
+import {useEffect,useState} from 'react';
+export default function StorageStatus(){
+  const [status,setStatus]=useState<any>(null);
+  useEffect(()=>{let active=true;const load=()=>fetch('/api/storage').then(r=>r.ok?r.json():null).then(s=>active&&setStatus(s)).catch(()=>{});load();const timer=setInterval(load,10000);return()=>{active=false;clearInterval(timer)}},[]);
+  if(!status)return null;
+  return <section className="panel"><span className="eyebrow">INCIDENT STORAGE</span><h3>{status.enabled?'Private Supabase archive':'Local incident storage'}</h3>
+    {status.enabled?<><p>{(status.used_bytes/1024/1024).toFixed(1)} MB of {status.cap_mb} MB SafeSC cap · private bucket</p><p>Original incident clips, thumbnails and review metadata are archived. Full live feeds and large generated copies stay off this archive.</p><p>At capacity, the oldest archived video is removed first. Its summary and review history remain until retention expires. Failed uploads retain the local original.</p><p className="fine">Retention: {status.retention_hours} hours. Cleanup runs while the backend is online; after downtime it resumes on restart. No Supabase key is sent to this browser.</p>{status.last_error&&<p className="error">Archive connection needs attention: {status.last_error}</p>}<p className="fine">{status.incidents.filter((i:any)=>i.status==='synced').length} archived · {status.incidents.filter((i:any)=>i.status==='evicted').length} cloud videos removed by FIFO · {status.incidents.filter((i:any)=>i.status==='failed').length} awaiting retry</p></>:<p>Incident windows are stored on the backend disk. Cloud archiving is not configured.</p>}</section>
+}
