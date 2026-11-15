@@ -87,6 +87,7 @@ export default function App({embedded}: {embedded: boolean}) {
   const graphRef = useRef<Graph | null>(null);
   graphRef.current = graph;
   const [intercept, setIntercept] = useState<{incidentId: string; plan: InterceptPlan; startedAt: number; approved: boolean} | null>(null);
+  const trailsRef = useRef<Record<string, [number, number][]>>({});
   const interceptRef = useRef<typeof intercept>(null);
   interceptRef.current = intercept;
   const alertRef = useRef<ActiveAlert | null>(null);
@@ -368,6 +369,17 @@ export default function App({embedded}: {embedded: boolean}) {
     showToast(`Agent contacted ${units.map((u) => u.callsign).join(' + ')}${phones.length ? ` · ${phones.length} phone${phones.length > 1 ? 's' : ''} notified` : ' · no phones linked, auto-acknowledging'}`);
   }, [selectedId, chosen, apply, flyTo, showToast, buildings, appUsers, cameras]);
 
+  // Breadcrumb track for every dispatched unit; idle units have no track.
+  useEffect(() => {
+    const trails = trailsRef.current;
+    for (const o of officers) {
+      if (o.status === 'available') {delete trails[o.id]; continue;}
+      const track = trails[o.id] ?? (trails[o.id] = []);
+      const last = track[track.length - 1];
+      if (!last || distance(last, o.position) > 2) {track.push(o.position); if (track.length > 90) track.shift();}
+    }
+  }, [officers]);
+
   // Standalone page: bring the alert report and the intercept plan into view when they appear.
   useEffect(() => {
     if (embedded || !alertState) return;
@@ -482,10 +494,12 @@ export default function App({embedded}: {embedded: boolean}) {
   const layers = buildLayers({time, incidents, selectedId, officers, cameras, racks, history, hour, dispatches: arcs, toggles, google,
     buildings, focusBuildingId: selectedBuildingId ?? selected?.buildingId ?? null, now, orbiting: mode === 'orbit',
     alert: alertState ? {center: alertState.msg.center, startedAt: alertState.startedAt, radius: alertState.msg.radius, users: alertState.users} : null,
-    extra: intercept ? interceptLayers(intercept.plan, intercept.startedAt, time, intercept.approved) : undefined});
+    extra: intercept ? interceptLayers(intercept.plan, intercept.startedAt, time, intercept.approved) : undefined,
+    trails: Object.entries(trailsRef.current).map(([id, path]) => ({id, path}))});
 
   const tooltip = ({object, layer}: PickingInfo) => {
     if (!object || !layer) return null;
+    if (layer.id === 'unit-cars') return {text: `${object.o.callsign} · ${object.o.mode} · ${object.o.status} · simulated unit`};
     if (layer.id === 'officers') return {text: `${object.callsign} · ${object.mode} · ${object.status} · simulated unit`};
     if (layer.id === 'camera-cones') return {text: `${object.id} near ${object.near} · ${object.watchedLive ? 'watched live' : 'AI triaged'} · simulated position`};
     if (layer.id === 'beams') return {text: `${object.place}: ${object.observation}`};

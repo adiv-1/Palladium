@@ -1,7 +1,7 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
-import {HexagonLayer} from '@deck.gl/aggregation-layers';
+import {HeatmapLayer} from '@deck.gl/aggregation-layers';
 import {TripsLayer} from '@deck.gl/geo-layers';
-import {ArcLayer, ColumnLayer, PathLayer, ScatterplotLayer, TextLayer} from '@deck.gl/layers';
+import {ArcLayer, PathLayer, ScatterplotLayer, TextLayer} from '@deck.gl/layers';
 import type {Color, Layer, PickingInfo} from '@deck.gl/core';
 import {baselinePosts, coverage, COVER_M, edgeRisk, hourLabel, inShift, matchMoves, planPosts, planRoute, SHIFTS, shiftForHour,
   type Past, type Post, type RouteResult, type Shift} from './analysis';
@@ -34,6 +34,7 @@ export default function Trends() {
   const [from, setFrom] = useState<Building | null>(null);
   const [to, setTo] = useState<Building | null>(null);
   const [caution, setCaution] = useState(6);
+  const [heat, setHeat] = useState(true);
   const [routes, setRoutes] = useState<Routes | null>(null);
   const [routeError, setRouteError] = useState('');
   const stage = useStage(!routes);
@@ -86,11 +87,11 @@ export default function Trends() {
   const layers = useMemo(() => {
     if (!campus) return [];
     const out: Layer[] = [];
-    out.push(new HexagonLayer<Past>({id: 'hex', data: points, getPosition: (p) => p.position, getElevationWeight: (p) => p.weight, getColorWeight: (p) => p.weight,
-      radius: 34, coverage: 0.82, extruded: true, elevationScale: 0.9, elevationRange: [0, 38], opacity: 0.5, gpuAggregation: false,
-      colorRange: [[60, 40, 70], [105, 45, 80], [160, 40, 80], [204, 31, 52], [238, 90, 60], [255, 150, 60]]}) as unknown as Layer);
+    // A flat glow on the ground: it never hides streets or buildings the way extruded columns did.
+    if (heat) out.push(new HeatmapLayer<Past>({id: 'heat', data: points, getPosition: (p) => p.position, getWeight: (p) => p.weight, radiusPixels: 44, intensity: 1.15, threshold: 0.06, opacity: 0.62,
+      colorRange: [[120, 20, 70, 0], [160, 30, 70, 70], [204, 31, 52, 130], [238, 90, 60, 185], [255, 150, 60, 220], [255, 225, 120, 240]]}) as unknown as Layer);
     out.push(new ScatterplotLayer<Past>({id: 'pts', data: points, getPosition: (p) => p.position, getFillColor: (p) => [...TYPE_COLOR[p.type].slice(0, 3), 110] as unknown as Color,
-      radiusUnits: 'meters', getRadius: 2.2, radiusMinPixels: 1.4}) as unknown as Layer);
+      radiusUnits: 'meters', getRadius: 2.2, radiusMinPixels: 2.2}) as unknown as Layer);
 
     if (plan) {
       const age = t - plan.startedAt;
@@ -102,10 +103,10 @@ export default function Trends() {
       out.push(new ScatterplotLayer({id: 'cover', data: current, getPosition: (m: any) => m.pos, radiusUnits: 'meters', stroked: true, lineWidthUnits: 'pixels', getLineWidth: 2,
         getRadius: (m: any) => COVER_M * m.p, getFillColor: (m: any) => [255, 204, 0, 22 + 16 * Math.sin(t * 3 + m.post)], getLineColor: (m: any) => [255, 204, 0, 160 * m.p],
         updateTriggers: {getRadius: t, getFillColor: t, getLineColor: t}} as any) as unknown as Layer);
-      out.push(new ColumnLayer({id: 'posts', data: current.filter((m) => m.p > 0.98), getPosition: (m: any) => m.to, radius: 4.5, diskResolution: 14, extruded: true,
-        getElevation: (m: any) => 70 + 8 * Math.sin(t * 2.5 + m.post), getFillColor: (m: any) => (m.post === selected ? [255, 235, 140, 255] : [255, 204, 0, 240]), material: false, pickable: true,
-        updateTriggers: {getElevation: t, getFillColor: selected}} as any) as unknown as Layer);
-      out.push(new TextLayer({id: 'post-rank', data: plan.posts.filter(() => age > 2.6), getPosition: (p: any) => [p.position[0], p.position[1], 92], getText: (p: any) => String(p.rank),
+      out.push(new ScatterplotLayer({id: 'posts', data: current.filter((m) => m.p > 0.98), getPosition: (m: any) => m.to, radiusUnits: 'pixels', getRadius: (m: any) => 11 + 1.5 * Math.sin(t * 3 + m.post),
+        stroked: true, lineWidthUnits: 'pixels', getLineWidth: 3, getFillColor: (m: any) => (m.post === selected ? [255, 245, 170, 255] : [255, 204, 0, 255]), getLineColor: [18, 20, 23, 255],
+        pickable: true, updateTriggers: {getRadius: t, getFillColor: selected}} as any) as unknown as Layer);
+      out.push(new TextLayer({id: 'post-rank', data: plan.posts.filter(() => age > 2.6), getPosition: (p: any) => p.position, getPixelOffset: [0, -20], getText: (p: any) => String(p.rank),
         getSize: 15, getColor: [255, 235, 140, 255], fontFamily: 'Manrope, sans-serif', fontWeight: 800, outlineWidth: 4, outlineColor: [18, 20, 23, 255], fontSettings: {sdf: true}} as any) as unknown as Layer);
       out.push(new ScatterplotLayer({id: 'walkers', data: current, getPosition: (m: any) => m.pos, radiusUnits: 'pixels', getRadius: 6, stroked: true, lineWidthUnits: 'pixels', getLineWidth: 2,
         getFillColor: [240, 243, 247, 255], getLineColor: [255, 204, 0, 255], updateTriggers: {getPosition: t}} as any) as unknown as Layer);
@@ -138,7 +139,7 @@ export default function Trends() {
         getRadius: 8, stroked: true, lineWidthUnits: 'pixels', getLineWidth: 3, getFillColor: (d: any) => [...d.c, 255], getLineColor: [255, 255, 255, 255]} as any) as unknown as Layer);
     }
     return out;
-  }, [campus, points, plan, routes, selected, t, count]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [campus, points, plan, routes, selected, t, count, heat]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tooltip = ({object, layer}: PickingInfo) => {
     if (!object || layer?.id !== 'posts') return null;
@@ -210,6 +211,7 @@ export default function Trends() {
       <div className="panel legend-lite">
         {TYPES.map((k) => <span key={k}><i style={{background: `rgb(${TYPE_COLOR[k].slice(0, 3).join(',')})`}} />{INCIDENT_LABEL[k]}</span>)}
         <span><i className="gold" />Ambassador post</span>
+        <label className="heat-toggle"><input type="checkbox" checked={heat} onChange={() => setHeat(!heat)} /> Incident heat</label>
       </div>
     </div>
   );

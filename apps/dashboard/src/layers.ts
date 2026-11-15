@@ -5,6 +5,7 @@ import type {Color, Layer} from '@deck.gl/core';
 import {cameraCone, distance} from './sim';
 import type {Building, Camera, Dispatch, HistoryPoint, Incident, LngLat, Officer, Rack, Severity} from './types';
 import {KEY_CATEGORIES} from './buildings';
+import {progress} from './dispatch';
 import {CAMPUS_CENTER, offset} from './sim';
 
 export const CARDINAL: Color = [204, 31, 52];
@@ -16,6 +17,17 @@ const SEVERITY_COLOR: Record<Severity, Color> = {
 };
 export const severityColor = (s: Severity) => SEVERITY_COLOR[s];
 const rgba = (c: Color, a: number): Color => { const [r, g, b] = c as unknown as number[]; return [r, g, b, a]; };
+
+// A patrol car as ground polygons in metres: x forward, y to the right. World-space, so it scales with
+// zoom and lies flat at any camera tilt. Drawn larger than life so it reads at campus zoom.
+const CAR_BODY: [number, number][] = [[-7.5, -3.2], [-7.5, 3.2], [5, 3.4], [7.8, 2], [7.8, -2], [5, -3.4]];
+const CAR_CABIN: [number, number][] = [[-3.8, -2.5], [-3.8, 2.5], [2.2, 2.5], [3.8, 1.7], [3.8, -1.7], [2.2, -2.5]];
+const CAR_BAR_L: [number, number][] = [[-1.2, -2.1], [-1.2, -0.1], [0.4, -0.1], [0.4, -2.1]];
+const CAR_BAR_R: [number, number][] = [[-1.2, 0.1], [-1.2, 2.1], [0.4, 2.1], [0.4, 0.1]];
+const placeCar = (shape: [number, number][], at: LngLat, headingDeg: number): LngLat[] => {
+  const t = (headingDeg * Math.PI) / 180, s = Math.sin(t), c = Math.cos(t);
+  return shape.map(([f, r]) => offset(at, f * s + r * c, f * c - r * s));
+};
 
 export type LayerToggles = {history: boolean; coverage: boolean; racks: boolean};
 
@@ -37,6 +49,7 @@ type Inputs = {
   orbiting: boolean;
   alert?: {center: LngLat; startedAt: number; radius: number; users: {id: string; position: LngLat; inside: boolean}[]} | null;
   extra?: Layer[]; // layers from other agents (intercept vector, etc.)
+  trails?: {id: string; path: LngLat[]}[]; // breadcrumb tracks of dispatched units
 };
 
 export function buildLayers(x: Inputs): Layer[] {
@@ -182,13 +195,39 @@ export function buildLayers(x: Inputs): Layer[] {
     getFillColor: (o) => (o.status === 'on_scene' ? [95, 179, 168, 90] : [255, 204, 0, o.status === 'assigned' ? 60 + 90 * pulse : 90 * (1 - ((x.time * 1.2) % 1))]),
     updateTriggers: {getRadius: x.time, getFillColor: x.time}}) as unknown as Layer);
   layers.push(new ScatterplotLayer<Officer>({
-    id: 'officers', data: x.officers, getPosition: (o) => o.position, radiusUnits: 'pixels', getRadius: 6,
+    id: 'officers', data: x.officers.filter((o) => o.status === 'available'), getPosition: (o) => o.position, radiusUnits: 'pixels', getRadius: 6,
     stroked: true, lineWidthUnits: 'pixels', getLineWidth: 2, getFillColor: (o) => (o.status === 'on_scene' ? [95, 179, 168, 255] : o.status !== 'available' ? [255, 204, 0, 255] : [235, 238, 242, 255]),
     getLineColor: [18, 20, 23, 255], pickable: true, updateTriggers: {getFillColor: x.officers.map((o) => o.status).join()},
   }) as unknown as Layer);
+  // Dispatched units are cars: oriented along their route, with a fading breadcrumb track and a live ETA label.
+  const bearing = (o: Officer) => {
+    const p = o.route?.path;
+    if (!p || p.length < 2) return 0;
+    const i = Math.min(p.length - 2, Math.floor(progress(o.route!, x.now) * (p.length - 1)));
+    const [a, b] = [p[i], p[i + 1]];
+    return (Math.atan2((b[0] - a[0]) * Math.cos((a[1] * Math.PI) / 180), b[1] - a[1]) * 180 / Math.PI + 360) % 360;
+  };
+  if (x.trails?.length) {
+    layers.push(new TripsLayer<{id: string; path: LngLat[]}>({id: 'unit-trails', data: x.trails.filter((d) => d.path.length > 1), getPath: (d) => d.path,
+      getTimestamps: (d) => d.path.map((_, i) => 1000 - (d.path.length - 1 - i)), getColor: [255, 204, 0], widthUnits: 'pixels', getWidth: 5, trailLength: 60, fadeTrail: true,
+      capRounded: true, jointRounded: true, currentTime: 1000, updateTriggers: {getPath: x.now, getTimestamps: x.now}}) as unknown as Layer);
+  }
+  const cars = x.officers.filter((o) => o.status !== 'available').map((o) => ({o, at: o.position, h: bearing(o)}));
+  type Car = (typeof cars)[number];
+  const flash = Math.floor(x.time * 4) % 2 === 0;
+  layers.push(new PolygonLayer<Car>({id: 'unit-cars', data: cars, getPolygon: (c) => placeCar(CAR_BODY, c.at, c.h), getFillColor: [244, 246, 248, 255], getLineColor: [20, 23, 28, 255],
+    stroked: true, lineWidthUnits: 'pixels', getLineWidth: 1.6, pickable: true, updateTriggers: {getPolygon: x.now}}) as unknown as Layer);
+  layers.push(new PolygonLayer<Car>({id: 'unit-cabins', data: cars, getPolygon: (c) => placeCar(CAR_CABIN, c.at, c.h), getFillColor: [38, 48, 62, 255], stroked: false,
+    updateTriggers: {getPolygon: x.now}}) as unknown as Layer);
+  layers.push(new PolygonLayer<Car>({id: 'unit-lights-red', data: cars, getPolygon: (c) => placeCar(CAR_BAR_L, c.at, c.h), getFillColor: flash ? [255, 60, 70, 255] : [120, 30, 36, 255], stroked: false,
+    updateTriggers: {getPolygon: x.now, getFillColor: flash}}) as unknown as Layer);
+  layers.push(new PolygonLayer<Car>({id: 'unit-lights-blue', data: cars, getPolygon: (c) => placeCar(CAR_BAR_R, c.at, c.h), getFillColor: flash ? [40, 70, 130, 255] : [70, 130, 255, 255], stroked: false,
+    updateTriggers: {getPolygon: x.now, getFillColor: flash}}) as unknown as Layer);
   layers.push(new TextLayer<Officer>({
-    id: 'officer-labels', data: x.officers, getPosition: (o) => o.position, getText: (o) => o.callsign, getSize: 11,
-    getColor: [220, 224, 230, 220], getPixelOffset: [0, -15], fontFamily: 'DM Sans, sans-serif', fontWeight: 700,
+    id: 'officer-labels', data: x.officers, getPosition: (o) => o.position,
+    getText: (o) => (o.status === 'en_route' && o.route ? `${o.callsign} \u00b7 ${Math.ceil(Math.max(0, o.route.seconds - (x.now - o.route.startedAt) / 1000))}s` : o.callsign), getSize: 11,
+    updateTriggers: {getText: x.now},
+    getColor: [220, 224, 230, 220], getPixelOffset: [0, -26], fontFamily: 'DM Sans, sans-serif', fontWeight: 700,
     outlineWidth: 3, outlineColor: [18, 20, 23, 255], fontSettings: {sdf: true},
   }) as unknown as Layer);
 

@@ -133,3 +133,12 @@ html:has(.command-center.app:not(.embedded)), body:has(.command-center.app:not(.
 .command-center.app:not(.embedded) .panel, .command-center.app:not(.embedded) details, .command-center.app:not(.embedded) .chip { background: var(--panel); color: var(--text); border-color: var(--border); }
 .command-center:not(.embedded) .logo { color: #fff; }
 .command-center.embedded .logo { color: #14202a; }
+
+.heat-toggle { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); }
+.heat-toggle input { accent-color: var(--gold); }
+
+.post-detail > * { flex-shrink: 0; }
+.hours { flex: none; min-height: 64px; }
+
+.command-center.app:not(.embedded) .command-map { position: sticky; top: 12px; align-self: start; }
+.command-center .command-review .intercept-panel, .command-center .command-review .intercept { max-width: none; width: 100%; }
