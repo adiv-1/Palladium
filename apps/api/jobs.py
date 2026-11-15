@@ -159,6 +159,8 @@ async def retention():
     import shutil
     while True:
         await asyncio.sleep(60)
+        from .learning import expire_learning
+        await asyncio.to_thread(expire_learning)
         cutoff=(datetime.now(timezone.utc)-timedelta(hours=settings.retention_hours)).isoformat()
         for incident in rows(Incident):
             if incident.created_at>=cutoff or any(j.incident_id==incident.id and j.status in ['queued','running'] for j in rows(Job)): continue

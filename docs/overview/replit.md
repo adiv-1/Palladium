@@ -1,0 +1,58 @@
+# Host the UI on Replit
+
+Replit runs a small Node 22 gateway and the built React UI. Runpod remains the sole inference backend and authoritative store. Do not install Python, CUDA, model weights, or video datasets on Replit.
+
+```text
+Laptop dashboard                 Phone Safari / Chrome
+       |                                  |
+       +------------- HTTPS --------------+
+                         |
+               Replit UI + Node gateway
+                |                |
+          React static files     +-- /api/* and /ws/* (streamed proxy)
+                                         |
+                                 Runpod HTTPS proxy
+                                         |
+                            FastAPI / original video / SQLite
+                                         |
+                              GPU queue: MOSS + verifier
+                             FastLLVE / RelayVSR / ReLift
+```
+
+## Import and publish
+
+1. Import `https://github.com/adiv-1/SafeSC` into Replit. Switch to the **replit-ui** deployment branch before running. It contains only the Node gateway, React source and deployment documentation; the complete application remains on **reviewed-learning**. In the Replit Shell, run `git fetch origin replit-ui:refs/remotes/origin/replit-ui` then `git switch --track -c replit-ui origin/replit-ui`. A GitHub import may initially select main even when given a branch URL.
+2. In Replit Secrets set **only** `SAFESC_BACKEND_ORIGIN` to the current GPU app origin, for example `https://YOUR-POD-ID-8000.proxy.runpod.net`. It is an address, not a provider key. The current origin is recorded locally in `data/runpod-access.txt`.
+3. Click Run. The configured command builds the UI and binds the gateway to `0.0.0.0:3000`. Check the preview shows the SafeSC sign-in screen.
+4. Open Publishing → Adjust settings. Choose **Reserved VM**, web server, smallest available machine for a single-phone demo. Set build to `npm run build`, run to `npm start`, local port `3000` / external port `80`. Confirm `SAFESC_BACKEND_ORIGIN` is also present in the published environment.
+5. Check the displayed publishing charge against the trial's remaining credits before publishing. The trial is not a guarantee of unlimited deployment or video bandwidth. Replit's November 14 pricing documentation lists the shared 0.5 vCPU / 2 GB VM at $15/month before credits. Autoscale can serve the dashboard, but Reserved VM avoids scale-to-zero interruptions for long-lived phone WebSockets. Static hosting cannot run this proxy.
+6. Publish, open the HTTPS `.replit.app` URL, and enter the existing SafeSC workspace token. No additional reviewer token is configured in Replit. The login cookie belongs to the Replit app origin; the gateway forwards it to the existing authenticated backend.
+7. Click Connect phone **on the published Replit dashboard**, scan the new QR code and start the camera. Pairing links use the dashboard's current origin automatically, so both the phone capture page and its WebSocket use Replit. Keep the phone page foregrounded. Existing links from the Runpod dashboard still point at Runpod.
+
+The GitHub import does not include `.env`, original clips, local databases, model weights, or cloud keys. Do not paste `RUNPOD_TOKEN`, `VULTR_API_KEY`, `HF_TOKEN`, SSH keys, or the Mac's entire `.env` into Replit. No `VITE_` secret is needed. The gateway never bypasses backend authorization, logs request bodies/tokens, or stores video; uploads, playback range responses, WebSocket bytes and cookies pass through it.
+
+Both Runpod and Replit process traffic when this route is used. If the GPU pod stops or its origin changes, the UI still loads, but API/video operations fail until the pod is available or `SAFESC_BACKEND_ORIGIN` is updated and the deployment restarted. Replit hosting does not extend the Runpod budget or its Sunday shutdown deadline.
+
+## Update the deployment branch
+
+From the complete application checkout, commit the desired source changes and run `python3 scripts/export_replit.py`, inspect `git ls-tree -r --name-only replit-ui`, then push `git push origin replit-ui`. Fetch that branch in Replit and merge `origin/replit-ui`, then republish. Replit can create local publishing commits, so a later fast-forward-only pull may fail; preserve those settings rather than resetting them. The exporter reads committed Git blobs from an explicit UI allowlist, records the source commit in `DEPLOYMENT_SOURCE.txt`, and keeps the current checkout unchanged. It does not export `.env`, local video, Python dependency manifests or model weights. Never merge this deployment-only tree into the full application branch.
+
+The first full-repository Replit publish was blocked by its scanner's Python/GPU dependency findings, including Pillow and Transformers. Those manifests belong to the Runpod backend and are excluded from the UI deployment artifact because the Node gateway does not use them. This is packaging separation, not a resolution of the backend findings. Keep Replit's security checks enabled and review backend advisories separately before broader adoption.
+
+## Verification
+
+```sh
+npm run test:gateway
+npm run build
+SAFESC_BACKEND_ORIGIN=https://YOUR-POD-ID-8000.proxy.runpod.net npm start
+```
+
+Test sign-in, historical map, training-video playback and seeking, incident review, phone QR origin, frame ACKs and dashboard live status on the **published** URL. `/_health` reports only gateway readiness; `/api/health` requires the existing token and checks the actual GPU backend. The public Runpod URL remains a fallback while Replit is configured.
+
+References: [Replit deployment types](https://docs.replit.com/features/publishing/deployment-types), [configuration](https://docs.replit.com/features/project-setup/configuration), [publishing costs](https://docs.replit.com/billing/deployment-pricing).
+
+## Published verification — November 14, 2026
+
+The authenticated deployment at https://safe-sc.replit.app passed API sign-in, anonymous API rejection, the live event WebSocket, activity metadata, the 48-asset learning library, and original learning-video retrieval. A 16-frame synthetic JPEG phone-protocol test received all 16 ACKs, with mean ACK round trip 178.84 ms, maximum 315.49 ms, and total capture runtime 4.54 seconds. The source closed cleanly. This measures receipt over the Replit route; it does not establish model latency, detection accuracy, physical-phone behavior or sustained capacity. Original video retrieval returned a full HTTP 200 response, rather than a partial 206 response. Results and deployed/source commits are recorded in [the hosting check](https://github.com/adiv-1/SafeSC/blob/reviewed-learning/evaluation/replit-hosting.json) on the full source branch.
+
+The gateway sends `Referrer-Policy: strict-origin-when-cross-origin`: OpenStreetMap requires a valid site referrer for its tiles. This sends only the public origin to tile servers, without incident paths or phone pairing fragments. The initial `no-referrer` policy caused blocked background tiles and was corrected before final visual verification.

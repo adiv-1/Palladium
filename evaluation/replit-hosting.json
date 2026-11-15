@@ -1,0 +1,37 @@
+{
+  "origin": "https://safe-sc.replit.app",
+  "physical_phone_tested": false,
+  "input": "16 synthetic gray JPEGs labeled as transport test",
+  "readiness": 200,
+  "anonymous_status": 401,
+  "login_status": 200,
+  "secure_httponly_cookie": true,
+  "model": "moss",
+  "research_mode": true,
+  "activity_status": 200,
+  "learning_assets": 48,
+  "training_video_status": 200,
+  "training_video_bytes": 6983964,
+  "event_websocket": "ping",
+  "active_sources_after": 0,
+  "checked_at": "2026-11-14T23:56:25.255908+00:00",
+  "source_commit": "060f88eac6f7352ca598f5377a457e43d7303860",
+  "capture": {
+    "acknowledged_frames": 16,
+    "mean_ack_ms": 178.83523956425051,
+    "max_ack_ms": 315.49333399743773,
+    "runtime_seconds": 4.537632207997376
+  },
+  "limitations": [
+    "Synthetic transport test; no physical phone tested on this origin.",
+    "ACK latency is receipt latency, not model inference or alert latency.",
+    "Video retrieval returned HTTP 200 with the complete file; byte-range 206 support was not established.",
+    "Backend dependency findings remain separate from the UI-only Replit security scan."
+  ],
+  "transport_test_ui_release_commit": "825251ab2f9b75781ec45b90a4fd97431dcec742",
+  "ui_release_commit": "260aaf075a305ee7c89ed6fdbc8c3c8d73f2f833",
+  "map_referrer_policy": "strict-origin-when-cross-origin",
+  "authenticated_backend_rechecked_after_update": true,
+  "map_visual_verification": true,
+  "map_checked_at": "2026-11-15T00:02:32.598012+00:00"
+}

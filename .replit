@@ -1,0 +1,14 @@
+entrypoint = "apps/gateway/server.mjs"
+modules = ["nodejs-22"]
+run = "npm run build && npm start"
+
+[deployment]
+build = ["sh", "-c", "npm run build"]
+run = ["npm", "start"]
+
+[env]
+PORT = "3000"
+
+[[ports]]
+localPort = 3000
+externalPort = 80

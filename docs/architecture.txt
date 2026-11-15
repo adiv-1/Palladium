@@ -133,3 +133,17 @@ The master snapshot remains on the Mac; a minimized copy is on Runpod.
 Map tiles come from OpenStreetMap with attribution, without paid API keys.
 No victim demographics, precise addresses, danger scores or forecasts are shown.
 The current digitized boundary is approximate and applied to all archive years.
+
+Reviewed learning branch (implemented research prototype)
+--------------------------------------------------------
+Permitted confirmed incidents / separately uploaded missed events
+  -> retained original + permission history + visible interval annotation
+  -> immutable grouped train / validation / test manifest
+  -> isolated Qwen LoRA optimization (MOSS weights unchanged)
+  -> held-out evaluation + artifact hashes + original inputs in the UI
+  -> automatic gate OR explicit hash-bound owner research approval
+  -> research-labeled verifier adapter, with human review still required
+
+The first pilot uses 19 research training windows. Automatic promotion failed
+because false alerts increased; the owner approved the high-recall staged demo.
+No continuous self-training, institutional approval or zero-miss claim is made.

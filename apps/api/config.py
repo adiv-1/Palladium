@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     model_revision: str = 'unconfigured'
     observation_verifier_model: str = 'none'
     verifier_checkpoint: str = ''
+    verifier_adapter: str = ''
+    verifier_research_mode: bool = False
     verification_interval_seconds: float = Field(4,ge=2,le=30)
     alert_agreement_seconds: float = Field(12,ge=2,le=30)
     enhancement_model: str = 'bypass'
