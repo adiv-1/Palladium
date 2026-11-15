@@ -1,136 +1,67 @@
 # Palladium
 
-**Campus video review with preserved context and a human decision.** Built for the AI@USC hackathon.
+A review and planning layer for USC’s existing cameras, incident records and campus teams. Built at **AI@USC — HackSC × the USC AI Committee** to help reviewers spot events sooner and make walking-route and ambassador decisions with better context.
 
-This branch introduces the Palladium interface with three primary demo tabs:
-**Real-time analysis**, **Ambassador positioning**, and **Get Somewhere**. It
-retains the existing SafeSC backend and reviewer workflows. See the
-[interface and demo guide](docs/overview/palladium-ui.md).
-This source branch is separate from the hosted deployment.
+- **Real-time analysis:** phone camera pairing or video upload, AI observations, and preserved clips for human review.
+- **Incident response:** event locations, recent public reports, and a simulated four-responder notification flow.
+- **Get Somewhere:** departure-time walking routes and ambassador positioning, with reasoning for each recommendation.
 
-Palladium connects a phone camera or uploaded video to a streaming vision pipeline, preserves potentially relevant moments, and gives a reviewer original footage, uncertainty, and clearly labeled derived artifacts. A separate campus-activity map explores public LAPD reports near USC.
+[Working prototype](https://xhogd16ggxiijr-8000.proxy.runpod.net/#live) · Workspace access token required.
 
-[Open the hosted SafeSC dashboard](https://safe-sc.replit.app) · Workspace access token required. The UI runs on Replit; inference and working media stay on Runpod. Original incident windows, thumbnails and review metadata are backed up to private Supabase Storage.
+## Infrastructure
 
-Public project data: [campus activity snapshot and restore instructions](public-data/activity/README.md) · [three original demonstration videos and checksums](demo/videos/README.md). The action clips are staged reenactments with reviewed labels.
+- **Web:** React 19, TypeScript, Vite, MapLibre/OSM campus maps and Three.js motion visualization.
+- **API:** Python 3.11, FastAPI and Uvicorn. WebRTC carries live dashboard video; acknowledged JPEG frames over WebSockets feed analysis separately. PyAV/OpenCV handle video timing and evidence windows.
+- **GPU:** Runpod NVIDIA A40, 48 GB VRAM. The API and inference workers currently share one machine; upstream models have isolated Python/CUDA environments. Live inference takes priority over queued enhancement and training.
+- **Storage:** SQLModel/SQLite for incidents, jobs and review history; SHA-256 hashes for originals; private Supabase Storage archives with retention and recall controls.
+- **Hosting:** Runpod serves the current preview. An optional [Replit Node gateway](docs/overview/replit.md) proxies authenticated API/WebSocket traffic to the same backend.
 
-## What works today
+Planning runs separately: the bundled LAPD history and OSM walking network drive recency-weighted seasonal estimates, connected routes and 400 m ambassador-coverage scenarios. [Data and methodology](docs/overview/activity-forecasting.md).
 
-- Phone capture through an expiring QR pairing link, a native WebRTC dashboard video path targeting 1080p/60 FPS, separate acknowledged evidence frames, and rear/front camera selection. Audio is off. See [streaming setup and measurements](docs/overview/live-video.md).
-- MOSS-VL-Realtime NF4 observation with a separate Qwen3-VL-4B visual verifier and strict structured-output validation.
-- Lighting assessment, gated FastLLVE enhancement, and temporal incident gating. No YOLO/ByteTrack overlay is enabled in this deployment.
-- Preserved original incident windows, SHA-256 hashes, reviewer bookmarks, append-only decisions, and model provenance.
-- Serialized RelayVSR review enhancement, ReLift estimated 3D trajectories, and optional BVI-Mamba comparisons.
-- Large synchronized review players, an original-clip Qwen review pass, live MOSS scene notes, and a latest-frame WebSocket preview.
-- Private Supabase incident archives with verified original hashes, restore support, an 800 MiB cap and FIFO cloud-media eviction. See [storage behavior and retention](docs/overview/storage.md).
-- An interactive map of 75,686 grouped LAPD reports from January 2010 through October 2026, with date/category filters and source-linked summaries.
-- A precomputed full-UPC-zone seasonal activity outlook, date/time controls, local walking-route comparisons, satellite/aerial context, and ambassador coverage planning. The analysis bundle must be prepared on the data host; [setup, validation, and limitations](docs/overview/activity-forecasting.md). [Pedestrian survey evidence](docs/overview/pedestrian-distribution.md) is displayed separately and is not treated as a validated hourly flow model.
-- A reviewed learning repository with original video playback, exact four-frame training inputs, permission history, append-only annotations, immutable dataset versions, and measured model experiments.
-
-The current application supports **one active video source** and a shared reviewer workspace. Two-camera support, separate student accounts, and reviewer-approved student notifications remain planned. A Qwen LoRA research candidate has been trained on 19 approved research windows and evaluated separately; [results and limitations](docs/overview/learning.md) are explicit. Automatic continuous training is not enabled. Activity forecasting is a separately prepared seasonal research outlook with explicit validation limits.
-
-## Architecture
+## AI stack
 
 ```text
-Phone camera / uploaded video
-             |
-     FastAPI CPU ingestion ---- frame ACK / live telemetry
-             |
-     Timestamped original buffer
-             |
-     Lighting -> FastLLVE when dark -> anonymous tracking
-             |
-     MOSS streaming observer + Qwen visual verifier
-             |
-     Schema checks + temporal evidence gate
-             |
-     Original clip + hash + provenance -> human review
-             |                                |
-     Private Supabase archive          append-only decisions
-     (FIFO media cap + restore)               |
-             +------ versioned review metadata+
-             |
-     GPU idle queue: RelayVSR / ReLift / BVI-Mamba
-
-Official LAPD records -> bounded local import -> SQLite
-             |
-     UPC Lyft-area historical activity map
+Phone / upload → timestamped frames → MOSS observations + Qwen verification
+              → evidence checks → preserved clip → human decision
 ```
 
-See the [project documentation](docs/overview/README.md) and [full text diagram](docs/architecture.txt).
+- **[MOSS-VL-Realtime NF4](https://github.com/OpenMOSS/MOSS-VL):** streaming visual observations. Its narrative alone does not trigger an incident.
+- **[Qwen3-VL-4B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct):** checks original frames and produces constrained event JSON. Schema, frame-reference and temporal-agreement checks gate saved alerts. A separate original-clip pass supplies a secondary review brief.
+- **[FastLLVE](https://github.com/Wenhao-Li-777/FastLLVE):** enhancement when footage is dark. **[BVI-Mamba](https://github.com/edhuang1/BVI-Mamba):** optional offline low-light comparison.
+- **[RelayVSR](https://github.com/kopperx/RelayVSR):** a separate super-resolution review copy. **[ReLift](https://github.com/ReLift3D/ReLift)** with Depth Anything 3/AllTracker estimates scene-point motion in 3D. Generated detail and tracks never replace original evidence.
 
-## Quick start: local development
+A Qwen LoRA research adapter was trained on approved examples; MOSS uses pretrained weights. Evaluation and activation remain separate. [Model setup and licenses](docs/overview/models.md) · [Pinned revisions](model-lock.json) · [Training results](docs/overview/learning.md).
 
-Requires Python 3.11, Node.js 22, and [uv](https://docs.astral.sh/uv/). The control plane runs on macOS or Linux; real model inference requires Linux and NVIDIA CUDA.
+## Run locally
+
+Requires **Python 3.11, Node.js 22 and [uv](https://docs.astral.sh/uv/)**. From a fresh clone:
 
 ```bash
-git clone git@github.com:adiv-1/SafeSC.git
+git clone https://github.com/adiv-1/SafeSC.git
 cd SafeSC
+cp .env.example .env
 uv sync --python 3.11 --frozen --extra test
 npm ci --prefix apps/web
 npm run build --prefix apps/web
-```
-
-On a fresh checkout, copy `.env.example` to `.env` and enter credentials locally. Never overwrite an existing `.env` containing your own settings. For a clearly labeled fixture demonstration without a GPU:
-
-```bash
+uv run python -m scripts.data.activity_snapshot restore
 uv run python -m scripts.make_demo
 STREAMING_MODEL=fixture uv run uvicorn apps.api.main:app --host 127.0.0.1 --port 8000 --workers 1
 ```
 
-Open [localhost:8000](http://localhost:8000) and enter the generated access token from `data/app_token`. Upload `data/demo-fixture.mp4`. Fixture alerts are visibly simulated; they verify application plumbing, not detection accuracy. Real inference never silently falls back to simulated results.
+Open [localhost:8000](http://localhost:8000), enter the generated token from `data/app_token`, and upload `data/demo-fixture.mp4`. This runs without a GPU; detector results are visibly simulated.
 
-For the actual GPU stack, follow [model setup and licenses](docs/overview/models.md) and [deployment notes](docs/overview/deployment.md). Checkpoint revisions and measured smoke-test results are recorded in `model-lock.json`. Upstream models use isolated environments; the CPU Docker image is not a validated all-model GPU image.
+For real AI, follow [Linux/CUDA model setup](docs/overview/models.md), configure MOSS and Qwen in `.env`, and use `STREAMING_MODEL=moss`. For a phone, serve HTTPS, set `PUBLIC_URL`, scan **Pair phone camera**, and allow camera/location access. [TURN setup](docs/overview/private-turn.md) covers restrictive networks.
 
-## Connect a phone
+Checks: `uv run pytest -q`; `node --test apps/gateway/server.test.mjs apps/web/src/*.test.mjs`; `npm run build --prefix apps/web`; `python3 scripts/check_secrets.py --tracked`.
 
-To host the dashboard and phone capture page on Replit while keeping inference on Runpod, use the checked-in `.replit` configuration and [Replit hosting instructions](docs/overview/replit.md). Only the public backend origin belongs in Replit configuration; provider tokens stay on their existing machines.
+## Next backend steps
 
-1. Serve the application through HTTPS and set `PUBLIC_URL` to that origin.
-2. Sign in to the reviewer workspace and select **Connect phone**.
-3. Scan the QR code, open the link in Safari or Chrome, allow camera access, and tap **Start camera**.
-4. Keep the capture page foregrounded. The acknowledged-frame counter confirms receipt.
+For a campus pilot:
 
-Transport is timestamped JPEG over WebSockets. Low-latency capture targets up to 12 FPS at a 960px long edge; detail mode targets up to 8 FPS at 1280px. Inference sampling and actual processing rates differ. Waiting, skipped samples, and model errors remain visible. The user has reported successful physical-device stream telemetry; reproducible engineering measurements are documented separately.
+- Separate a CPU API from a warm GPU worker. Add Postgres and a shared job queue before API replicas; sessions and buffers currently belong to one process. [SQLite constraints](https://www.sqlite.org/wal.html).
+- Use [durable GPU storage](https://docs.runpod.io/pods/storage/types), retain cloud backups, and monitor inference lag, failed jobs, false alerts and spend. Keep [Supabase service keys](https://supabase.com/docs/guides/storage/security/access-control) on the backend.
+- Add USC SSO, reviewer roles and representative camera evaluation before operational DPS integration.
 
-## Download historical activity
+The prototype supports **one active source**. Detection can lag, miss or mislabel actions; dispatch is simulated; routes estimate reported activity rather than personal safety. No identity recognition is implemented. Credentials, private footage, databases and weights stay outside Git. [Public data](public-data/activity/README.md) and [authorized staged recordings](demo/videos/README.md) are included for reproducibility.
 
-```bash
-uv run python scripts/data/download_activity.py
-```
-
-The importer requests selected non-demographic LAPD fields near USC, filters the published UPC Lyft boundary approximation, and writes compressed source pages plus a normalized SQLite snapshot under ignored `data/activity/`. The map database is approximately 22 MB. A versioned, losslessly compressed copy of the complete minimized public activity snapshot and prepared analysis is included in [public-data/activity](public-data/activity/README.md). Restore it with `python3 -m scripts.data.activity_snapshot restore`. Private source video and the application/incident database remain excluded.
-
-The map shows reported history, not personal risk or a forecast. Locations and the digitized service boundary are approximate. See [data methodology and coverage](docs/overview/activity-data.md).
-
-The separate Forecast & walking routes view uses a prepared seasonal count-model
-bundle. Run `python -m scripts.data.download_forecast_streets`,
-`python -m scripts.data.prepare_pedestrian_evidence`, then
-`python -m scripts.build_activity_forecast` on the data host. Forecasts and
-ambassador scenarios are precomputed; route comparisons run in the browser.
-Imagery basemap tiles load online. Outputs describe report activity and planning
-scenarios, not a probability of personal harm or actual DPS assignments.
-
-## Verification
-
-```bash
-uv run pytest -q
-npm run build --prefix apps/web
-uv run python -m scripts.evaluate --annotations evaluation/example.json --predictions evaluation/predictions.example.json
-python3 scripts/check_secrets.py --tracked
-```
-
-Forty-eight CPU/API/protocol/learning/storage tests, five gateway checks and the production frontend build passed in the November 14 engineering verification. Real GPU smoke tests passed for the installed models. The automatic phone-protocol replay produced contact and object-taking reports, preserved the annotated activity in their originals, and displayed red chat notices without a human bookmark. It also falsely flagged one of two ordinary diagnostic videos; measured notice lag was about 27–37 seconds from cited evidence. These are reused research clips, not independent safety validation. Two further training runs were weaker and were not activated. See [training results](evaluation/event-training-followup.json) and [live diagnostic results](evaluation/event-live-diagnostic.json).
-
-An earlier 80-second test through Replit with real models and a static public image delivered 237 preview frames (2.96 FPS), with 491 ms median sender-to-preview time and 1,450 ms p95. This measures protocol receipt, not physical camera-to-browser paint latency or event-detection accuracy. The separate original-clip Qwen pass took 43.18 seconds including startup on the A40. See [review measurements and limitations](docs/overview/review-workflow.md).
-
-`evaluation/example.json` and `evaluation/predictions.example.json` are synthetic schema examples. The learning-pilot ledger and results contain actual research-experiment records. Production event recall, false-negative rates, and multi-camera capacity still require representative evaluation; smoke tests and the tiny prelocalized research pilot do not establish safety performance.
-
-## Repository hygiene and limitations
-
-- `.env`, API tokens, SSH keys, access links, cloud-account notes, videos, databases, downloaded weights, and generated output stay local and are ignored.
-- `.env.example` contains empty credential placeholders. Compute-provider administration tokens stay on the development machine. Required model-download access and the private Supabase archive key belong only on the backend worker; none are bundled into the UI.
-- Run `python3 scripts/check_secrets.py` after staging changes. The check rejects credential files, known local secret values, and common token/private-key patterns without printing their values.
-- Original uploads are hashed; extracted windows and enhanced outputs have separate provenance. Generated detail and estimated 3D geometry are not authoritative evidence.
-- No identity recognition, demographic inference, or automatic external dispatch is implemented. Reviewer scores are uncalibrated.
-- Open-weight dependencies have separate code/checkpoint licenses, including non-commercial restrictions and Ultralytics licensing considerations. Download access does not grant redistribution rights.
+Built by Aditya, Sarath, Shraddha and Ojas at USC.
