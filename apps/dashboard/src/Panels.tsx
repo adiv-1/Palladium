@@ -1,4 +1,5 @@
 import {useEffect, useState} from 'react';
+import {Nav} from './Nav';
 import type {FormEvent} from 'react';
 import {severityColor} from './layers';
 import type {LayerToggles} from './layers';
@@ -38,7 +39,7 @@ function hourLabel(h: number) {
 export function StatusStrip(p: {
   camerasTriaged: number; watchedLive: number; vlmCalls: number; costToday: number; costProvenance: 'estimate';
   mapMode: 'google' | 'maplibre'; googleAvailable: boolean; onToggleMap: () => void; liveStatus: string | null;
-  liveMetrics: boolean; demoReady: boolean; onDemo: () => void; onConnect: () => void;
+  liveMetrics: boolean; demoReady: boolean; onDemo: () => void; onFalseAlarm?: () => void; onConnect: () => void;
 }) {
   const chips: [string, string, Provenance, string?][] = [
     ['AI-triaged cameras', p.camerasTriaged.toLocaleString(), 'simulated'],
@@ -46,8 +47,10 @@ export function StatusStrip(p: {
     ['VLM checks today', p.vlmCalls.toLocaleString(), p.liveMetrics ? 'live' : 'demo'],
     ['Est. cost today', `$${p.costToday.toFixed(2)}`, p.costProvenance, 'L4 GPU at $0.60/h, about 40 cameras per GPU'],
   ];
+  const embedded = new URLSearchParams(location.search).get('embedded') === '1';
   return (
     <header className="strip">
+      {embedded ? (
       <div className="command-heading">
         <div>
           <h1>3D command center</h1>
@@ -58,8 +61,19 @@ export function StatusStrip(p: {
           {p.liveStatus !== 'connected' && <button type="button" onClick={p.onConnect} disabled={!p.demoReady}>Connect SafeSC</button>}
           {p.googleAvailable && <button type="button" onClick={p.onToggleMap}>{p.mapMode === 'google' ? 'Use campus map' : 'Use photoreal 3D'}</button>}
           <button type="button" disabled={!p.demoReady} onClick={p.onDemo}>Stage demo incident</button>
+          {p.onFalseAlarm && <button type="button" disabled={!p.demoReady} onClick={p.onFalseAlarm} title="A benign look-alike: the debate should overturn it">Stage false alarm</button>}
         </div>
       </div>
+      ) : (<>
+      <Nav active="live" />
+        <div className="strip-right">
+          {p.liveStatus && <span className={`live-status ${p.liveStatus}`}>SafeSC {p.liveStatus}</span>}
+          {p.liveStatus !== 'connected' && <button type="button" onClick={p.onConnect} disabled={!p.demoReady}>Connect SafeSC</button>}
+          {p.googleAvailable && <button type="button" onClick={p.onToggleMap}>{p.mapMode === 'google' ? 'Use campus map' : 'Use photoreal 3D'}</button>}
+          <button type="button" disabled={!p.demoReady} onClick={p.onDemo}>Stage demo incident</button>
+          {p.onFalseAlarm && <button type="button" disabled={!p.demoReady} onClick={p.onFalseAlarm} title="A benign look-alike: the debate should overturn it">Stage false alarm</button>}
+        </div>
+      </>)}
       <div className="chips">
         {chips.map(([label, value, kind, title]) => (
           <div className="chip" key={label} title={title}>

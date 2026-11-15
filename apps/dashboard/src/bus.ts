@@ -26,7 +26,14 @@ export type BusMessage =
   | {type: 'hello'; unitId: string}
   | {type: 'presence'; unitId: string}
   | {type: 'state'; unitId: string; callsign: string; status: UnitStatus; assignment: Assignment | null; etaSeconds?: number}
-  | {type: 'ack' | 'arrived' | 'clear'; unitId: string; dispatchId: string};
+  | {type: 'ack' | 'arrived' | 'clear'; unitId: string; dispatchId: string}
+  | {type: 'alert'; alert: AlertMsg};
+
+// Geofenced safety alert (or all-clear) broadcast to student phones; each phone decides if it is inside.
+export type AlertMsg = {
+  id: string; kind: 'alert' | 'clear'; title: string; message: string; center: LngLat; radius: number;
+  at: number; place: string; incidentType: string;
+};
 
 export function newRoom() {
   const bytes = crypto.getRandomValues(new Uint8Array(18));

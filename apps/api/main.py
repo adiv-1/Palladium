@@ -223,6 +223,12 @@ from . import dispatch_agent
 async def dispatch_recommend(body:dispatch_agent.RecommendRequest):
     return await dispatch_agent.recommend(body)
 
+from . import debate
+
+@app.post('/api/debate',dependencies=[Depends(authenticated)])
+async def debate_alert(body:debate.DebateEvidence):
+    return await debate.run_debate(body)
+
 @app.post('/api/dispatch/approve',dependencies=[Depends(authenticated)])
 def dispatch_approve(body:dispatch_agent.ApproveRequest):
     try: return dispatch_agent.approve(body)

@@ -160,10 +160,11 @@ const SCRIPTS: Script[] = [
     uncertainty: 'Someone resting or sitting low can trigger this.', confidence: 0.79},
 ];
 
-let demoCount = 0;
-export function demoIncident(buildings: Building[], racks: Rack[], cameras: Camera[]): Incident {
-  const script = SCRIPTS[demoCount % SCRIPTS.length];
-  demoCount += 1;
+let demoCount = 2; // first staged incident is the altercation
+const HEADINGS: Partial<Record<IncidentType, number>> = {altercation: 90, rack_activity: 180};
+export function demoIncident(buildings: Building[], racks: Rack[], cameras: Camera[], variant: 'real' | 'benign' = 'real'): Incident {
+  const script = variant === 'benign' ? SCRIPTS[2] : SCRIPTS[demoCount % SCRIPTS.length];
+  if (variant !== 'benign') demoCount += 1; // a staged false alarm does not use up the script
   const building = buildings.find((b) => b.name.includes(script.place)) ?? buildings[0];
   const position = script.near === 'rack' ? nearest(racks, building.position)?.item.position ?? building.position
     : offset(building.position, 12, -10);
@@ -171,5 +172,5 @@ export function demoIncident(buildings: Building[], racks: Rack[], cameras: Came
   return {id: `demo-${Date.now()}-${demoCount}`, type: script.type, severity: script.severity, position,
     place: building.name, cameraId: camera?.id ?? 'cam-?', createdAt: Date.now(), status: 'unreviewed',
     observation: script.observation, evidence: script.evidence, uncertainties: [script.uncertainty],
-    confidence: script.confidence, origin: 'demo'};
+    confidence: script.confidence, origin: 'demo', variant, heading: variant === 'benign' ? undefined : HEADINGS[script.type]};
 }
