@@ -15,8 +15,7 @@
   "event_websocket": "ping",
   "active_sources_after": 0,
   "checked_at": "2026-11-14T23:56:25.255908+00:00",
-  "deployed_commit": "825251ab2f9b75781ec45b90a4fd97431dcec742",
-  "source_commit": "d5fc91a25cacd055ef3bd67090d4affba6de165e",
+  "source_commit": "060f88eac6f7352ca598f5377a457e43d7303860",
   "capture": {
     "acknowledged_frames": 16,
     "mean_ack_ms": 178.83523956425051,
@@ -28,5 +27,11 @@
     "ACK latency is receipt latency, not model inference or alert latency.",
     "Video retrieval returned HTTP 200 with the complete file; byte-range 206 support was not established.",
     "Backend dependency findings remain separate from the UI-only Replit security scan."
-  ]
+  ],
+  "transport_test_ui_release_commit": "825251ab2f9b75781ec45b90a4fd97431dcec742",
+  "ui_release_commit": "260aaf075a305ee7c89ed6fdbc8c3c8d73f2f833",
+  "map_referrer_policy": "strict-origin-when-cross-origin",
+  "authenticated_backend_rechecked_after_update": true,
+  "map_visual_verification": true,
+  "map_checked_at": "2026-11-15T00:02:32.598012+00:00"
 }
