@@ -15,6 +15,12 @@ import {INCIDENT_LABEL} from './types';
 import {AlertPanel, PendingBanner} from './AlertPanel';
 import {composeAlert, makeAppUsers, type ActiveAlert} from './alerts';
 import {approvePlan, requestRecommendation, type Recommendation} from './agent';
+import {demoEvidence, requestDebate, type DebateEvidence, type DebateResult} from './debate';
+import {planIntercept, type InterceptPlan} from './intercept';
+import {interceptLayers} from './interceptLayers';
+import {InterceptPanel} from './InterceptPanel';
+import {buildGraph, type Graph} from './analysis';
+import {DEMO_SPEED} from './dispatch';
 import type {Building, Dispatch, DispatchRecord, Funnel, HistoryPoint, Incident, Officer, Rack} from './types';
 
 const GOOGLE_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || '';
@@ -75,6 +81,14 @@ export default function App({embedded}: {embedded: boolean}) {
   const cameras = useMemo(() => (buildings.length ? makeCameras(buildings) : []), [buildings]);
   const appUsers = useMemo(() => makeAppUsers(buildings), [buildings]);
   const [alertState, setAlertState] = useState<ActiveAlert | null>(null);
+  const [debates, setDebates] = useState<Record<string, DebateResult>>({});
+  const [debating, setDebating] = useState<Record<string, boolean>>({});
+  const [graph, setGraph] = useState<Graph | null>(null);
+  const graphRef = useRef<Graph | null>(null);
+  graphRef.current = graph;
+  const [intercept, setIntercept] = useState<{incidentId: string; plan: InterceptPlan; startedAt: number; approved: boolean} | null>(null);
+  const interceptRef = useRef<typeof intercept>(null);
+  interceptRef.current = intercept;
   const alertRef = useRef<ActiveAlert | null>(null);
   alertRef.current = alertState;
   const aiCameras = cameras.filter((c) => !c.watchedLive).length;
@@ -90,6 +104,7 @@ export default function App({embedded}: {embedded: boolean}) {
       const rackList: Rack[] = r.racks.map((x: any) => ({id: x.id, position: [x.lng, x.lat], capacity: x.capacity}));
       const buildingList = parseBuildings(b.buildings);
       setRacks(rackList);
+      fetch(`${OSM_PATH}walk.json`).then((response) => response.json()).then((raw) => setGraph(buildGraph(raw))).catch(() => undefined);
       setBuildings(buildingList);
       setDs({officers: makeOfficers(buildingList), dispatches: []});
       try {
@@ -161,7 +176,21 @@ export default function App({embedded}: {embedded: boolean}) {
     setViewState((cur) => ({...cur, ...v, transitionDuration: duration, transitionInterpolator: fly}));
   }, []);
 
+  const debate = useCallback(async (incident: Incident) => {
+    setDebating((m) => ({...m, [incident.id]: true}));
+    const demoType = incident.type === 'altercation' || incident.type === 'person_down' || incident.type === 'rack_activity' ? incident.type : null;
+    const evidence: DebateEvidence = incident.origin === 'demo' && demoType
+      ? {...demoEvidence(demoType, incident.variant ?? 'real'), observation: incident.observation, rule_evidence: incident.evidence}
+      : {incident_type: incident.type, observation: incident.observation, rule_evidence: incident.evidence, features: {}};
+    const result = await requestDebate(evidence);
+    if (incident.origin === 'demo') result.simulated = true;
+    setDebates((m) => ({...m, [incident.id]: result}));
+    setDebating((m) => ({...m, [incident.id]: false}));
+    setIncidents((list) => list.map((i) => (i.id === incident.id ? {...i, debate: result.decision, severity: result.decision === 'downgrade' ? 'WATCH' : i.severity} : i)));
+  }, []);
+
   const assess = useCallback(async (incident: Incident) => {
+    void debate(incident);
     setRecLoading((m) => ({...m, [incident.id]: true}));
     const building = buildingsRef.current.find((b) => b.id === incident.buildingId) ?? null;
     const rec = await requestRecommendation(incident, building, dsRef.current.officers);
@@ -198,9 +227,9 @@ export default function App({embedded}: {embedded: boolean}) {
     if (incident.status === 'unreviewed') focus(withBuilding);
   }, [focus, buildings]);
 
-  const stageDemo = useCallback(() => {
+  const stageDemo = useCallback((variant?: unknown) => {
     if (!buildings.length) return;
-    addIncident(demoIncident(buildings, racks, cameras));
+    addIncident(demoIncident(buildings, racks, cameras, variant === 'benign' ? 'benign' : 'real'));
     setDemoFunnel((f) => ({...f, candidates: f.candidates + 3, vlmChecks: f.vlmChecks + 1}));
   }, [buildings, racks, cameras, addIncident]);
 
@@ -287,6 +316,7 @@ export default function App({embedded}: {embedded: boolean}) {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
       if (e.key === 'd' || e.key === 'D') stageDemo();
+      if (e.key === 'f' || e.key === 'F') stageDemo('benign');
       if ((e.key === 'm' || e.key === 'M') && GOOGLE_KEY) setMapMode((m) => (m === 'google' ? 'maplibre' : 'google'));
       if (e.key === 'Escape') {setSelectedId(null); setSelectedBuildingId(null); backToOrbit();}
     };
@@ -326,18 +356,53 @@ export default function App({embedded}: {embedded: boolean}) {
     const alertNow = composeAlert(incident, buildings.find((b) => b.id === incident.buildingId), dsRef.current.officers, appUsers, units, timeRef.current);
     setAlertState(alertNow);
     bus.current?.send({type: 'alert', alert: alertNow.msg});
+    if (incident.heading !== undefined && graphRef.current) {
+      const free = dsRef.current.officers.filter((o) => o.status === 'available' && !units.some((u) => u.id === o.id));
+      const plan = planIntercept({graph: graphRef.current, cameras, buildings, incident: incident.position, heading: incident.heading, units: free, victim: incident.position});
+      setIntercept(plan ? {incidentId: incident.id, plan, startedAt: timeRef.current, approved: false} : null);
+    }
     setMode('dispatch');
     const far = units.reduce((m, u) => Math.max(m, distance(u.position, incident.position)), 0);
     flyTo({longitude: incident.position[0], latitude: incident.position[1], zoom: far > 400 ? 16.4 : 17.1, pitch: 58}, 1600);
     const phones = units.filter((u) => devicesRef.current[u.id] && Date.now() - devicesRef.current[u.id] < 7000);
     showToast(`Agent contacted ${units.map((u) => u.callsign).join(' + ')}${phones.length ? ` · ${phones.length} phone${phones.length > 1 ? 's' : ''} notified` : ' · no phones linked, auto-acknowledging'}`);
-  }, [selectedId, chosen, apply, flyTo, showToast, buildings, appUsers]);
+  }, [selectedId, chosen, apply, flyTo, showToast, buildings, appUsers, cameras]);
+
+  // Standalone page: bring the alert report and the intercept plan into view when they appear.
+  useEffect(() => {
+    if (embedded || !alertState) return;
+    const id = setTimeout(() => document.querySelector('.command-review .alert-panel')?.scrollIntoView({behavior: 'smooth', block: 'center'}), 500);
+    return () => clearTimeout(id);
+  }, [embedded, alertState?.msg.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const approveIntercept = useCallback(() => {
+    const sel = interceptRef.current;
+    if (!sel) return;
+    const t = Date.now();
+    apply((s) => {
+      const incident = incidentsRef.current.find((i) => i.id === sel.incidentId);
+      const did = incident?.dispatchId;
+      if (!did) return s;
+      const moving = sel.plan.chokePoints.filter((c) => s.officers.some((o) => o.id === c.unit.id && o.status === 'available'));
+      const officers = s.officers.map((o) => {
+        const c = moving.find((m) => m.unit.id === o.id);
+        return c ? {...o, status: 'en_route' as const, dispatchId: did, assignedAt: t, busyWith: sel.incidentId,
+          route: {from: o.position, to: c.position, path: c.path, startedAt: t, seconds: Math.max(4, c.unitEtaS / DEMO_SPEED)}} : o;
+      });
+      const dispatches = s.dispatches.map((d) => (d.id === did ? {...d, unitIds: [...d.unitIds, ...moving.map((m) => m.unit.id)],
+        events: [...d.events, ...moving.map((m) => ({at: t, kind: 'en_route' as const, unitId: m.unit.id, note: `intercept point, ${Math.round(m.marginS)} s ahead of the suspect (agent)`}))]} : d));
+      return {officers, dispatches};
+    });
+    setIntercept({...sel, approved: true, startedAt: timeRef.current});
+    showToast('Intercept approved: units rerouted to choke points');
+  }, [apply, showToast]);
 
   const finishIncident = useCallback((status: 'resolved', dispatchId: string) => {
     const t = Date.now();
     apply((s) => resolve(s, dispatchId, t));
     setIncidents((list) => list.map((i) => (i.dispatchId === dispatchId ? {...i, status} : i)));
     showToast('Incident resolved, units back in service');
+    setIntercept(null);
     const open = alertRef.current;
     if (open) {
       bus.current?.send({type: 'alert', alert: {...open.msg, id: open.msg.id.replace('alert-', 'clear-'), kind: 'clear', title: 'All clear', message: 'The incident is resolved.', at: Date.now()}});
@@ -416,7 +481,8 @@ export default function App({embedded}: {embedded: boolean}) {
   const google = mapMode === 'google' && GOOGLE_KEY ? {key: GOOGLE_KEY, onCredits: setCredits} : null;
   const layers = buildLayers({time, incidents, selectedId, officers, cameras, racks, history, hour, dispatches: arcs, toggles, google,
     buildings, focusBuildingId: selectedBuildingId ?? selected?.buildingId ?? null, now, orbiting: mode === 'orbit',
-    alert: alertState ? {center: alertState.msg.center, startedAt: alertState.startedAt, radius: alertState.msg.radius, users: alertState.users} : null});
+    alert: alertState ? {center: alertState.msg.center, startedAt: alertState.startedAt, radius: alertState.msg.radius, users: alertState.users} : null,
+    extra: intercept ? interceptLayers(intercept.plan, intercept.startedAt, time, intercept.approved) : undefined});
 
   const tooltip = ({object, layer}: PickingInfo) => {
     if (!object || !layer) return null;
@@ -435,7 +501,7 @@ export default function App({embedded}: {embedded: boolean}) {
       <StatusStrip camerasTriaged={aiCameras} watchedLive={watchedLive} vlmCalls={funnel.vlmChecks} costToday={costToday}
         liveMetrics={!!cascade} costProvenance="estimate" mapMode={mapMode} googleAvailable={!!GOOGLE_KEY}
         onToggleMap={() => GOOGLE_KEY && setMapMode((m) => (m === 'google' ? 'maplibre' : 'google'))}
-        liveStatus={liveStatus} demoReady={!!buildings.length} onDemo={stageDemo}
+        liveStatus={liveStatus} demoReady={!!buildings.length} onDemo={stageDemo} onFalseAlarm={() => stageDemo('benign')}
         onConnect={() => {void connect().catch(() => setConnectOpen(true));}} />
       <main className="command-grid">
         <section className="panel command-map" aria-label="Interactive 3D campus map">
@@ -469,7 +535,6 @@ export default function App({embedded}: {embedded: boolean}) {
           {mapMode === 'google' && <div className="credits">Google · {credits}</div>}
           <Legend />
           <PendingBanner incidents={incidents} onReview={focus} />
-          {alertState && <AlertPanel alert={alertState} devices={devices} onClose={() => setAlertState(null)} />}
         </section>
         <div className="command-review">
           <IncidentQueue incidents={incidents} selectedId={selectedId} onSelect={(id: string) => {const i = incidents.find((x) => x.id === id); if (i) focus(i);}}
@@ -481,10 +546,15 @@ export default function App({embedded}: {embedded: boolean}) {
               rec={recs[selected.id] ?? null} recLoading={!!recLoading[selected.id]} onReassess={() => void assess(selected)}
               onResolve={() => selectedDispatch && finishIncident('resolved', selectedDispatch.id)}
               onCancel={() => selectedDispatch && cancelDispatch(selectedDispatch.id)}
+              brief={debates[selected.id] ?? null} briefLoading={!!debating[selected.id]}
               onClose={() => {setSelectedId(null); backToOrbit();}} />
           ) : (
             <BuildingCard building={selectedBuilding} racksNearby={racksNear} camerasNearby={camsNear}
               onClose={() => {setSelectedBuildingId(null); backToOrbit();}} />
+          )}
+          {alertState && <AlertPanel alert={alertState} devices={devices} onClose={() => setAlertState(null)} />}
+          {intercept && selected?.id === intercept.incidentId && (
+            <InterceptPanel plan={intercept.plan} approved={intercept.approved} onDismiss={() => setIntercept(null)} onApprove={approveIntercept} />
           )}
         </div>
       </main>

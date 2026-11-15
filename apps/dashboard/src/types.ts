@@ -23,6 +23,9 @@ export type Incident = {
   uncertainties: string[];
   confidence: number;
   origin: 'demo' | 'live';
+  variant?: 'real' | 'benign'; // staged demos only: a benign look-alike the debate should overturn
+  heading?: number; // SIMULATED escape heading (deg clockwise from north), staged demos only
+  debate?: 'escalate' | 'downgrade' | 'suppress';
   thumbnail?: string;
   officerId?: string;
   dispatchId?: string;

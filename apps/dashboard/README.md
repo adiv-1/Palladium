@@ -91,3 +91,21 @@ When an incident is selected, the SafeSC backend's dispatch agent (Claude, model
 - Google 3D Tiles are not desaturated, and that mode is untested with a real key.
 - Officer links open a browser-based view for simulated units.
 - History is simulated until a geocoded DPS log is added.
+
+
+## Pages, alerts and the new agents (PR 2)
+
+One app, four pages behind the hash router: **Trends** (`#/trends`, the default), **Incidents** (`#/incidents`), **Live** (`#/live`) and **About** (`#/about`). `?app=1` opens the student alert app and `?unit=...&room=...` the officer page.
+
+| Feature | Where | What it does | Status |
+|---|---|---|---|
+| Ambassador posts | Trends, "Ambassador posts" | Weighted k-means over past incidents in a shift, snapped to real OSM walkways, with a before/after coverage meter and a "why here" panel | Algorithm tested in a browser; history is **simulated** until `public/osm/history.json` exists |
+| Get Somewhere | Trends, "Get Somewhere" | Place autocomplete, then a fastest route and a safest route (Dijkstra on 4,756 OSM walkway nodes, edges penalised by nearby past incidents) | Works; OSM maps plazas as areas, so open crossings are missing and routes can run 1.4 to 2 times the straight-line distance |
+| What-if sandbox | Trends, "What-if" | Monte Carlo of 3,000 to 10,000 late-night walks. Levers: Free Lyft boundary cut, ambassadors off duty, walkers, Lyft usage. Compares today, no re-plan, and re-plan | Scenario simulator with stated assumptions, **not a crime prediction**; the Lyft boundary is the approximate polygon in `docs/` |
+| Incident dashboard | Incidents | KPIs, hour and 13-week charts, top locations, filterable log | Simulated history |
+| 200 m alerts | Live, after Approve | Alert agent notifies all DPS units and every app user inside 200 m, files an incident report | Delivery is simulated; the geofence is real: open `?app=1` pages and pick locations to see only nearby phones alert |
+| Incident report | Live | Report with placeholder descriptors | **Hard-coded placeholder values** for testing the alert flow. The vision pipeline does not estimate them and SafeSC never infers identity or demographics |
+| Agent debate | Live, incident card | Threat agent vs Devil's Advocate answer typed questions in parallel; a 3-bullet consensus brief explains why the alert was escalated, downgraded or suppressed. Press **F** or "Stage false alarm" for a benign look-alike | Rules gate tested (sub-millisecond). Claude gate is wired but **never run against the real API** (no key). `JevGate` is a placeholder: the vendor API and its latency and cost claims are unverified |
+| Intercept vector | Live, after Approve | Projects the escape heading over the walkway graph for 45 s, hands off to cameras, picks choke points other units can reach first, and routes the victim to a safe haven. A second human approval moves the units | Heuristic; the heading is a **simulated input**. Some headings give no interceptable path and the panel says so |
+
+Keys on Live: **D** stages an incident (the first is an altercation at Lyon Recreation Center), **F** stages a false alarm.

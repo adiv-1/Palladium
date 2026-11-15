@@ -17,7 +17,7 @@ export type SimParams = {
   baseAmbassadors: number; // ambassadors on duty today
   seed: number;
 };
-export const DEFAULTS: SimParams = {walkers: 3000, cutPct: 0, offDuty: 0, lyftShare: 0.4, baseAmbassadors: 8, seed: 2026};
+export const DEFAULTS: SimParams = {walkers: 3000, cutPct: 25, offDuty: 2, lyftShare: 0.4, baseAmbassadors: 8, seed: 2026};
 
 export type Metrics = {
   posts: number;

@@ -39,7 +39,7 @@ function hourLabel(h: number) {
 export function StatusStrip(p: {
   camerasTriaged: number; watchedLive: number; vlmCalls: number; costToday: number; costProvenance: 'estimate';
   mapMode: 'google' | 'maplibre'; googleAvailable: boolean; onToggleMap: () => void; liveStatus: string | null;
-  liveMetrics: boolean; demoReady: boolean; onDemo: () => void; onConnect: () => void;
+  liveMetrics: boolean; demoReady: boolean; onDemo: () => void; onFalseAlarm?: () => void; onConnect: () => void;
 }) {
   const chips: [string, string, Provenance, string?][] = [
     ['AI-triaged cameras', p.camerasTriaged.toLocaleString(), 'simulated'],
@@ -61,6 +61,7 @@ export function StatusStrip(p: {
           {p.liveStatus !== 'connected' && <button type="button" onClick={p.onConnect} disabled={!p.demoReady}>Connect SafeSC</button>}
           {p.googleAvailable && <button type="button" onClick={p.onToggleMap}>{p.mapMode === 'google' ? 'Use campus map' : 'Use photoreal 3D'}</button>}
           <button type="button" disabled={!p.demoReady} onClick={p.onDemo}>Stage demo incident</button>
+          {p.onFalseAlarm && <button type="button" disabled={!p.demoReady} onClick={p.onFalseAlarm} title="A benign look-alike: the debate should overturn it">Stage false alarm</button>}
         </div>
       </div>
       ) : (<>
@@ -70,6 +71,7 @@ export function StatusStrip(p: {
           {p.liveStatus !== 'connected' && <button type="button" onClick={p.onConnect} disabled={!p.demoReady}>Connect SafeSC</button>}
           {p.googleAvailable && <button type="button" onClick={p.onToggleMap}>{p.mapMode === 'google' ? 'Use campus map' : 'Use photoreal 3D'}</button>}
           <button type="button" disabled={!p.demoReady} onClick={p.onDemo}>Stage demo incident</button>
+          {p.onFalseAlarm && <button type="button" disabled={!p.demoReady} onClick={p.onFalseAlarm} title="A benign look-alike: the debate should overturn it">Stage false alarm</button>}
         </div>
       </>)}
       <div className="chips">

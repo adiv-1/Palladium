@@ -80,7 +80,7 @@ export default function StudentApp({room}: {room: string}) {
   const quiet = rows.filter((r) => r.cleared || r.away > r.msg.radius);
 
   return (
-    <div className={`student ${active.length ? 'danger' : ''}`}>
+    <div className={`student-app ${active.length ? 'danger' : ''}`}>
       <header><div className="logo"><i /><strong>SafeSC</strong></div><span className={`link ${linked ? 'up' : ''}`}>{linked ? 'Connected' : 'Connecting…'}</span></header>
       <h1>{active.length ? 'Safety alert near you' : 'You are all set'}</h1>
       <p className="lede">{active.length ? 'Stay calm and follow the steps below.' : 'Keep this page open. If something happens within 200 m of you, an alert appears here.'}</p>

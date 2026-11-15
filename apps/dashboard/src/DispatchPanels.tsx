@@ -1,3 +1,5 @@
+import {BriefCard} from './Brief';
+import type {DebateResult} from './debate';
 import {useEffect, useState} from 'react';
 import {QRCodeSVG} from 'qrcode.react';
 import {buildingFacts, CATEGORY_LABEL} from './buildings';
@@ -44,6 +46,7 @@ export function IncidentDetail(p: {
   chosen: string[]; onToggleUnit: (id: string) => void; dispatch: DispatchRecord | null;
   onDispatch: () => void; onDismiss: () => void; onResolve: () => void; onCancel: () => void; onClose: () => void;
   devices: Record<string, number>; rec: Recommendation | null; recLoading: boolean; onReassess: () => void;
+  brief?: DebateResult | null; briefLoading?: boolean;
 }) {
   const now = useNow();
   const i = p.incident;
@@ -80,6 +83,7 @@ export function IncidentDetail(p: {
         </>}
       </details>
 
+      {i.status === 'unreviewed' && <BriefCard result={p.brief ?? null} loading={!!p.briefLoading} />}
       {i.status === 'unreviewed' && (
         <div className="agent-card">
           <div className="agent-head">

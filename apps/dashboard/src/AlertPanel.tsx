@@ -7,7 +7,7 @@ const clock = (ms: number) => new Date(ms).toLocaleTimeString([], {hour: 'numeri
 
 // Shown at the top of the Live page while an AI-flagged incident waits for the admin.
 export function PendingBanner({incidents, onReview}: {incidents: Incident[]; onReview: (i: Incident) => void}) {
-  const open = incidents.filter((i) => i.status === 'unreviewed');
+  const open = incidents.filter((i) => i.status === 'unreviewed' && i.debate !== 'suppress');
   if (!open.length) return null;
   const i = open[0];
   return (

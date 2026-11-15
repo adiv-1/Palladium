@@ -10,6 +10,7 @@ import {PlaceInput} from './PlaceInput';
 import {Tag} from './Panels';
 import {Stage, useStage} from './stage';
 import {useCampus} from './data';
+import {useWhatIf} from './WhatIfPanel';
 import {CAMPUS_CENTER, distance} from './sim';
 import {INCIDENT_LABEL, type Building, type IncidentType, type LngLat} from './types';
 
@@ -25,7 +26,7 @@ type Routes = {fastest: RouteResult; safest: RouteResult; startedAt: number; fro
 
 export default function Trends() {
   const campus = useCampus();
-  const [tab, setTab] = useState<'plan' | 'route'>('plan');
+  const [tab, setTab] = useState<'plan' | 'route' | 'whatif'>('plan');
   const [shift, setShift] = useState<Shift>(shiftForHour(new Date().getHours()));
   const [count, setCount] = useState(6);
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -36,6 +37,7 @@ export default function Trends() {
   const [routes, setRoutes] = useState<Routes | null>(null);
   const [routeError, setRouteError] = useState('');
   const stage = useStage(!routes);
+  const wi = useWhatIf(campus, shift, tab === 'whatif', stage.time);
   const timeRef = useRef(0);
   timeRef.current = stage.time;
 
@@ -148,7 +150,7 @@ export default function Trends() {
 
   return (
     <div className="app">
-      {campus && <Stage stage={stage} layers={layers} tooltip={tooltip} onClick={({object, layer}) => {
+      {campus && <Stage stage={stage} layers={[...layers, ...wi.layers]} tooltip={tooltip} onClick={({object, layer}) => {
         if (layer?.id === 'posts' && object) {const p = plan?.posts[(object as any).post]; if (p) select(p);}
       }} />}
       <header className="strip">
@@ -164,11 +166,12 @@ export default function Trends() {
           <div className="seg big" role="tablist">
             <button role="tab" aria-selected={tab === 'plan'} className={tab === 'plan' ? 'on' : ''} onClick={() => setTab('plan')}>Ambassador posts</button>
             <button role="tab" aria-selected={tab === 'route'} className={tab === 'route' ? 'on' : ''} onClick={() => setTab('route')}>Get Somewhere</button>
+            <button role="tab" aria-selected={tab === 'whatif'} className={tab === 'whatif' ? 'on' : ''} onClick={() => setTab('whatif')}>What-if</button>
           </div>
           <div className="field-label">Shift</div>
           <div className="seg">{(Object.keys(SHIFTS) as Shift[]).map((s) => <button key={s} className={shift === s ? 'on' : ''} onClick={() => setShift(s)} title={SHIFTS[s].hint}>{SHIFTS[s].label}</button>)}</div>
 
-          {tab === 'plan' ? (<>
+          {tab === 'whatif' ? wi.panel : tab === 'plan' ? (<>
             <div className="field-label">Ambassadors available <b>{count}</b></div>
             <input className="range" type="range" min={3} max={12} value={count} onChange={(e) => setCount(Number(e.target.value))} aria-label="Number of ambassadors" />
             <button className="primary wide-btn" onClick={() => run()}>{plan ? 'Re-run placement' : 'Place ambassadors'}</button>
