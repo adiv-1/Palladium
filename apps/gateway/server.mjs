@@ -99,7 +99,7 @@ export function createGateway({backendOrigin = process.env.SAFESC_BACKEND_ORIGIN
 
   server.on('upgrade', (req, socket, head) => {
     const reject = status => { socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\n\r\n`); };
-    if (!['/ws/events', '/ws/capture', '/ws/preview'].includes(req.url?.split('?')[0]) || req.headers.upgrade?.toLowerCase() !== 'websocket') {
+    if (!['/ws/events', '/ws/capture', '/ws/preview', '/ws/live'].includes(req.url?.split('?')[0]) || req.headers.upgrade?.toLowerCase() !== 'websocket') {
       reject('404 Not Found'); return;
     }
     // Same-origin browser sockets only. Non-browser clients may omit Origin; backend auth still applies.

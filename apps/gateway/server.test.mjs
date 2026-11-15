@@ -80,7 +80,7 @@ test('relays WebSocket cookies and binary data, rejects unrelated paths and orig
     socket.pipe(socket);
   });
   const socket = await new Promise((resolve, reject) => {
-    const request = http.request(origin + '/ws/capture', {headers:{Connection:'Upgrade', Upgrade:'websocket',
+    const request = http.request(origin + '/ws/live', {headers:{Connection:'Upgrade', Upgrade:'websocket',
       Origin:origin, Cookie:'safesc_token=test-only'}});
     request.on('upgrade', (_response, socket) => resolve(socket)); request.on('error', reject); request.end();
   });
