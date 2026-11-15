@@ -78,8 +78,9 @@ SafeSC: deployed single-GPU architecture (November 14, 2026)
 CPU intake stays online during a running heavy job. A newly connected phone
 continues to buffer and receive ACKs while its analysis is visibly queued.
 The GPU Pod's included CPU resources run this plane; no extra CPU server exists.
-Stopping this Pod also stops the web/API service. A separate CPU host is an
-optional later deployment choice if GPU-independent uptime is required.
+Stopping this Pod stops the API, live inference and media access. The Replit UI
+stays reachable but disconnected. A separate API host is a later deployment
+choice if GPU-independent backend uptime is required.
 
 Network and storage boundaries
 ------------------------------
