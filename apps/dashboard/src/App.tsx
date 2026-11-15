@@ -4,10 +4,15 @@ import {FlyToInterpolator, type MapViewState, type PickingInfo} from '@deck.gl/c
 import {Map} from 'react-map-gl/maplibre';
 import {buildLayers, type LayerToggles} from './layers';
 import {darkCampusStyle} from './mapStyle';
-import {arcPath, CAMPUS_CENTER, demoIncident, makeCameras, makeOfficers, recommend, simulatedHistory} from './sim';
+import {arcPath, CAMPUS_CENTER, demoIncident, distance, makeCameras, makeOfficers, simulatedHistory} from './sim';
 import {existingIncidents, fromSafeSC, login, review, subscribe, type CascadeStats} from './live';
-import {BottomBar, ConnectDialog, IncidentDetail, IncidentQueue, Legend, StatusStrip} from './Panels';
-import type {Building, Dispatch, Funnel, HistoryPoint, Incident, Officer, Rack} from './types';
+import {BottomBar, ConnectDialog, IncidentQueue, Legend, StatusStrip} from './Panels';
+import {BuildingCard, IncidentDetail, UnitsPanel} from './DispatchPanels';
+import {buildingAt, parseBuildings} from './buildings';
+import {acknowledge, arrive, AUTO_ACK_MS, cancel, clearUnit, createDispatch, POLICY, proposeUnits, remainingSeconds, resolve, tick, type DispatchState} from './dispatch';
+import {dashboardRoom, openBus, type Assignment, type Bus, type BusMessage} from './bus';
+import {INCIDENT_LABEL} from './types';
+import type {Building, Dispatch, DispatchRecord, Funnel, HistoryPoint, Incident, Officer, Rack} from './types';
 
 const GOOGLE_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || '';
 const HOME: MapViewState = {longitude: CAMPUS_CENTER[0], latitude: CAMPUS_CENTER[1], zoom: 16.3, pitch: 58, bearing: -20};
@@ -19,13 +24,15 @@ export default function App() {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [racks, setRacks] = useState<Rack[]>([]);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
-  const [historyReal, setHistoryReal] = useState(false);
-  const [officers, setOfficers] = useState<Officer[]>([]);
+  const [ds, setDs] = useState<DispatchState>({officers: [], dispatches: []});
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [dispatches, setDispatches] = useState<Dispatch[]>([]);
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [arcs, setArcs] = useState<Dispatch[]>([]);
   const [viewState, setViewState] = useState<MapViewState & Record<string, unknown>>(HOME);
   const [time, setTime] = useState(0);
+  const [now, setNow] = useState(Date.now());
   const [mode, setMode] = useState<Mode>('orbit');
   const [mapMode, setMapMode] = useState<'google' | 'maplibre'>(GOOGLE_KEY ? 'google' : 'maplibre');
   const [credits, setCredits] = useState('');
@@ -37,13 +44,22 @@ export default function App() {
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
   const [cascade, setCascade] = useState<CascadeStats | null>(null);
   const [demoFunnel, setDemoFunnel] = useState({frames: 0, candidates: 0, vlmChecks: 0});
+  const [devices, setDevices] = useState<Record<string, number>>({});
+  const [relayUp, setRelayUp] = useState(false);
 
+  const officers = ds.officers;
   const lastInteraction = useRef(0);
   const timeRef = useRef(0);
+  const modeRef = useRef<Mode>('orbit');
+  modeRef.current = mode;
+  const dsRef = useRef(ds);
+  dsRef.current = ds;
   const incidentsRef = useRef<Incident[]>([]);
   incidentsRef.current = incidents;
-  const officersRef = useRef<Officer[]>([]);
-  officersRef.current = officers;
+  const devicesRef = useRef(devices);
+  devicesRef.current = devices;
+  const room = useMemo(() => dashboardRoom(), []);
+  const bus = useRef<Bus | null>(null);
 
   const cameras = useMemo(() => (buildings.length ? makeCameras(buildings) : []), [buildings]);
   const aiCameras = cameras.filter((c) => !c.watchedLive).length;
@@ -54,45 +70,55 @@ export default function App() {
     (async () => {
       const [r, b] = await Promise.all([fetch('/data/racks.json').then((x) => x.json()), fetch('/data/buildings.json').then((x) => x.json())]);
       const rackList: Rack[] = r.racks.map((x: any) => ({id: x.id, position: [x.lng, x.lat], capacity: x.capacity}));
-      const buildingList: Building[] = b.buildings.map((x: any) => ({id: x.id, name: x.name, position: [x.lng, x.lat]}));
+      const buildingList = parseBuildings(b.buildings);
       setRacks(rackList);
       setBuildings(buildingList);
-      setOfficers(makeOfficers(buildingList));
+      setDs({officers: makeOfficers(buildingList), dispatches: []});
       try {
         const h = await fetch('/data/history.json');
         if (!h.ok || !(h.headers.get('content-type') || '').includes('json')) throw new Error('none');
         const rows = await h.json();
         setHistory(rows.map((p: any) => ({position: [p.lng, p.lat], hour: p.hour, type: p.type})));
-        setHistoryReal(true);
       } catch {
         setHistory(simulatedHistory(buildingList, rackList));
       }
     })();
   }, []);
 
-  // ---- animation clock and idle orbit -----------------------------------------------
+  // ---- animation clock, unit movement and camera orbit ------------------------------
   useEffect(() => {
     let frame = 0, last = performance.now(), lastRender = 0;
     const start = last;
-    const loop = (now: number) => {
-      const dt = (now - last) / 1000;
-      last = now;
-      timeRef.current = (now - start) / 1000;
-      if (now - lastRender > 33) {
-        lastRender = now;
+    const loop = (t: number) => {
+      const dt = (t - last) / 1000;
+      last = t;
+      timeRef.current = (t - start) / 1000;
+      if (t - lastRender > 33) {
+        lastRender = t;
         setTime(timeRef.current);
+        setNow(Date.now());
+        setDs((s) => {
+          const {state, arrived} = tick(s, Date.now());
+          if (arrived.length) setTimeout(() => setToast(`${arrived.map((a) => a.callsign).join(', ')} on scene`), 0);
+          return state;
+        });
       }
-      setMode((m) => {
-        if (m === 'orbit' && Date.now() - lastInteraction.current > 10000) {
-          setViewState((v) => (v.transitionDuration ? v : {...v, bearing: (v.bearing ?? 0) + 3 * dt}));
-        }
-        return m;
-      });
+      const idle = Date.now() - lastInteraction.current > 10000;
+      if ((modeRef.current === 'orbit' && idle) || modeRef.current === 'dispatch') {
+        const speed = modeRef.current === 'dispatch' ? 6 : 3;
+        setViewState((v) => (v.transitionDuration ? v : {...v, bearing: (v.bearing ?? 0) + speed * dt}));
+      }
       frame = requestAnimationFrame(loop);
     };
     frame = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frame);
   }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 4500);
+    return () => clearTimeout(id);
+  }, [toast]);
 
   // ---- simulated funnel in demo mode ----------------------------------------------------
   useEffect(() => {
@@ -105,17 +131,13 @@ export default function App() {
     return () => clearInterval(id);
   }, [aiCameras, cascade]);
 
-  // ---- history playback ------------------------------------------------------------------
   useEffect(() => {
     if (!playing) return;
     const id = setInterval(() => setHour((h) => (h === null ? 0 : (h + 1) % 24)), 1200);
     return () => clearInterval(id);
   }, [playing]);
 
-  const showToast = useCallback((text: string) => {
-    setToast(text);
-    setTimeout(() => setToast((t) => (t === text ? null : t)), 4500);
-  }, []);
+  const showToast = useCallback((text: string) => setToast(text), []);
 
   const flyTo = useCallback((v: Partial<MapViewState>, duration: number) => {
     setViewState((cur) => ({...cur, ...v, transitionDuration: duration, transitionInterpolator: fly}));
@@ -123,8 +145,12 @@ export default function App() {
 
   const focus = useCallback((incident: Incident) => {
     setSelectedId(incident.id);
-    setMode('focus');
-    flyTo({longitude: incident.position[0], latitude: incident.position[1], zoom: 18.3, pitch: 62}, 2000);
+    setSelectedBuildingId(null);
+    const units = proposeUnits(dsRef.current.officers, incident);
+    setChosen(units.filter((u) => u.recommended).map((u) => u.officer.id));
+    const dispatched = incident.status === 'approved';
+    setMode(dispatched ? 'dispatch' : 'focus');
+    flyTo({longitude: incident.position[0], latitude: incident.position[1], zoom: dispatched ? 17.2 : 18.3, pitch: 62}, 2000);
   }, [flyTo]);
 
   const backToOrbit = useCallback(() => {
@@ -133,9 +159,10 @@ export default function App() {
   }, [flyTo]);
 
   const addIncident = useCallback((incident: Incident) => {
-    setIncidents((list) => (list.some((i) => i.id === incident.id) ? list : [incident, ...list]));
-    if (incident.status === 'unreviewed') focus(incident);
-  }, [focus]);
+    const withBuilding = {...incident, buildingId: incident.buildingId ?? buildingAt(buildings, incident.position)?.id};
+    setIncidents((list) => (list.some((i) => i.id === incident.id) ? list : [withBuilding, ...list]));
+    if (incident.status === 'unreviewed') focus(withBuilding);
+  }, [focus, buildings]);
 
   const stageDemo = useCallback(() => {
     if (!buildings.length) return;
@@ -143,55 +170,155 @@ export default function App() {
     setDemoFunnel((f) => ({...f, candidates: f.candidates + 3, vlmChecks: f.vlmChecks + 1}));
   }, [buildings, racks, cameras, addIncident]);
 
+  // ---- officer phones ---------------------------------------------------------------------
+  const assignmentFor = useCallback((unit: Officer, s: DispatchState): Assignment | null => {
+    const d = s.dispatches.find((x) => x.id === unit.dispatchId);
+    const incident = d && incidentsRef.current.find((i) => i.id === d.incidentId);
+    if (!d || !incident) return null;
+    const b = buildings.find((x) => x.id === incident.buildingId);
+    return {
+      dispatchId: d.id, incidentId: incident.id, label: INCIDENT_LABEL[incident.type], severity: incident.severity,
+      priority: d.priority, place: b?.name ?? incident.place,
+      address: b ? [b.tags['addr:housenumber'], b.tags['addr:street']].filter(Boolean).join(' ') || undefined : undefined,
+      floors: b?.tags['building:levels'], observation: incident.observation, reason: d.reason, support: d.support,
+      position: incident.position, partners: s.officers.filter((o) => d.unitIds.includes(o.id) && o.id !== unit.id).map((o) => o.callsign),
+      assignedAt: unit.assignedAt ?? d.createdAt,
+    };
+  }, [buildings]);
+
+  const publish = useCallback((unit: Officer, s: DispatchState) => {
+    bus.current?.send({type: 'state', unitId: unit.id, callsign: unit.callsign, status: unit.status,
+      assignment: unit.status === 'available' ? null : assignmentFor(unit, s),
+      etaSeconds: unit.route ? remainingSeconds(unit.route, Date.now()) : undefined});
+  }, [assignmentFor]);
+
+  const apply = useCallback((f: (s: DispatchState) => DispatchState) => {
+    setDs((s) => {
+      const next = f(s);
+      // Tell phones about every unit whose state changed.
+      for (const unit of next.officers) {
+        const before = s.officers.find((o) => o.id === unit.id);
+        if (!before || before.status !== unit.status || before.dispatchId !== unit.dispatchId) setTimeout(() => publish(unit, next), 0);
+      }
+      return next;
+    });
+  }, [publish]);
+
+  const onBus = useCallback((m: BusMessage) => {
+    if (m.type === 'presence' || m.type === 'hello') {
+      setDevices((d) => ({...d, [m.unitId]: Date.now()}));
+      if (m.type === 'hello') {
+        const unit = dsRef.current.officers.find((o) => o.id === m.unitId);
+        if (unit) publish(unit, dsRef.current);
+      }
+      return;
+    }
+    if (m.type === 'state') return;
+    const unit = dsRef.current.officers.find((o) => o.id === m.unitId);
+    if (!unit || unit.dispatchId !== m.dispatchId) return;
+    const d = dsRef.current.dispatches.find((x) => x.id === m.dispatchId);
+    const incident = d && incidentsRef.current.find((i) => i.id === d.incidentId);
+    const t = Date.now();
+    if (m.type === 'ack' && incident) apply((s) => acknowledge(s, unit.id, incident.position, t, 'from phone'));
+    if (m.type === 'arrived') apply((s) => arrive(s, unit.id, t));
+    if (m.type === 'clear') {
+      apply((s) => clearUnit(s, unit.id, t, 'from phone'));
+      setToast(`${unit.callsign} cleared`);
+    }
+  }, [apply, publish]);
+
+  useEffect(() => {
+    bus.current = openBus(room, (m) => onBusRef.current(m));
+    const id = setInterval(() => setRelayUp(!!bus.current?.relay()), 1500);
+    return () => {clearInterval(id); bus.current?.close();};
+  }, [room]);
+  const onBusRef = useRef(onBus);
+  onBusRef.current = onBus;
+
+  // Units with no phone linked acknowledge on their own, so the demo still runs (marked simulated).
+  useEffect(() => {
+    for (const unit of officers) {
+      if (unit.status !== 'assigned' || !unit.assignedAt) continue;
+      const hasPhone = devices[unit.id] && Date.now() - devices[unit.id] < 7000;
+      if (hasPhone || Date.now() - unit.assignedAt < AUTO_ACK_MS) continue;
+      const d = ds.dispatches.find((x) => x.id === unit.dispatchId);
+      const incident = d && incidents.find((i) => i.id === d.incidentId);
+      if (incident) apply((s) => acknowledge(s, unit.id, incident.position, Date.now(), 'auto (no phone linked; simulated)'));
+    }
+  }, [now, officers, devices, ds.dispatches, incidents, apply]);
+
   // ---- keyboard ----------------------------------------------------------------------------
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
       if (e.key === 'd' || e.key === 'D') stageDemo();
       if ((e.key === 'm' || e.key === 'M') && GOOGLE_KEY) setMapMode((m) => (m === 'google' ? 'maplibre' : 'google'));
-      if (e.key === 'Escape') {setSelectedId(null); backToOrbit();}
+      if (e.key === 'Escape') {setSelectedId(null); setSelectedBuildingId(null); backToOrbit();}
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [stageDemo, backToOrbit]);
 
   const selected = incidents.find((i) => i.id === selectedId) ?? null;
-  const recommendation = selected && selected.status === 'unreviewed' ? recommend(officers, selected.position) ?? null : null;
+  const selectedDispatch: DispatchRecord | null = selected?.dispatchId ? ds.dispatches.find((d) => d.id === selected.dispatchId) ?? null : null;
+  const proposals = selected && selected.status === 'unreviewed' ? proposeUnits(officers, selected) : [];
+  const selectedBuilding = buildings.find((b) => b.id === (selectedBuildingId ?? selected?.buildingId)) ?? null;
 
   // ---- decisions -----------------------------------------------------------------------------
-  const approve = useCallback(async () => {
+  const dispatchUnits = useCallback(async () => {
     const incident = incidentsRef.current.find((i) => i.id === selectedId);
-    if (!incident || incident.status !== 'unreviewed') return;
-    const rec = recommend(officersRef.current, incident.position);
-    if (!rec) {showToast('No available officer (simulated roster)'); return;}
-    const {officer} = rec;
+    if (!incident || incident.status !== 'unreviewed' || !chosen.length) return;
+    const units = dsRef.current.officers.filter((o) => chosen.includes(o.id) && o.status === 'available');
+    if (!units.length) {showToast('Chosen units are no longer available'); return;}
     if (incident.origin === 'live') {
       try {
-        await review(incident.id, 'confirmed', `Approved on dashboard; dispatched ${officer.callsign} (simulated officer)`);
+        await review(incident.id, 'confirmed', `Dispatched ${units.map((u) => u.callsign).join(', ')} (${POLICY[incident.type].priority}) from the command view; units simulated`);
       } catch (e) {
-        showToast(`Could not record approval: ${(e as Error).message}`);
+        showToast(`Could not record the decision: ${(e as Error).message}`);
         return;
       }
     }
-    setIncidents((list) => list.map((i) => (i.id === incident.id ? {...i, status: 'approved', officerId: officer.id, decidedAt: Date.now()} : i)));
-    setOfficers((list) => list.map((o) => (o.id === officer.id ? {...o, busyWith: incident.id} : o)));
-    setDispatches((list) => [...list, {incidentId: incident.id, officerId: officer.id, path: arcPath(officer.position, incident.position), startedAt: timeRef.current, seconds: 2.5}]);
+    const t = Date.now();
+    const {state, dispatch} = createDispatch(dsRef.current, incident, units.map((u) => u.id), t);
+    apply(() => state);
+    setIncidents((list) => list.map((i) => (i.id === incident.id ? {...i, status: 'approved', dispatchId: dispatch.id, officerId: units[0].id, decidedAt: t} : i)));
+    setArcs((list) => [...list, ...units.map((u) => ({incidentId: incident.id, officerId: u.id, path: arcPath(u.position, incident.position), startedAt: timeRef.current, seconds: 2.2}))]);
+    setTimeout(() => setArcs((list) => list.filter((a) => a.incidentId !== incident.id)), 4500);
     setMode('dispatch');
-    flyTo({longitude: (officer.position[0] + incident.position[0]) / 2, latitude: (officer.position[1] + incident.position[1]) / 2, zoom: 16.9, pitch: 55}, 1600);
-    showToast(`Ping sent to ${officer.callsign} (simulated officer)`);
-    setTimeout(() => {
-      setOfficers((list) => list.map((o) => (o.id === officer.id ? {...o, position: incident.position, busyWith: undefined} : o)));
-      setDispatches((list) => list.filter((d) => d.incidentId !== incident.id));
-      setSelectedId((id) => (id === incident.id ? null : id));
-      backToOrbit();
-    }, 7000);
-  }, [selectedId, flyTo, showToast, backToOrbit]);
+    const far = units.reduce((m, u) => Math.max(m, distance(u.position, incident.position)), 0);
+    flyTo({longitude: incident.position[0], latitude: incident.position[1], zoom: far > 400 ? 16.4 : 17.1, pitch: 58}, 1600);
+    const phones = units.filter((u) => devicesRef.current[u.id] && Date.now() - devicesRef.current[u.id] < 7000);
+    showToast(`Dispatched ${units.map((u) => u.callsign).join(' + ')}${phones.length ? ` · ${phones.length} phone${phones.length > 1 ? 's' : ''} notified` : ' · no phones linked, auto-acknowledging'}`);
+  }, [selectedId, chosen, apply, flyTo, showToast]);
+
+  const finishIncident = useCallback((status: 'resolved', dispatchId: string) => {
+    const t = Date.now();
+    apply((s) => resolve(s, dispatchId, t));
+    setIncidents((list) => list.map((i) => (i.dispatchId === dispatchId ? {...i, status} : i)));
+    showToast('Incident resolved, units back in service');
+  }, [apply, showToast]);
+
+  // Resolve the incident once every unit has cleared from the phones.
+  useEffect(() => {
+    for (const d of ds.dispatches) {
+      if (d.status === 'resolved') {
+        const incident = incidents.find((i) => i.dispatchId === d.id);
+        if (incident && incident.status === 'approved') setIncidents((list) => list.map((i) => (i.id === incident.id ? {...i, status: 'resolved'} : i)));
+      }
+    }
+  }, [ds.dispatches, incidents]);
+
+  const cancelDispatch = useCallback((dispatchId: string) => {
+    apply((s) => cancel(s, dispatchId, Date.now()));
+    setIncidents((list) => list.map((i) => (i.dispatchId === dispatchId ? {...i, status: 'unreviewed', dispatchId: undefined} : i)));
+    showToast('Dispatch cancelled; the incident is back in the queue');
+  }, [apply, showToast]);
 
   const dismiss = useCallback(async () => {
     const incident = incidentsRef.current.find((i) => i.id === selectedId);
     if (!incident) return;
     if (incident.origin === 'live') {
-      try {await review(incident.id, 'dismissed', 'Dismissed on dashboard');}
+      try {await review(incident.id, 'dismissed', 'Dismissed on the command view');}
       catch (e) {showToast(`Could not record dismissal: ${(e as Error).message}`); return;}
     }
     setIncidents((list) => list.map((i) => (i.id === incident.id ? {...i, status: 'dismissed', decidedAt: Date.now()} : i)));
@@ -205,7 +332,10 @@ export default function App() {
   const connect = useCallback(async (token: string) => {
     await login(token);
     const existing = await existingIncidents();
-    setIncidents((list) => [...existing.map((raw) => fromSafeSC(raw, cameras)), ...list.filter((i) => i.origin === 'demo')]);
+    setIncidents((list) => [...existing.map((raw) => {
+      const i = fromSafeSC(raw, cameras);
+      return {...i, buildingId: buildingAt(buildings, i.position)?.id};
+    }), ...list.filter((i) => i.origin === 'demo')]);
     unsubscribe.current?.();
     unsubscribe.current = subscribe({
       incident: (raw) => addIncident(fromSafeSC(raw, cameras)),
@@ -215,28 +345,32 @@ export default function App() {
     setLiveStatus('connected');
     setConnectOpen(false);
     showToast(`Connected to SafeSC: ${existing.length} incidents loaded`);
-  }, [cameras, addIncident, showToast]);
+  }, [cameras, buildings, addIncident, showToast]);
 
   // ---- counters -----------------------------------------------------------------------------------
-  const approvedCount = incidents.filter((i) => i.status === 'approved').length;
+  const approvedCount = incidents.filter((i) => i.status === 'approved' || i.status === 'resolved').length;
   const funnel: Funnel = cascade
     ? {frames: cascade.frames, candidates: Object.values(cascade.candidates || {}).reduce((a, b) => a + b, 0),
        vlmChecks: cascade.tier2_vlm_calls, alerts: incidents.length, approved: approvedCount}
     : {...demoFunnel, alerts: incidents.length, approved: approvedCount};
   const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
-  const hoursToday = (Date.now() - midnight.getTime()) / 3.6e6;
-  const costToday = (aiCameras / 40) * 0.6 * hoursToday;
+  const costToday = (aiCameras / 40) * 0.6 * ((Date.now() - midnight.getTime()) / 3.6e6);
 
   const google = mapMode === 'google' && GOOGLE_KEY ? {key: GOOGLE_KEY, onCredits: setCredits} : null;
-  const layers = buildLayers({time, incidents, selectedId, officers, cameras, racks, history, hour, dispatches, toggles, google});
+  const layers = buildLayers({time, incidents, selectedId, officers, cameras, racks, history, hour, dispatches: arcs, toggles, google,
+    buildings, focusBuildingId: selectedBuildingId ?? selected?.buildingId ?? null, now, orbiting: mode === 'orbit'});
 
   const tooltip = ({object, layer}: PickingInfo) => {
     if (!object || !layer) return null;
-    if (layer.id === 'officers') return {text: `${object.callsign} · ${object.mode} · simulated officer${object.busyWith ? ' · dispatched' : ''}`};
+    if (layer.id === 'officers') return {text: `${object.callsign} · ${object.mode} · ${object.status} · simulated unit`};
     if (layer.id === 'camera-cones') return {text: `${object.id} near ${object.near} · ${object.watchedLive ? 'watched live' : 'AI triaged'} · simulated position`};
     if (layer.id === 'beams') return {text: `${object.place}: ${object.observation}`};
+    if (layer.id === 'footprints') return {text: `${object.name}${object.tags?.short_name ? ` (${object.tags.short_name})` : ''}`};
     return null;
   };
+
+  const racksNear = selectedBuilding ? racks.filter((r) => distance(r.position, selectedBuilding.position) < 60).length : 0;
+  const camsNear = selectedBuilding ? cameras.filter((c) => distance(c.position, selectedBuilding.position) < 60).length : 0;
 
   return (
     <div className="app">
@@ -253,6 +387,13 @@ export default function App() {
         }}
         onClick={({object, layer}) => {
           if (layer?.id === 'beams' && object) focus(object as Incident);
+          else if (layer?.id === 'footprints' && object) {
+            const b = object as Building;
+            setSelectedId(null);
+            setSelectedBuildingId(b.id);
+            setMode('focus');
+            flyTo({longitude: b.position[0], latitude: b.position[1], zoom: 18, pitch: 60}, 1400);
+          }
         }}
       >
         {mapMode === 'maplibre' && <Map mapStyle={darkCampusStyle} reuseMaps attributionControl={{compact: true}} />}
@@ -263,12 +404,22 @@ export default function App() {
         onToggleMap={() => GOOGLE_KEY && setMapMode((m) => (m === 'google' ? 'maplibre' : 'google'))} liveStatus={liveStatus} />
       <IncidentQueue incidents={incidents} selectedId={selectedId} onSelect={(id: string) => {const i = incidents.find((x) => x.id === id); if (i) focus(i);}}
         onDemo={stageDemo} onConnect={() => setConnectOpen(true)} />
-      <IncidentDetail incident={selected} recommendation={recommendation} onApprove={approve} onDismiss={dismiss}
-        onClose={() => {setSelectedId(null); backToOrbit();}} />
-      <BottomBar hour={hour} setHour={setHour} playing={playing} setPlaying={setPlaying} funnel={funnel} toggles={toggles} setToggles={setToggles}
-        />
+      {selected ? (
+        <IncidentDetail incident={selected} building={selectedBuilding} officers={officers} proposals={proposals} chosen={chosen}
+          onToggleUnit={(id) => setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))}
+          dispatch={selectedDispatch} devices={devices} onDispatch={dispatchUnits} onDismiss={dismiss}
+          onResolve={() => selectedDispatch && finishIncident('resolved', selectedDispatch.id)}
+          onCancel={() => selectedDispatch && cancelDispatch(selectedDispatch.id)}
+          onClose={() => {setSelectedId(null); backToOrbit();}} />
+      ) : (
+        <BuildingCard building={selectedBuilding} racksNearby={racksNear} camerasNearby={camsNear}
+          onClose={() => {setSelectedBuildingId(null); backToOrbit();}} />
+      )}
+      <UnitsPanel officers={officers} devices={devices} room={room} relay={relayUp}
+        onFocus={(o) => {lastInteraction.current = Date.now(); flyTo({longitude: o.position[0], latitude: o.position[1], zoom: 18, pitch: 55}, 1200);}} />
+      <BottomBar hour={hour} setHour={setHour} playing={playing} setPlaying={setPlaying} funnel={funnel} toggles={toggles} setToggles={setToggles} />
       <Legend />
-      {toast && <div className="toast">{toast}</div>}
+      {toast && <div className="toast" key={toast}>{toast}</div>}
       <ConnectDialog open={connectOpen} onClose={() => setConnectOpen(false)} onSubmit={connect} />
     </div>
   );

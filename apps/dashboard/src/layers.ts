@@ -1,9 +1,11 @@
-import {ColumnLayer, PolygonLayer, ScatterplotLayer, TextLayer} from '@deck.gl/layers';
+import {ColumnLayer, PathLayer, PolygonLayer, ScatterplotLayer, TextLayer} from '@deck.gl/layers';
 import {HexagonLayer} from '@deck.gl/aggregation-layers';
 import {Tile3DLayer, TripsLayer} from '@deck.gl/geo-layers';
 import type {Color, Layer} from '@deck.gl/core';
 import {cameraCone, distance} from './sim';
-import type {Camera, Dispatch, HistoryPoint, Incident, Officer, Rack, Severity} from './types';
+import type {Building, Camera, Dispatch, HistoryPoint, Incident, LngLat, Officer, Rack, Severity} from './types';
+import {KEY_CATEGORIES} from './buildings';
+import {CAMPUS_CENTER, offset} from './sim';
 
 export const CARDINAL: Color = [204, 31, 52];
 export const GOLD: Color = [255, 204, 0];
@@ -29,6 +31,10 @@ type Inputs = {
   dispatches: Dispatch[];
   toggles: LayerToggles;
   google: {key: string; onCredits: (c: string) => void} | null;
+  buildings: Building[];
+  focusBuildingId: string | null;
+  now: number; // Date.now(), for unit routes and drop-in timing
+  orbiting: boolean;
 };
 
 export function buildLayers(x: Inputs): Layer[] {
@@ -56,6 +62,38 @@ export function buildLayers(x: Inputs): Layer[] {
       },
     }) as unknown as Layer);
   }
+
+  // Radar sweep while idle: a rotating fan of fading wedges from the middle of campus.
+  if (x.orbiting) {
+    const sweep = (x.time * 50) % 360;
+    const wedges = Array.from({length: 14}, (_, n) => {
+      const a0 = ((sweep - n * 4) * Math.PI) / 180, a1 = ((sweep - (n + 1) * 4) * Math.PI) / 180;
+      return {alpha: 26 * (1 - n / 14), polygon: [CAMPUS_CENTER, offset(CAMPUS_CENTER, Math.sin(a0) * 620, Math.cos(a0) * 620),
+        offset(CAMPUS_CENTER, Math.sin(a1) * 620, Math.cos(a1) * 620)] as LngLat[]};
+    });
+    layers.push(new PolygonLayer<{alpha: number; polygon: LngLat[]}>({id: 'radar', data: wedges, getPolygon: (w) => w.polygon,
+      stroked: false, getFillColor: (w) => [255, 204, 0, w.alpha], updateTriggers: {getPolygon: sweep, getFillColor: sweep}}) as unknown as Layer);
+  }
+  // Footprints, clickable for building facts.
+  layers.push(new PolygonLayer<Building>({id: 'footprints', data: x.buildings.filter((b) => b.footprint.length > 3),
+    getPolygon: (b) => b.footprint, stroked: true, filled: true, getFillColor: [0, 0, 0, 1], getLineColor: [120, 130, 145, 70],
+    lineWidthMinPixels: 1, pickable: true, autoHighlight: true, highlightColor: [255, 204, 0, 60]}) as unknown as Layer);
+  // Highlighted building (incident or clicked): glowing extruded outline that breathes.
+  const focusBuilding = x.buildings.find((b) => b.id === x.focusBuildingId);
+  if (focusBuilding && focusBuilding.footprint.length > 3) {
+    const h = Number(focusBuilding.tags.height) || 4 * (Number(focusBuilding.tags['building:levels']) || 3);
+    layers.push(new PolygonLayer<Building>({id: 'focus-building', data: [focusBuilding], getPolygon: (b) => b.footprint,
+      extruded: true, wireframe: true, getElevation: h + 1, getFillColor: [255, 204, 0, 35 + 45 * pulse],
+      getLineColor: [255, 214, 80, 230], material: false, updateTriggers: {getFillColor: pulse}}) as unknown as Layer);
+  }
+  // Key building labels (libraries, residences, recreation, parking, health) plus the focused one.
+  const labelled = x.buildings.filter((b) => KEY_CATEGORIES.includes(b.category) || b.id === x.focusBuildingId);
+  layers.push(new TextLayer<Building>({id: 'building-labels', data: labelled,
+    getPosition: (b) => [b.position[0], b.position[1], (Number(b.tags.height) || 12) + 6] as any,
+    getText: (b) => b.name, getSize: (b) => (b.id === x.focusBuildingId ? 15 : 11),
+    getColor: (b) => (b.id === x.focusBuildingId ? [255, 214, 80, 255] : [175, 182, 194, 175]), fontFamily: 'DM Sans, sans-serif', fontWeight: 700,
+    outlineWidth: 3, outlineColor: [18, 20, 23, 255], fontSettings: {sdf: true}, characterSet: 'auto',
+    updateTriggers: {getSize: x.focusBuildingId, getColor: x.focusBuildingId}}) as unknown as Layer);
 
   if (x.toggles.history) {
     const points = x.hour === null ? x.history : x.history.filter((p) => p.hour === x.hour);
@@ -85,26 +123,38 @@ export function buildLayers(x: Inputs): Layer[] {
       && i.status === 'unreviewed' && distance(i.position, r.position) < 40)).map((r) => r.id));
     layers.push(new ScatterplotLayer<Rack>({
       id: 'racks', data: x.racks, getPosition: (r) => r.position, radiusUnits: 'meters', stroked: true,
-      getRadius: (r) => (flaring.has(r.id) ? 6 + 10 * pulse : 2.4), lineWidthUnits: 'pixels', getLineWidth: 1,
+      getRadius: (r) => (flaring.has(r.id) ? 3 + 4 * pulse : 2.4), lineWidthUnits: 'pixels', getLineWidth: 1,
       getFillColor: (r) => (flaring.has(r.id) ? [255, 204, 0, 120 + 100 * pulse] : [150, 160, 170, 110]),
       getLineColor: (r) => (flaring.has(r.id) ? [255, 230, 120, 255] : [190, 200, 210, 120]),
       updateTriggers: {getRadius: [pulse, [...flaring].join()], getFillColor: [pulse, [...flaring].join()], getLineColor: [...flaring].join()},
     }) as unknown as Layer);
   }
 
-  const visible = x.incidents.filter((i) => i.status !== 'dismissed');
+  const visible = x.incidents.filter((i) => i.status !== 'dismissed' && i.status !== 'resolved');
+  const age = (i: Incident) => (x.now - i.createdAt) / 1000;
+  // Beams drop in from the sky with a little overshoot.
+  const drop = (i: Incident) => {const t = Math.min(1, Math.max(0, age(i)) / 1.1); return 1 + 2.70158 * (t - 1) ** 3 + 1.70158 * (t - 1) ** 2;};
+  const fresh = visible.filter((i) => age(i) < 2.6);
+  if (fresh.length) {
+    const waves = [...fresh.map((i) => ({i, delay: 0})), ...fresh.map((i) => ({i, delay: 0.35}))];
+    layers.push(new ScatterplotLayer<{i: Incident; delay: number}>({id: 'shockwave', data: waves,
+      getPosition: (w) => w.i.position, radiusUnits: 'meters', stroked: true, filled: false, lineWidthUnits: 'pixels', getLineWidth: 3,
+      getRadius: (w) => Math.max(0, age(w.i) - w.delay) * 75,
+      getLineColor: (w) => rgba(severityColor(w.i.severity), Math.max(0, 255 * (1 - (age(w.i) - w.delay) / 2.2))),
+      updateTriggers: {getRadius: x.now, getLineColor: x.now}}) as unknown as Layer);
+  }
   // Beams: pulse while unreviewed, hold steady once approved.
   layers.push(new ColumnLayer<Incident>({
     id: 'beam-glow', data: visible, getPosition: (i) => i.position, radius: 7, diskResolution: 20, extruded: true,
-    getElevation: (i) => (i.status === 'approved' ? 140 : 110 + 50 * pulse),
+    getElevation: (i) => drop(i) * (i.status === 'approved' ? 140 : 110 + 50 * pulse),
     getFillColor: (i) => rgba(severityColor(i.severity), i.status === 'approved' ? 40 : 30 + 40 * pulse),
-    material: false, updateTriggers: {getElevation: pulse, getFillColor: pulse},
+    material: false, updateTriggers: {getElevation: [pulse, x.now], getFillColor: pulse},
   }) as unknown as Layer);
   layers.push(new ColumnLayer<Incident>({
     id: 'beams', data: visible, getPosition: (i) => i.position, radius: 1.8, diskResolution: 12, extruded: true,
-    getElevation: (i) => (i.status === 'approved' ? 140 : 110 + 50 * pulse),
+    getElevation: (i) => drop(i) * (i.status === 'approved' ? 140 : 110 + 50 * pulse),
     getFillColor: (i) => rgba(severityColor(i.severity), 235), material: false, pickable: true,
-    updateTriggers: {getElevation: pulse},
+    updateTriggers: {getElevation: [pulse, x.now]},
   }) as unknown as Layer);
   layers.push(new ScatterplotLayer<Incident>({
     id: 'beam-rings', data: visible, getPosition: (i) => i.position, radiusUnits: 'meters', stroked: true, filled: false,
@@ -114,10 +164,25 @@ export function buildLayers(x: Inputs): Layer[] {
     updateTriggers: {getRadius: x.time, getLineColor: x.time, getLineWidth: x.selectedId},
   }) as unknown as Layer);
 
+  const moving = x.officers.filter((o) => o.status === 'en_route' && o.route);
+  if (moving.length) {
+    layers.push(new PathLayer<Officer>({id: 'routes', data: moving, getPath: (o) => o.route!.path, getColor: [255, 204, 0, 55],
+      widthUnits: 'pixels', getWidth: 3, capRounded: true}) as unknown as Layer);
+    // Flowing comets along each route, looping.
+    const flows = moving.flatMap((o) => [0, 1, 2].map((k) => ({o, k})));
+    layers.push(new TripsLayer<{o: Officer; k: number}>({id: 'route-flow', data: flows, getPath: (f) => f.o.route!.path,
+      getTimestamps: (f) => f.o.route!.path.map((_, i) => i + f.k * 9), getColor: [255, 220, 90], widthUnits: 'pixels', getWidth: 4,
+      trailLength: 3, fadeTrail: true, capRounded: true, currentTime: (x.time * 12) % 30 + 3}) as unknown as Layer);
+  }
+  const busy = x.officers.filter((o) => o.status !== 'available');
+  layers.push(new ScatterplotLayer<Officer>({id: 'unit-halo', data: busy, getPosition: (o) => o.position, radiusUnits: 'pixels',
+    getRadius: (o) => (o.status === 'assigned' ? 12 + 10 * pulse : 10 + 12 * ((x.time * 1.2) % 1)),
+    getFillColor: (o) => (o.status === 'on_scene' ? [95, 179, 168, 90] : [255, 204, 0, o.status === 'assigned' ? 60 + 90 * pulse : 90 * (1 - ((x.time * 1.2) % 1))]),
+    updateTriggers: {getRadius: x.time, getFillColor: x.time}}) as unknown as Layer);
   layers.push(new ScatterplotLayer<Officer>({
     id: 'officers', data: x.officers, getPosition: (o) => o.position, radiusUnits: 'pixels', getRadius: 6,
-    stroked: true, lineWidthUnits: 'pixels', getLineWidth: 2, getFillColor: (o) => (o.busyWith ? [255, 204, 0, 255] : [235, 238, 242, 255]),
-    getLineColor: [18, 20, 23, 255], pickable: true, updateTriggers: {getFillColor: x.officers.map((o) => o.busyWith).join()},
+    stroked: true, lineWidthUnits: 'pixels', getLineWidth: 2, getFillColor: (o) => (o.status === 'on_scene' ? [95, 179, 168, 255] : o.status !== 'available' ? [255, 204, 0, 255] : [235, 238, 242, 255]),
+    getLineColor: [18, 20, 23, 255], pickable: true, updateTriggers: {getFillColor: x.officers.map((o) => o.status).join()},
   }) as unknown as Layer);
   layers.push(new TextLayer<Officer>({
     id: 'officer-labels', data: x.officers, getPosition: (o) => o.position, getText: (o) => o.callsign, getSize: 11,

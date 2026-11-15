@@ -22,6 +22,13 @@ def query(body):
         return json.load(response)['elements']
 
 
+def query_geom(body):
+    data = urllib.parse.urlencode({'data': f'[out:json][timeout:60];({body});out geom tags;'}).encode()
+    request = urllib.request.Request(OVERPASS, data=data, headers={'User-Agent': 'safesc-dashboard-data-script'})
+    with urllib.request.urlopen(request, timeout=90) as response:
+        return json.load(response)['elements']
+
+
 def position(element):
     if element['type'] == 'node':
         return element['lat'], element['lon']
@@ -44,14 +51,24 @@ def main():
     (OUT / 'racks.json').write_text(json.dumps({'source': 'OpenStreetMap amenity=bicycle_parking',
         'attribution': '(c) OpenStreetMap contributors, ODbL', 'fetched': fetched, 'racks': racks}, indent=1))
 
+    # Named buildings with footprints and the tags a responder cares about. Only OSM data;
+    # nothing here is invented (no AED, entrance or access details unless OSM has them).
+    keep = ['building', 'building:levels', 'height', 'amenity', 'operator', 'addr:housenumber', 'addr:street',
+            'start_date', 'website', 'wikipedia', 'opening_hours', 'short_name', 'alt_name', 'leisure',
+            'wheelchair', 'building:levels:underground']
     buildings = []
-    for element in query(f'way["building"]["name"]{box};relation["building"]["name"]{box};'):
-        lat, lng = position(element)
-        buildings.append({'id': f'osm-{element["type"]}-{element["id"]}', 'name': element['tags']['name'],
-                          'lat': round(lat, 6), 'lng': round(lng, 6)})
+    for element in query_geom(f'way["building"]["name"]{box};'):
+        tags = element.get('tags', {})
+        ring = [[round(p['lon'], 6), round(p['lat'], 6)] for p in element.get('geometry', [])]
+        if len(ring) < 4:
+            continue
+        lat = sum(p[1] for p in ring[:-1]) / (len(ring) - 1)
+        lng = sum(p[0] for p in ring[:-1]) / (len(ring) - 1)
+        buildings.append({'id': f'osm-way-{element["id"]}', 'name': tags['name'], 'lat': round(lat, 6), 'lng': round(lng, 6),
+                          'footprint': ring, 'tags': {k: tags[k] for k in keep if k in tags}})
     buildings.sort(key=lambda b: b['name'])
-    (OUT / 'buildings.json').write_text(json.dumps({'source': 'OpenStreetMap named buildings',
-        'attribution': '(c) OpenStreetMap contributors, ODbL', 'fetched': fetched, 'buildings': buildings}, indent=1))
+    (OUT / 'buildings.json').write_text(json.dumps({'source': 'OpenStreetMap named buildings (ways) with footprints',
+        'attribution': '(c) OpenStreetMap contributors, ODbL', 'fetched': fetched, 'buildings': buildings}, separators=(',', ':')))
     print(f'{len(racks)} racks, {len(buildings)} named buildings -> {OUT}')
 
 

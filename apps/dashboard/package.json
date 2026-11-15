@@ -17,6 +17,7 @@
     "@deck.gl/mesh-layers": "9.4.1",
     "@deck.gl/react": "9.4.1",
     "maplibre-gl": "6.18.0",
+    "qrcode.react": "4.2.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-map-gl": "8.1.3"

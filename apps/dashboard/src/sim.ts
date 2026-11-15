@@ -73,8 +73,10 @@ export function makeOfficers(buildings: Building[]): Officer[] {
     ['Trojan 31', 'cart', 'Lyon Recreation Center'],
     ['Trojan 35', 'foot', 'Watt Hall'],
     ['Trojan 40', 'bike', 'Fertitta Hall'],
+    ['Trojan 46', 'bike', 'Ginsburg Hall'],
+    ['Trojan 52', 'foot', 'Taper Hall'],
   ];
-  return spots.map(([callsign, mode, place], i) => ({id: `officer-${i + 1}`, callsign, mode,
+  return spots.map(([callsign, mode, place], i) => ({id: `officer-${i + 1}`, callsign, mode, status: 'available' as const,
     position: offset(at(place, CAMPUS_CENTER), 25, -18)}));
 }
 
