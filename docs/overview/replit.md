@@ -28,6 +28,7 @@ Laptop dashboard                 Phone Safari / Chrome
 5. Check the displayed publishing charge against the trial's remaining credits before publishing. The trial is not a guarantee of unlimited deployment or video bandwidth. Replit's November 14 pricing documentation lists the shared 0.5 vCPU / 2 GB VM at $15/month before credits. Autoscale can serve the dashboard, but Reserved VM avoids scale-to-zero interruptions for long-lived phone WebSockets. Static hosting cannot run this proxy.
 6. Publish, open the HTTPS `.replit.app` URL, and enter the existing SafeSC workspace token. No additional reviewer token is configured in Replit. The login cookie belongs to the Replit app origin; the gateway forwards it to the existing authenticated backend.
 7. Click Connect phone **on the published Replit dashboard**, scan the new QR code and start the camera. Pairing links use the dashboard's current origin automatically, so both the phone capture page and its WebSocket use Replit. Keep the phone page foregrounded. Existing links from the Runpod dashboard still point at Runpod.
+8. Open **3D command view** from the workspace sidebar and click **Connect SafeSC** to use the existing reviewer session. Officer pairing links open under `/command/` and relay messages through `/ws/dispatch/{room}`. Use a Runpod backend built from the same source revision to enable dispatch recommendations, approval auditing and the phone relay. Configure `ANTHROPIC_API_KEY` on Runpod if you want Claude recommendations. The command view uses simulated units.
 
 The GitHub import does not include `.env`, original clips, local databases, model weights, or cloud keys. Do not paste `RUNPOD_TOKEN`, `VULTR_API_KEY`, `HF_TOKEN`, SSH keys, or the Mac's entire `.env` into Replit. No `VITE_` secret is needed. The gateway never bypasses backend authorization, logs request bodies/tokens, or stores video; uploads, playback range responses, WebSocket bytes and cookies pass through it.
 
@@ -36,6 +37,8 @@ Both Runpod and Replit process traffic when this route is used. If the GPU pod s
 ## Update the deployment branch
 
 From the complete application checkout, commit the desired source changes and run `python3 scripts/export_replit.py`, inspect `git ls-tree -r --name-only replit-ui`, then push `git push origin replit-ui`. Fetch that branch in Replit and merge `origin/replit-ui`, then republish. Replit can create local publishing commits, so a later fast-forward-only pull may fail; preserve those settings rather than resetting them. The exporter reads committed Git blobs from an explicit UI allowlist, records the source commit in `DEPLOYMENT_SOURCE.txt`, and keeps the current checkout unchanged. It does not export `.env`, local video, Python dependency manifests or model weights. Never merge this deployment-only tree into the full application branch.
+
+The export includes the command dashboard source and its public OpenStreetMap snapshots. The root build builds the reviewer workspace first, then writes the command view into `apps/web/dist/command` for the gateway.
 
 The first full-repository Replit publish was blocked by its scanner's Python/GPU dependency findings, including Pillow and Transformers. Those manifests belong to the Runpod backend and are excluded from the UI deployment artifact because the Node gateway does not use them. This is packaging separation, not a resolution of the backend findings. Keep Replit's security checks enabled and review backend advisories separately before broader adoption.
 
@@ -48,6 +51,8 @@ SAFESC_BACKEND_ORIGIN=https://YOUR-POD-ID-8000.proxy.runpod.net npm start
 ```
 
 Test sign-in, historical map, training-video playback and seeking, incident review, phone QR origin, frame ACKs and dashboard live status on the **published** URL. `/_health` reports only gateway readiness; `/api/health` requires the existing token and checks the actual GPU backend. The public Runpod URL remains a fallback while Replit is configured.
+
+From the signed-in workspace, open the command view, connect to SafeSC, and stage a demo incident. Pair a simulated unit on a separate device, approve the recommendation, and check that acknowledging it from the officer page updates the dashboard.
 
 References: [Replit deployment types](https://docs.replit.com/features/publishing/deployment-types), [configuration](https://docs.replit.com/features/project-setup/configuration), [publishing costs](https://docs.replit.com/billing/deployment-pricing).
 

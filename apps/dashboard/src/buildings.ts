@@ -1,4 +1,4 @@
-// Building facts come only from OpenStreetMap tags (public/data/buildings.json).
+// Building facts come only from OpenStreetMap tags (public/osm/buildings.json).
 // Nothing safety-critical is invented: if OSM has no entrances, AEDs or access notes, none are shown.
 import {distance} from './sim';
 import type {Building, BuildingCategory, LngLat} from './types';

@@ -10,6 +10,8 @@ npm install
 npm run dev        # http://localhost:5174
 ```
 
+On the hosted site, open **3D command view** from the reviewer workspace to use the dashboard at `/command/`. Officer links use the same path with the unit and room in the query string.
+
 Press **D**, or click **Stage demo incident**, to fire a staged event.
 
 | Key | Action |
@@ -25,7 +27,7 @@ Press **D**, or click **Stage demo incident**, to fire a staged event.
 ### Connect to a live SafeSC
 
 1. Run the SafeSC API on `:8000` (`STREAMING_MODEL=cascade` is recommended).
-2. In the dashboard, click **Connect SafeSC** and enter the token from `data/app_token`.
+2. In the dashboard, click **Connect SafeSC**. If prompted, enter the token from `data/app_token`.
 
 Vite proxies `/api` and `/ws` to the API. Set `SAFESC_API` to point the proxy somewhere else. SafeSC sources carry no location, so live incidents are pinned to **simulated** camera positions.
 
@@ -64,10 +66,10 @@ When an incident is selected, the SafeSC backend's dispatch agent (Claude, model
 | Bike racks, buildings | OpenStreetMap via `scripts/build_osm_data.py` (© OpenStreetMap contributors, ODbL) | Real |
 | Live incidents | Staged events, or a connected SafeSC | Demo / Live |
 | Camera positions, officer roster | Invented; deliberately **not** real DPS camera locations | Simulated |
-| History columns | Simulated until `public/data/history.json` exists | Simulated |
+| History columns | Simulated until `public/osm/history.json` exists | Simulated |
 | Cost today | $0.60/h per L4 GPU at 40 cameras per GPU, from the feasibility brief; not measured | Estimate |
 
-**Real history:** geocode the DPS daily crime log (hand-mapping the top ~30 locations is enough) and save it as `public/data/history.json`:
+**Real history:** geocode the DPS daily crime log (hand-mapping the top ~30 locations is enough) and save it as `public/osm/history.json`:
 
 ```json
 [{"lat": 34.0224, "lng": -118.2910, "hour": 21, "type": "rack_activity"}]
@@ -87,5 +89,5 @@ When an incident is selected, the SafeSC backend's dispatch agent (Claude, model
 ## Known limits
 
 - Google 3D Tiles are not desaturated, and that mode is untested with a real key.
-- There is no officer phone app; the ping is an on-screen toast.
+- Officer links open a browser-based view for simulated units.
 - History is simulated until a geocoded DPS log is added.

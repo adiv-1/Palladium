@@ -1,7 +1,7 @@
 """Download real OpenStreetMap context for the dashboard: bike racks and named buildings near USC.
 
 Run from apps/dashboard:  python scripts/build_osm_data.py
-Writes public/data/racks.json and public/data/buildings.json. Data (c) OpenStreetMap contributors, ODbL.
+Writes public/osm/racks.json and public/osm/buildings.json. Data (c) OpenStreetMap contributors, ODbL.
 Camera positions and officers are NOT taken from any real source; they are simulated in src/sim.ts.
 """
 import json
@@ -12,7 +12,7 @@ from pathlib import Path
 
 BBOX = (34.0150, -118.2935, 34.0285, -118.2770)  # south, west, north, east: UPC and surroundings
 OVERPASS = 'https://overpass-api.de/api/interpreter'
-OUT = Path(__file__).resolve().parent.parent / 'public' / 'data'
+OUT = Path(__file__).resolve().parent.parent / 'public' / 'osm'
 
 
 def query(body):

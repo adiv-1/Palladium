@@ -16,6 +16,7 @@ import {approvePlan, requestRecommendation, type Recommendation} from './agent';
 import type {Building, Dispatch, DispatchRecord, Funnel, HistoryPoint, Incident, Officer, Rack} from './types';
 
 const GOOGLE_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || '';
+const OSM_PATH = `${import.meta.env.BASE_URL}osm/`;
 const HOME: MapViewState = {longitude: CAMPUS_CENTER[0], latitude: CAMPUS_CENTER[1], zoom: 16.3, pitch: 58, bearing: -20};
 const fly = new FlyToInterpolator();
 
@@ -76,14 +77,17 @@ export default function App() {
   // ---- data ------------------------------------------------------------------------
   useEffect(() => {
     (async () => {
-      const [r, b] = await Promise.all([fetch('/data/racks.json').then((x) => x.json()), fetch('/data/buildings.json').then((x) => x.json())]);
+      const [r, b] = await Promise.all([
+        fetch(`${OSM_PATH}racks.json`).then((response) => response.json()),
+        fetch(`${OSM_PATH}buildings.json`).then((response) => response.json()),
+      ]);
       const rackList: Rack[] = r.racks.map((x: any) => ({id: x.id, position: [x.lng, x.lat], capacity: x.capacity}));
       const buildingList = parseBuildings(b.buildings);
       setRacks(rackList);
       setBuildings(buildingList);
       setDs({officers: makeOfficers(buildingList), dispatches: []});
       try {
-        const h = await fetch('/data/history.json');
+        const h = await fetch(`${OSM_PATH}history.json`);
         if (!h.ok || !(h.headers.get('content-type') || '').includes('json')) throw new Error('none');
         const rows = await h.json();
         setHistory(rows.map((p: any) => ({position: [p.lng, p.lat], hour: p.hour, type: p.type})));
@@ -357,8 +361,9 @@ export default function App() {
   // ---- live SafeSC ------------------------------------------------------------------------------
   const unsubscribe = useRef<(() => void) | null>(null);
   useEffect(() => () => unsubscribe.current?.(), []);
-  const connect = useCallback(async (token: string) => {
-    await login(token);
+  const connect = useCallback(async (token?: string) => {
+    if (!cameras.length) throw new Error('Campus data is still loading');
+    if (token !== undefined) await login(token);
     const existing = await existingIncidents();
     setIncidents((list) => [...existing.map((raw) => {
       const i = fromSafeSC(raw, cameras);
@@ -431,7 +436,7 @@ export default function App() {
         costProvenance="estimate" mapMode={mapMode} googleAvailable={!!GOOGLE_KEY}
         onToggleMap={() => GOOGLE_KEY && setMapMode((m) => (m === 'google' ? 'maplibre' : 'google'))} liveStatus={liveStatus} />
       <IncidentQueue incidents={incidents} selectedId={selectedId} onSelect={(id: string) => {const i = incidents.find((x) => x.id === id); if (i) focus(i);}}
-        onDemo={stageDemo} onConnect={() => setConnectOpen(true)} />
+        onDemo={stageDemo} onConnect={() => {void connect().catch(() => setConnectOpen(true));}} />
       {selected ? (
         <IncidentDetail incident={selected} building={selectedBuilding} officers={officers} proposals={proposals} chosen={chosen}
           onToggleUnit={(id) => setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))}

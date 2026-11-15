@@ -5,7 +5,8 @@ import react from '@vitejs/plugin-react';
 // is same-origin and the /ws/events socket carries it.
 const api = process.env.SAFESC_API || 'http://127.0.0.1:8000';
 
-export default defineConfig({
+export default defineConfig(({mode}) => ({
+  base: mode === 'hosted' ? '/command/' : '/',
   plugins: [react()],
   server: {
     proxy: {
@@ -14,5 +15,8 @@ export default defineConfig({
     },
   },
   worker: {format: 'es'},
-  build: {chunkSizeWarningLimit: 4000},
-});
+  build: {
+    chunkSizeWarningLimit: 4000,
+    ...(mode === 'hosted' && {outDir: '../web/dist/command', emptyOutDir: true}),
+  },
+}));
