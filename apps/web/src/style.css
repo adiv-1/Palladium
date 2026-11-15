@@ -478,3 +478,36 @@ header .text-button svg{width:18px}}
 .stats strong,.page-heading h1{font-weight:300}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important;animation-iteration-count:1 !important}}
 header .text-button{margin-bottom:0;display:inline-flex;align-items:center;gap:6px}
+
+/* Brand lockup: mark plus wordmark (sidebar, login, phone capture) */
+.brand-lockup{display:flex;align-items:center;gap:11px;color:var(--text)}
+.brand-lockup .wordmark{display:block;font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;line-height:1.2}
+.brand-lockup .tagline{display:block;margin-top:3px;font-size:11px;font-weight:400;color:var(--muted)}
+.lockup-tag{margin-left:auto;letter-spacing:1px;font-size:10px;color:var(--muted)}
+aside>.brand-lockup{margin:2px 0 24px 8px}
+.login .brand-lockup{flex-direction:column;align-items:flex-start;gap:14px;margin-bottom:30px}
+.login .brand-lockup .wordmark{font-size:15px}
+.capture-page .brand-lockup{margin-bottom:8px}
+/* Page header: section label, title, one-line description, then sub-view tabs */
+.page-head{margin-bottom:26px}
+.page-head-top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
+.page-head h1{font-weight:300}
+.page-head p{margin:8px 0 0;font-size:12.5px;color:var(--muted)}
+.subtabs{display:flex;gap:2px;margin-top:20px;padding:4px;width:fit-content;max-width:100%;overflow-x:auto;scrollbar-width:none;border-radius:999px;background:var(--surface-strong);border:1px solid var(--border);box-shadow:var(--shadow-card)}
+.subtabs::-webkit-scrollbar{display:none}
+.subtab{flex:none;white-space:nowrap;border:0;background:transparent;color:var(--muted);font-size:12px;padding:8px 16px;gap:8px}
+.subtab:hover{background:var(--tint-1);color:var(--text);border:0}
+.subtab.selected,.subtab.selected:hover{background:var(--ink);color:var(--on-ink);box-shadow:var(--shadow-ink)}
+.subtab b{background:var(--red-soft);color:var(--red-text);border-radius:999px;padding:0 7px;font-size:10px;font-weight:600}
+.subtab.selected b{background:color-mix(in srgb, var(--on-ink) 22%, transparent);color:var(--on-ink)}
+.subtabs-note{margin:12px 0 0;font-size:11.5px;color:var(--faint)}
+.page-head .subtabs-note{color:var(--muted);font-size:11.5px}
+/* Home: three-step explainer */
+.how-steps{list-style:none;margin:0 0 24px;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.how-steps li{display:flex;align-items:flex-start;gap:12px;padding:16px 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);font-size:12.5px;line-height:1.5;color:var(--text)}
+.how-steps b{flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--ink);color:var(--on-ink);font-size:11px;font-weight:600}
+/* Plan > Forecast and history: the page header already names the view */
+.plan-view .activity-intro .eyebrow,.plan-view .activity-intro h1{display:none}
+@media(max-width:850px){aside>.brand-lockup{justify-content:center;margin:2px 0 40px}aside>.brand-lockup>div{display:none}.page-head-top>button{font-size:0;padding:12px}.page-head-top>button svg{width:20px}}
+@media(max-width:520px){.page-head p{font-size:11px}.subtab{padding:8px 13px}}
+.nav-list{display:flex;flex-direction:column}

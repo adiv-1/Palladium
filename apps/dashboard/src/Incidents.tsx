@@ -232,6 +232,7 @@ export default function Incidents() {
             <div>
               <h1>Past incidents</h1>
               <p>Everything logged over the last 90 days: when it happens, where it clusters and which way it is trending.</p>
+              <p className="muted-note">For forecasts from public crime data, see Plan &gt; Forecast and history.</p>
             </div>
             <div className="inc-note">
               <Tag kind={simulated ? 'simulated' : 'real'} />

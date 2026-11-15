@@ -42,7 +42,7 @@ function Root() {
     try {saved = localStorage.getItem('safesc-dispatch-room') ?? '';} catch { /* storage blocked */ }
     page = <StudentApp room={room ?? saved} />;
   } else page = effective === 'live' ? <Live embedded={embedded} /> : effective === 'incidents' ? <Incidents /> : effective === 'about' ? <About /> : <Trends />;
-  return <Suspense fallback={<div className="boot"><i />Loading SafeSC…</div>}>{page}</Suspense>;
+  return <Suspense fallback={<div className="boot"><i />Loading Palladium…</div>}>{page}</Suspense>;
 }
 
 createRoot(document.getElementById('root')!).render(<React.StrictMode><Root /></React.StrictMode>);

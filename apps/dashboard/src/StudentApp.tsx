@@ -1,6 +1,7 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {openBus, type AlertMsg, type Bus} from './bus';
 import {distance} from './sim';
+import {Logo} from './Logo';
 import type {LngLat} from './types';
 
 type Place = {name: string; position: LngLat};
@@ -81,7 +82,7 @@ export default function StudentApp({room}: {room: string}) {
 
   return (
     <div className={`student-app ${active.length ? 'danger' : ''}`}>
-      <header><div className="logo"><i /><strong>SafeSC</strong></div><span className={`link ${linked ? 'up' : ''}`}>{linked ? 'Connected' : 'Connecting…'}</span></header>
+      <header><div className="logo"><Logo variant="shield" size={30} /><strong>Palladium</strong></div><span className={`link ${linked ? 'up' : ''}`}>{linked ? 'Connected' : 'Connecting…'}</span></header>
       <h1>{active.length ? 'Safety alert near you' : 'You are all set'}</h1>
       <p className="lede">{active.length ? 'Stay calm and follow the steps below.' : 'Keep this page open. If something happens within 200 m of you, an alert appears here.'}</p>
 

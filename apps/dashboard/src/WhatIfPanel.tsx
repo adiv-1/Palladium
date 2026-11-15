@@ -155,26 +155,26 @@ function Slider({label, value, shown, min, max, step, onChange, hint}: {label: s
 const CARDS: {key: 'A' | 'B' | 'C'; title: string; sub: string; tone: string}[] = [
   {key: 'A', title: 'A · Today', sub: 'Planned for current conditions', tone: 'grey'},
   {key: 'B', title: 'B · Scenario, no re-plan', sub: 'Same posts, fewer ambassadors, new boundary', tone: 'red'},
-  {key: 'C', title: 'C · Scenario, SafeSC re-plans', sub: 'Posts re-optimised for the new walkers', tone: 'gold'},
+  {key: 'C', title: 'C · Scenario, Palladium re-plans', sub: 'Posts re-optimised for the new walkers', tone: 'gold'},
 ];
 
 function WhatIfPanel(p: PanelProps) {
   const r = p.result, onDuty = DEFAULTS.baseAmbassadors - p.off;
   const lost = r ? r.A.coveredShare - r.B.coveredShare : 0, won = r ? r.C.coveredShare - r.B.coveredShare : 0;
   const summary = !r ? '' : lost <= 0.0005 && won <= 0.0005 ? 'Under these sliders coverage barely changes, so re-planning has little to recover.'
-    : `Coverage of walker-risk goes from ${pct(r.A.coveredShare)} today to ${pct(r.B.coveredShare)} if nothing is re-planned. SafeSC re-planning brings it to ${pct(r.C.coveredShare)}, `
+    : `Coverage of past risk goes from ${pct(r.A.coveredShare)} today to ${pct(r.B.coveredShare)} if nothing is re-planned. Palladium re-planning brings it to ${pct(r.C.coveredShare)}, `
       + (lost > 0.0005 ? `recovering ${Math.round((100 * Math.max(0, won)) / lost)}% of the ${(100 * lost).toFixed(1)} points lost.` : `a change of ${(100 * won).toFixed(1)} points.`);
   return (
     <div className="wi">
-      <div className="wi-head"><div><span className="wi-eyebrow">Wargaming</span><h2>What-if sandbox</h2></div><Tag kind="simulated" title="Scenario simulator. Not a prediction of crime." /></div>
-      <p className="wi-lead">Drag a lever, run thousands of synthetic late-night walks, and see where ambassadors would need to stand.</p>
+      <div className="wi-head"><div><span className="wi-eyebrow">What-if</span><h2>Try changes</h2></div><Tag kind="simulated" title="Scenario simulator. Not a prediction of crime." /></div>
+      <p className="wi-lead">Move a slider, simulate thousands of made-up late-night walks, and see where ambassadors would need to stand.</p>
 
-      <Slider label="Cut the Free Lyft boundary" value={p.cut} shown={`${p.cut}%`} min={0} max={50} step={5} onChange={p.setCut}
+      <Slider label="Shrink the free-ride zone" value={p.cut} shown={`${p.cut}%`} min={0} max={50} step={5} onChange={p.setCut}
         hint={p.areas ? `Zone area ${p.areas.old.toFixed(1)} km² to ${p.areas.now.toFixed(1)} km², shrunk toward its centre. Approximate digitised boundary from the repo docs.` : 'Loading boundary…'} />
       <Slider label="Ambassadors off duty" value={p.off} shown={`${p.off} of ${DEFAULTS.baseAmbassadors} · ${onDuty} on duty`} min={0} max={6} step={1} onChange={p.setOff} />
       <Slider label="Walkers simulated" value={p.walkers} shown={p.walkers.toLocaleString()} min={1000} max={10000} step={500} onChange={p.setWalkers} />
       <Slider label="Lyft usage inside the zone" value={p.share} shown={`${p.share}%`} min={0} max={100} step={5} onChange={p.setShare}
-        hint="Assumption: share of in-zone late-night trips that take the free Lyft instead of walking." />
+        hint="Assumption: share of in-zone late-night trips that take the free ride instead of walking." />
 
       <button className="primary wide-btn wi-run" onClick={p.start} disabled={!p.ready || !!p.run}>{p.run ? 'Simulating…' : r ? 'Run again' : 'Run simulation'}</button>
       {p.run && (
@@ -195,13 +195,13 @@ function WhatIfPanel(p: PanelProps) {
           <div><b>{r.lyftRiders.today} to {r.lyftRiders.scenario}</b><small>simulated Lyft riders</small></div>
           <div><b>{r.params.walkers.toLocaleString()}</b><small>trips in {Math.round(r.ms)} ms</small></div>
         </div>
-        <div className="wi-field">Map: show uncovered exposure</div>
+        <div className="wi-field">Map: show uncovered areas</div>
         <div className="seg" role="group">
           <button className={p.view === 'B' ? 'on' : ''} onClick={() => {p.setView('B'); p.restartAnim();}}>Without re-plan</button>
-          <button className={p.view === 'C' ? 'on' : ''} onClick={() => {p.setView('C'); p.restartAnim();}}>SafeSC re-plans</button>
+          <button className={p.view === 'C' ? 'on' : ''} onClick={() => {p.setView('C'); p.restartAnim();}}>Palladium re-plans</button>
         </div>
         <ul className="wi-key">
-          <li><i className="red" />Uncovered, thicker means more walkers x risk</li><li><i className="gold" />Covered by a post</li>
+          <li><i className="red" />Not covered, thicker means more walkers and more risk</li><li><i className="gold" />Covered by a post</li>
           <li><i className="grey" />Today's posts (ghosted)</li><li><i className="dash" />Current Lyft boundary</li>{p.cut > 0 && <li><i className="gline" />Cut boundary</li>}
         </ul>
       </div>)}
@@ -213,8 +213,8 @@ function WhatIfPanel(p: PanelProps) {
           <li>Each trip starts at a campus building (libraries weighted highest, then residences and academic buildings) or, for {Math.round(STREET_ORIGIN_SHARE * 100)}% of trips, at an off-campus street location within 1.5 km, and ends at a residence. Walkers take the shortest path on the OpenStreetMap walkway graph.</li>
           <li>The Lyft zone is an approximate digitised boundary from the repo docs, not an official geofence. Cutting it shrinks the polygon toward its centroid. Trips starting in the removed ring that would have used Lyft walk instead.</li>
           <li>The Lyft usage share ({p.share}%) is an assumption, not a measured rate. {DEFAULTS.baseAmbassadors} ambassadors are on duty today and the ones going off duty are chosen at random.</li>
-          <li>Risk per street segment comes from {p.historyReal ? 'real' : 'simulated'} past incidents in the {p.shift} window. Exposure = walkers on the segment x its risk. Coverage means a segment midpoint within {COVER_M} m of a post.</li>
-          <li>Scenario A plans posts for today's walkers; B drops ambassadors and applies the cut without moving anyone; C re-plans with the same weighted k-means as the Ambassador posts tab.</li>
+          <li>Risk per street segment comes from {p.historyReal ? 'real' : 'simulated'} past incidents in the {p.shift} window. Gap = walkers on the segment x its risk. Coverage means a segment midpoint within {COVER_M} m of a post.</li>
+          <li>Scenario A plans posts for today's walkers; B drops ambassadors and applies the cut without moving anyone; C re-plans with the same method as the Patrol posts tab.</li>
         </ul>
       </details>
     </div>
@@ -227,9 +227,9 @@ function Card({spec, m, delay}: {spec: typeof CARDS[number]; m: Metrics; delay: 
     <div className={`wi-card ${spec.tone}`} style={style}>
       <div className="wi-card-head"><strong>{spec.title}</strong><span>{m.posts} posts</span></div>
       <small>{spec.sub}</small>
-      <div className="wi-row"><span>Walker-risk covered</span><b>{pct(m.coveredShare)}</b></div>
+      <div className="wi-row"><span>Past risk covered</span><b>{pct(m.coveredShare)}</b></div>
       <div className="wi-meter"><i style={{width: pct(m.coveredShare)}} /></div>
-      <div className="wi-row"><span>Uncovered exposure index</span><b>{Math.round(m.uncoveredIndex)}</b></div>
+      <div className="wi-row"><span>Gap vs today (100 = same as today)</span><b>{Math.round(m.uncoveredIndex)}</b></div>
       <div className="wi-meter dim"><i style={{width: `${Math.min(100, m.uncoveredIndex / 2.5)}%`}} /></div>
       <div className="wi-row"><span>Walkers passing a post</span><b>{m.walkersPassing.toLocaleString()} <em>of {m.walkers.toLocaleString()}</em></b></div>
     </div>

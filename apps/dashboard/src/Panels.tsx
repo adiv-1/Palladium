@@ -53,12 +53,12 @@ export function StatusStrip(p: {
       {embedded ? (
       <div className="command-heading">
         <div>
-          <h1>3D command center</h1>
+          <h1>Live map</h1>
           <p>Review campus incidents and coordinate simulated response units.</p>
         </div>
         <div className="strip-right">
-          {p.liveStatus && <span className={`live-status ${p.liveStatus}`}>SafeSC {p.liveStatus}</span>}
-          {p.liveStatus !== 'connected' && <button type="button" onClick={p.onConnect} disabled={!p.demoReady}>Connect SafeSC</button>}
+          {p.liveStatus && <span className={`live-status ${p.liveStatus}`}>Palladium {p.liveStatus}</span>}
+          {p.liveStatus !== 'connected' && <button type="button" onClick={p.onConnect} disabled={!p.demoReady}>Connect Palladium</button>}
           {p.googleAvailable && <button type="button" onClick={p.onToggleMap}>{p.mapMode === 'google' ? 'Use campus map' : 'Use photoreal 3D'}</button>}
           <button type="button" disabled={!p.demoReady} onClick={p.onDemo}>Stage demo incident</button>
           {p.onFalseAlarm && <button type="button" disabled={!p.demoReady} onClick={p.onFalseAlarm} title="A benign look-alike: the debate should overturn it">Stage false alarm</button>}
@@ -67,8 +67,8 @@ export function StatusStrip(p: {
       ) : (<>
       <Nav active="live" />
         <div className="strip-right">
-          {p.liveStatus && <span className={`live-status ${p.liveStatus}`}>SafeSC {p.liveStatus}</span>}
-          {p.liveStatus !== 'connected' && <button type="button" onClick={p.onConnect} disabled={!p.demoReady}>Connect SafeSC</button>}
+          {p.liveStatus && <span className={`live-status ${p.liveStatus}`}>Palladium {p.liveStatus}</span>}
+          {p.liveStatus !== 'connected' && <button type="button" onClick={p.onConnect} disabled={!p.demoReady}>Connect Palladium</button>}
           {p.googleAvailable && <button type="button" onClick={p.onToggleMap}>{p.mapMode === 'google' ? 'Use campus map' : 'Use photoreal 3D'}</button>}
           <button type="button" disabled={!p.demoReady} onClick={p.onDemo}>Stage demo incident</button>
           {p.onFalseAlarm && <button type="button" disabled={!p.demoReady} onClick={p.onFalseAlarm} title="A benign look-alike: the debate should overturn it">Stage false alarm</button>}
@@ -93,7 +93,7 @@ export function IncidentQueue(p: {incidents: Incident[]; selectedId: string | nu
   return (
     <aside className="panel queue">
       <div className="panel-head">
-        <h2>Incident queue</h2>
+        <h2>Waiting for review</h2>
         <span className="count">{open} open · {p.incidents.length} total</span>
       </div>
       <div className="queue-list">
@@ -174,7 +174,7 @@ export function ConnectDialog(p: {open: boolean; onClose: () => void; onSubmit: 
   return (
     <div className="modal-backdrop" onClick={p.onClose}>
       <form className="panel modal" onSubmit={submit} onClick={(e) => e.stopPropagation()}>
-        <h2>Connect to SafeSC</h2>
+        <h2>Connect to Palladium</h2>
         <p className="fine">Enter the reviewer access token from data/app_token. Live incidents appear on simulated camera positions.</p>
         <input type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Access token" autoFocus />
         {error && <p className="error">{error}</p>}

@@ -1,5 +1,6 @@
 /* When a page is shown inside the reviewer site (?embedded=1) the parent provides the navigation. */
-html.embedded header.strip { display: none; }
+/* The Live page keeps its strip (stats and the stage-demo and connect buttons); other pages only had navigation there. */
+html.embedded body:not(:has(.command-center)) header.strip { display: none; }
 html.embedded .inc-page, html.embedded .about { inset: 0; }
 html.embedded .panel.side { top: var(--gutter); }
 html.embedded .post-detail { top: var(--gutter); }

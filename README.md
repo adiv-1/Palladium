@@ -1,4 +1,10 @@
-# SafeSC
+<p align="center"><img src="docs/brand/shield.svg" alt="Palladium" height="120"></p>
+
+# Palladium
+
+> The product is called **Palladium**; this repository and some internal names still say SafeSC.
+
+**Five sections, one job each:** Home (status and how it works), Respond (live map, review queue, cameras), Plan (patrol posts, safe routes, forecasts, past incidents), Learn (training examples from reviewed clips) and Privacy (what is kept and who can see it). The logo files are in `docs/brand/`.
 
 **Campus video review with preserved context and a human decision.** Built for the AI@USC hackathon.
 

@@ -1,9 +1,10 @@
 import {useEffect, useState} from 'react';
 import {dashboardRoom} from './bus';
 import {useTheme} from './theme';
+import {Logo} from './Logo';
 
 export type Route = 'trends' | 'incidents' | 'live' | 'about';
-const TABS: [Route, string][] = [['trends', 'Trends'], ['incidents', 'Incidents'], ['live', 'Live'], ['about', 'About']];
+const TABS: [Route, string][] = [['trends', 'Plan'], ['incidents', 'Past incidents'], ['live', 'Respond'], ['about', 'How it works']];
 
 export function currentRoute(): Route {
   const r = location.hash.replace(/^#\/?/, '').split(/[?/]/)[0];
@@ -43,14 +44,13 @@ export function ThemeToggle() {
 export function Nav({active}: {active: Route}) {
   return (
     <div className="brand-nav">
-      <a className="logo" href="#/trends"><i /><strong>SafeSC</strong></a>
+      <a className="logo" href="#/trends" aria-label="Palladium"><Logo variant="mark" size={28} /><strong>PALLADIUM</strong></a>
       <nav className="tabs" aria-label="Pages">
         {TABS.map(([id, label]) => (
           <a key={id} href={`#/${id}`} className={id === active ? 'on' : ''} aria-current={id === active ? 'page' : undefined}>
             {id === 'live' && <span className="pulse-dot" />}{label}
           </a>
         ))}
-        <a href={studentLink()} target="_blank" rel="noreferrer" className="ext">Student app ↗</a>
       </nav>
       <ThemeToggle />
     </div>

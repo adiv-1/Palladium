@@ -472,7 +472,7 @@ export default function App({embedded}: {embedded: boolean}) {
     });
     setLiveStatus('connected');
     setConnectOpen(false);
-    if (!signal) showToast(`Connected to SafeSC: ${existing.length} incidents loaded`);
+    if (!signal) showToast(`Connected to Palladium: ${existing.length} incidents loaded`);
   }, [cameras, buildings, addIncident, showToast]);
   useEffect(() => {
     if (!embedded || !cameras.length) return;

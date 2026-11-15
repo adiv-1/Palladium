@@ -1,6 +1,7 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {QRCodeSVG} from 'qrcode.react';
 import {Nav, studentLink} from './Nav';
+import {Logo} from './Logo';
 import {Tag} from './Panels';
 import './about.css';
 
@@ -31,10 +32,10 @@ const NODES: DNode[] = [
 
   {id: 'history', x: 30, y: 485, w: 150, h: 80, title: 'Past incidents', sub: ['DPS log, geocoded'], lane: 'trends'},
   {id: 'analyst', x: 230, y: 485, w: 170, h: 80, title: 'Trend analyst', sub: ['hotspots, time-of-day', 'patterns'], lane: 'trends'},
-  {id: 'ambassador', x: 470, y: 405, w: 250, h: 70, title: 'Ambassador planner', sub: ['weighted k-means', 'patrol and ambassador posts'], lane: 'trends'},
+  {id: 'ambassador', x: 470, y: 405, w: 250, h: 70, title: 'Ambassador planner', sub: ['covers the most past risk', 'patrol and ambassador posts'], lane: 'trends'},
   {id: 'saferoute', x: 470, y: 490, w: 250, h: 70, title: 'Safe-route agent', sub: ['risk-weighted Dijkstra', 'on OSM walkways'], lane: 'trends'},
-  {id: 'whatif', x: 470, y: 575, w: 250, h: 70, title: 'What-if wargame', sub: ['Monte Carlo of', 'late-night walks'], lane: 'trends'},
-  {id: 'map', x: 800, y: 470, w: 230, h: 110, title: 'Public map', sub: ['Get Somewhere', 'Trends dashboard'], kind: 'out', lane: 'trends'},
+  {id: 'whatif', x: 470, y: 575, w: 250, h: 70, title: 'What-if wargame', sub: ['simulated', 'late-night walks'], lane: 'trends'},
+  {id: 'map', x: 800, y: 470, w: 230, h: 110, title: 'Public map', sub: ['Get Somewhere', 'Plan dashboard'], kind: 'out', lane: 'trends'},
 ];
 
 interface DEdge {id: string; d: string; lane: Lane | 'fb'}
@@ -83,8 +84,8 @@ const STEPS: Step[] = [
   {node: 'report', edge: 'e8', lane: 'live', title: 'Report agent files the incident', detail: 'A structured incident report is created from the brief, the verifier answer and the approval.'},
   {node: 'history', edge: 'fb', lane: 'trends', title: 'Confirmed incident joins the history', detail: 'The confirmed incident feeds back into Past incidents, so tomorrow’s trends include tonight.', example: 'Example: +1 incident near Lyon Rec'},
   {node: 'analyst', edge: 't1', lane: 'trends', title: 'Trend analyst re-reads the history', detail: 'Hotspots and time-of-day patterns are recomputed with the new point.', example: 'Example: evening hotspot weight rises'},
-  {node: 'ambassador', edge: 't2', lane: 'trends', title: 'Ambassador planner updates', detail: 'Weighted k-means moves the suggested ambassador posts a little toward the new hotspot.', example: 'Example: one post shifts about 40 m'},
-  {node: 'map', edge: 't5', lane: 'trends', title: 'Public map refreshes', detail: 'Get Somewhere routes and the Trends dashboard pick up the new risk weights. The loop is closed.'},
+  {node: 'ambassador', edge: 't2', lane: 'trends', title: 'Ambassador planner updates', detail: 'The planner moves the suggested ambassador posts a little toward the new hotspot.', example: 'Example: one post shifts about 40 m'},
+  {node: 'map', edge: 't5', lane: 'trends', title: 'Public map refreshes', detail: 'Get Somewhere routes and the Plan dashboard pick up the new risk weights. The loop is closed.'},
 ];
 
 const INTRO = 'A scripted example: an altercation near Lyon Recreation Center. Press Play to follow the alert through the live lane, then into the trends lane. All numbers in the walkthrough are examples, not real data.';
@@ -232,7 +233,7 @@ export default function About() {
       <header className="strip">
         <Nav active="about" />
         <div className="chips">
-          <span className="chip"><span className="chip-label">Two flows</span><strong>Live + Trends</strong></span>
+          <span className="chip"><span className="chip-label">Two flows</span><strong>Respond + Plan</strong></span>
           <span className="chip"><span className="chip-label">Dispatch</span><strong>Human approved</strong></span>
           <span className="chip"><span className="chip-label">Faces</span><strong>Never identified</strong></span>
         </div>
@@ -241,10 +242,11 @@ export default function About() {
       <main className="about" id="about-root">
         <div className="about-inner">
           <section className="hero">
+            <div className="hero-logo"><Logo variant="shield" size={64} /></div>
             <p className="eyebrow">Architecture</p>
-            <h1>How SafeSC works</h1>
+            <h1>How Palladium works</h1>
             <p className="lede">
-              SafeSC runs two flows. The <b>live flow</b> turns camera footage into a reviewed, approved dispatch in seconds. The <b>trends flow</b> learns from past incidents to plan patrols and safer walking routes. A person approves every dispatch, and the system never uses face recognition or identifies anyone. Anything simulated is labelled as such.
+              Palladium runs two flows. The <b>live flow</b> turns camera footage into a reviewed, approved dispatch in seconds. The <b>trends flow</b> learns from past incidents to plan patrols and safer walking routes. A person approves every dispatch, and the system never uses face recognition or identifies anyone. Anything simulated is labelled as such.
             </p>
             <div className="hero-tags"><Tag kind="real" /><Tag kind="demo" /><Tag kind="simulated" /><Tag kind="estimate" /></div>
           </section>
@@ -361,7 +363,7 @@ export default function About() {
 
           <section className="card student" aria-labelledby="stu-h">
             <div className="qr">
-              <QRCodeSVG value={link} size={136} bgColor="#ffffff" fgColor="#121417" marginSize={2} title="QR code for the SafeSC student app" />
+              <QRCodeSVG value={link} size={136} bgColor="#ffffff" fgColor="#121417" marginSize={2} title="QR code for the Palladium student app" />
             </div>
             <div className="stu-body">
               <h2 id="stu-h">Try the student app</h2>
