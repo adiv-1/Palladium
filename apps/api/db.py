@@ -48,6 +48,17 @@ class ReviewAction(SQLModel, table=True):
     decision: str
     note: str
 
+class ArchiveState(SQLModel, table=True):
+    incident_id: str = Field(primary_key=True)
+    status: str = 'pending'
+    media_evicted: bool = False
+    fingerprint: str = ''
+    manifest_key: str = ''
+    media: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    bytes_stored: int = 0
+    error: str | None = None
+    updated_at: str = Field(default_factory=now)
+
 engine = create_engine(f'sqlite:///{settings.data_dir}/safesc.db', connect_args={'check_same_thread':False})
 @event.listens_for(engine, 'connect')
 def sqlite_options(connection, _):

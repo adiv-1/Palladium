@@ -1,6 +1,6 @@
 # Public activity snapshot
 
-The Campus activity tab uses official structured LAPD public records, not complete police narratives, Citizen posts, or camera judgments. The snapshot downloaded November 14, 2026 contains **75,686 grouped reports**, occurrence dates January 1, 2010 through October 31, 2026. The normalized SQLite file is **21,901,312 bytes**. Selected raw pages, request manifests, and SHA-256 hashes remain locally under ignored `data/activity/`; the dashboard server has only the minimized database and metadata.
+The Campus activity tab uses official structured LAPD public records, not complete police narratives, Citizen posts, or camera judgments. The snapshot downloaded November 14, 2026 contains **75,686 grouped reports**, occurrence dates January 1, 2010 through October 31, 2026. The normalized SQLite file is **21,901,312 bytes**. Working files live under ignored `data/activity/`. A separately curated, compressed public snapshot under [public-data/activity](../../public-data/activity/README.md) includes the minimized database, selected source pages, manifests, checksums, and prepared analysis. No private incident or learning data is included.
 
 ## Sources and geographic scope
 
@@ -27,4 +27,13 @@ From the project root, run `uv run python scripts/data/download_activity.py`. It
 
 ## Forecasting boundary
 
-This release provides history, not forecasts. LAPD's transition to NIBRS and reporting differences prevent naive year-to-year count comparisons. Preserve report date and source system for future chronological holdout evaluation. A current revised dataset is not a historical as-of snapshot: filtering by report date reduces leakage but cannot reconstruct when each record originally became public or how it was later revised. Historical counts lack pedestrian exposure and cannot measure an individual's risk. DPS logs may be a later source, with separate provenance and duplicate reconciliation.
+The Historical reports view provides observed history. A separately prepared
+[seasonal outlook](activity-forecasting.md) now adds forecast exploration,
+walking comparisons, and hypothetical ambassador coverage. LAPD's transition
+to NIBRS and reporting differences prevent naive year-to-year count comparisons.
+The first outlook compares source-regime candidates and preserves a mature
+training cutoff. A current revised dataset is not a historical as-of snapshot:
+filtering by report date reduces leakage but cannot reconstruct when each record
+originally became public or how it was later revised. Historical counts lack
+pedestrian exposure and cannot measure an individual's risk. DPS logs may be a
+later source, with separate provenance and duplicate reconciliation.

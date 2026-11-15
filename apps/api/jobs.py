@@ -48,30 +48,33 @@ async def command(argv,cwd=None):
     finally:
         sampler.cancel();await asyncio.gather(sampler,return_exceptions=True)
 
-def export_trajectories(npz,out,source_frames=None):
-    with np.load(npz,allow_pickle=False) as data:
-        xyz=data['xyz']; t,h,w,_=xyz.shape
-        step=max(1,int(np.sqrt(h*w/250)))
-        xyz=xyz[:,::step,::step].reshape(t,-1,3)
-        observed=data['observed'][:,::step,::step].reshape(t,-1) if 'observed' in data else None
-        payload={'simulated':False,'label':'ESTIMATED 3D RECONSTRUCTION','units':'geometry-model units; not measured meters',
-            'frame_indices':list(range(t)),'points':np.nan_to_num(xyz).round(4).tolist(),
-            'confidence':observed.astype(float).tolist() if observed is not None else None,
-            'confidence_note':'Observed-by-tracker mask (0 or 1), not calibrated 3D accuracy or likelihood of harm',
-            'cameras':data['poses'].tolist() if 'poses' in data else None,
-            'intrinsics':data['intrinsics'].tolist() if 'intrinsics' in data else None,
-            'source_frames':source_frames[:t] if source_frames else None}
-    out.write_text(json.dumps(payload))
+from .trajectories import export_trajectories
 
 async def run(job):
+    if job.kind=='learning_train':
+        from .learning import run_training_job
+        return await run_training_job(job)
     incident=get(Incident,job.incident_id)
     if not incident: raise RuntimeError('Incident was removed')
     folder=(settings.data_dir/'incidents'/incident.id).resolve(); original=folder/'original.mp4'
     if digest(original)!=incident.record['original_sha256']: raise RuntimeError('Original hash mismatch')
-    started=time.monotonic(); transforms=[]; files={}; executions=[];warnings=[]
+    started=time.monotonic(); transforms=[]; files={}; executions=[];warnings=[];assessments={}
     lockpath=Path('model-lock.json')
     provenance=json.loads(lockpath.read_text()).get(job.kind,{}) if lockpath.exists() else {}
-    if job.kind=='relayvsr':
+    if job.kind=='review_brief':
+        initial=folder/f'initial-review-{job.id}.json'
+        initial.write_text(json.dumps({'origin':incident.record.get('trigger_origin','model'),
+            'observations':[e.get('observation','') for e in incident.record.get('observable_events',[])[:2]],
+            'source_time_offset':incident.record.get('clip_offset',0)}))
+        output=folder/f'clip-review-{job.id}.json'
+        executions.append(await command([Path.cwd()/'.venv/bin/python','-m','scripts.review_incident',original,output,'--initial',initial]))
+        report=json.loads(output.read_text())
+        if report['input_sha256']!=digest(original):raise RuntimeError('Clip review input hash mismatch')
+        incident=get(Incident,incident.id);incident.record={**incident.record,'clip_review':report};save(incident)
+        files['clip_review']=output.name
+        transforms.append({'operation':'Secondary original-clip review','model':report['model'],
+            'revision':report['revision'],'research_adapter_used':False,'output_sha256':digest(output)})
+    elif job.kind=='relayvsr':
         repo=Path('third_party/RelayVSR').resolve(); output=folder/f'relayvsr-{job.id}.mp4'
         working=original
         def working_copy():
@@ -92,6 +95,17 @@ async def run(job):
         await asyncio.to_thread(write_clip,list(read_video(output)),labeled,'AI-ENHANCED REVIEW COPY')
         files['review']=labeled.name
         transforms.append({'operation':'RelayVSR','output_sha256':digest(labeled)})
+    elif job.kind=='relift_export':
+        candidates=sorted(folder.glob('relift-original-*/tracks.npz'),key=lambda p:p.stat().st_mtime,reverse=True)
+        if not candidates:raise RuntimeError('No cached ReLift result; run the full reconstruction job first')
+        npz=candidates[0];mapping=npz.parent/'input-map.json'
+        source_frames=json.loads(mapping.read_text()) if mapping.exists() else incident.record.get('frame_timestamps')
+        target=folder/f'trajectories-original-{job.id}.json';motion=folder/f'motion-review-{job.id}.mp4'
+        quality=await asyncio.to_thread(export_trajectories,npz,target,source_frames,motion)
+        files.update(trajectory_original=target.name,motion_review=motion.name)
+        assessments['trajectory_original']={'status':'estimated','export_version':2,**quality}
+        transforms.append({'operation':'ReLift colored export and video reprojection','inference_rerun':False,
+            'raw_tracks_sha256':await asyncio.to_thread(digest,npz),'output_sha256':digest(target)})
     elif job.kind=='relift':
         repo=Path('third_party/ReLift').resolve()
         for name,input_path in [('original',original),('enhanced',folder/incident.record['files'].get('enhanced','not-present'))]:
@@ -99,28 +113,47 @@ async def run(job):
             if name=='enhanced' and len(await asyncio.to_thread(lambda:list(read_video(input_path))))<2:
                 warnings.append('Enhanced ReLift pass skipped: fewer than two enhanced frames');continue
             output=folder/f'relift-{name}-{job.id}'
+            # Sample the full incident interval, not only its first 84 frames.
+            def prepare_relift_input():
+                frames=list(read_video(input_path))
+                indices=np.linspace(0,len(frames)-1,min(len(frames),settings.relift_frame_limit)).round().astype(int)
+                chosen=[frames[i] for i in indices]
+                mapping=[incident.record['frame_timestamps'][i] for i in indices] if name=='original' else [{'index':f.index,'timestamp':f.timestamp} for f in chosen]
+                working=folder/f'relift-input-{name}-{job.id}.mp4';write_clip(chosen,working)
+                output.mkdir(exist_ok=True);(output/'input-map.json').write_text(json.dumps(mapping))
+                return working,mapping
+            working,frame_metadata=await asyncio.to_thread(prepare_relift_input)
             python = settings.relift_python or str(repo/'.venv/bin/python')
             try:
-                executions.append(await command([python,'scripts/demo_video.py',input_path,'--out',output,'--num_frames',str(settings.relift_frame_limit)],repo))
+                executions.append(await command([python,'scripts/demo_video.py',working,'--out',output,'--num_frames',str(settings.relift_frame_limit)],repo))
             except Exception as error:
                 if name=='original':raise
                 warnings.append(f'Enhanced ReLift pass failed; original reconstruction retained: {error}')
                 transforms.append({'operation':'ReLift','input':name,'status':'failed','error':str(error)});continue
             target=folder/f'trajectories-{name}-{job.id}.json'
-            frame_metadata=incident.record.get('frame_timestamps',[]) if name=='original' else None
-            await asyncio.to_thread(export_trajectories,output/'tracks.npz',target,frame_metadata)
+            motion=folder/f'motion-{name}-{job.id}.mp4'
+            quality=await asyncio.to_thread(export_trajectories,output/'tracks.npz',target,frame_metadata,motion)
+            if name=='original':files['motion_review']=motion.name
+            assessments[f'trajectory_{name}']={'status':'estimated','export_version':2,**quality}
             files[f'trajectory_{name}']=target.name
             transforms.append({'operation':'ReLift','input':name,'output_sha256':digest(target),'frame_limit':settings.relift_frame_limit})
     elif job.kind=='bvimamba':
         root=Path.cwd();output=folder/f'bvimamba-{job.id}.mp4'
         executions.append(await command([root/'.venv/bin/python','-m','scripts.bvimamba_video',original,output],root))
         files['bvimamba_review']=output.name
+        assessment=json.loads(Path(str(output)+'.json').read_text())
+        assessments['bvimamba_review']={k:v for k,v in assessment.items() if k!='frame_metrics'}
         transforms.append({'operation':'BVI-Mamba offline comparison','working_resolution':[512,512],
             'context_frames':5,'alignment':'centered; replicated boundaries','output_sha256':digest(output)})
     else: raise RuntimeError('Unknown job kind')
     incident=get(Incident,incident.id)
+    history=list(incident.record.get('artifact_history',[]))
+    for kind,filename in files.items():
+        old=incident.record['files'].get(kind)
+        if old and old!=filename:history.append({'kind':kind,'filename':old,'superseded_by':filename,'timestamp':now()})
     incident.record={**incident.record,'files':{**incident.record['files'],**files},
-        'transforms':incident.record['transforms']+transforms}
+        'artifact_assessments':{**incident.record.get('artifact_assessments',{}),**assessments},
+        'artifact_history':history,'transforms':incident.record['transforms']+transforms}
     save(incident)
     return {'status':'ok','model':job.kind,'revision':provenance.get('source_revision','unconfigured'),
         'model_provenance':provenance,'executions':executions,
@@ -132,26 +165,27 @@ async def worker():
     global gpu_busy
     while True:
         # Heavy jobs wait until no active ingestion/model session. Never evict a live detector midstream.
-        if not sessions:
-            jobs=sorted([j for j in rows(Job) if j.status=='queued'],key=lambda j:(j.priority,j.id))
-            if jobs:
-                gpu_busy=True
-                job=jobs[0]; job.status='running'; job.attempts+=1; job.started_at=now(); save(job)
-                await hub.publish('job',job.model_dump())
-                try:
+        jobs=sorted([j for j in rows(Job) if j.status=='queued' and (not sessions or j.kind=='relift_export')],key=lambda j:(j.priority,j.id))
+        if jobs:
+            job=jobs[0];requires_gpu=job.kind!='relift_export'
+            gpu_busy=requires_gpu
+            job.status='running'; job.attempts+=1; job.started_at=now(); save(job)
+            await hub.publish('job',job.model_dump())
+            try:
+                if requires_gpu:
                     from ml.service import model_service
                     await model_service.stop()
                     from ml.verifier import release_verifier
                     await asyncio.to_thread(release_verifier)
-                    job.result=await run(job); job.status='completed'; job.error=None
-                except asyncio.CancelledError:
-                    job.status='failed'; job.error='Worker interrupted'; raise
-                except Exception as e:
-                    job.status='failed'; job.error=str(e)
-                    job.result={'status':'failed','error':str(e),**getattr(e,'metrics',{})}
-                finally:
-                    gpu_busy=False
-                    job.ended_at=now(); save(job); await hub.publish('job',job.model_dump())
+                job.result=await run(job); job.status='completed'; job.error=None
+            except asyncio.CancelledError:
+                job.status='failed'; job.error='Worker interrupted'; raise
+            except Exception as e:
+                job.status='failed'; job.error=str(e)
+                job.result={'status':'failed','error':str(e),**getattr(e,'metrics',{})}
+            finally:
+                gpu_busy=False
+                job.ended_at=now(); save(job); await hub.publish('job',job.model_dump())
         await asyncio.sleep(1)
 
 async def retention():
@@ -164,6 +198,10 @@ async def retention():
         cutoff=(datetime.now(timezone.utc)-timedelta(hours=settings.retention_hours)).isoformat()
         for incident in rows(Incident):
             if incident.created_at>=cutoff or any(j.incident_id==incident.id and j.status in ['queued','running'] for j in rows(Job)): continue
+            from .archive import enabled as archive_enabled
+            from .db import ArchiveState
+            state=get(ArchiveState,incident.id)
+            if archive_enabled() and (not state or state.status not in ['synced','evicted','expired']):continue
             folder=settings.data_dir/'incidents'/incident.id
             if folder.is_dir(): await asyncio.to_thread(shutil.rmtree,folder)
             incident.record={**incident.record,'expired':True,'files':{}}; save(incident)

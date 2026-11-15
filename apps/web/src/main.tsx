@@ -1,13 +1,19 @@
 import React,{useState,useEffect,useRef} from 'react';
 import {createRoot} from 'react-dom/client';
-import {Activity,ArrowUpRight,Bell,Camera,Check,ChevronLeft,Clock,Eye,FileVideo,Layers,Lock,Radio,Shield,Smartphone,Upload,X,Sun,AlertTriangle,MapPin,BookOpen} from 'lucide-react';
+import {Activity,ArrowUpRight,Bell,Camera,Check,ChevronLeft,Clock,Eye,FileVideo,Lock,Radio,Shield,Smartphone,Upload,X,Sun,AlertTriangle,MapPin,BookOpen} from 'lucide-react';
 import {QRCodeSVG} from 'qrcode.react';
-import * as THREE from 'three';
-import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import './theme.css';
 import './style.css';
+import {initTheme} from './theme';
+import {ThemeToggle} from './ThemeToggle';
+import LiveMonitor,{incidentLabel} from './LiveMonitor';
+import ReviewPage from './IncidentReview';
+import StorageStatus from './StorageStatus';
+import {Logo} from './Logo';
 import LearningRepository,{LearningPermission} from './LearningRepository';
 const ActivityMap=React.lazy(()=>import('./ActivityMap'));
 
+initTheme();
 type AnyRecord=Record<string,any>;
 async function api(path:string,options:RequestInit={}){
   const r=await fetch('/api'+path,options);
@@ -16,22 +22,10 @@ async function api(path:string,options:RequestInit={}){
 const post=(path:string,body:unknown)=>api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 const wsUrl=(path:string)=>`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}${path}`;
 const media=(id:string,kind:string)=>`/api/incidents/${id}/media/${kind}`;
-const INCIDENT_LABELS:Record<string,string>={person_down:'Person down',altercation:'Physical altercation',rack_activity:'Activity at bike rack'};
-const incidentLabel=(r:AnyRecord)=>r?.incident_type?INCIDENT_LABELS[r.incident_type]||r.incident_type:null;
-function CostMeter({c}:{c:AnyRecord}){
-  const rows:[string,string][]=[
-    ['Tier 0 detector + tracker',`${c.tier0_ms_per_frame} ms / frame`],
-    ['Tier 1 pose (flagged only)',`${c.tier1_pose_calls} calls${c.tier1_pose_calls?` · ${c.tier1_ms_per_call} ms`:''}`],
-    ['Tier 2 VLM checks',`${c.tier2_vlm_calls}${c.tier2_vlm_calls_per_hour!=null?` · ${c.tier2_vlm_calls_per_hour}/h`:''}${c.tier2_dismissed?` · ${c.tier2_dismissed} dismissed`:''}`],
-    ['Rule candidates',Object.entries(c.candidates||{}).map(([k,v])=>`${INCIDENT_LABELS[k]||k} ${v}`).join(' · ')||'None'],
-    ['Cameras this device could run',c.camera_equivalents_this_device!=null?`≈${c.camera_equivalents_this_device} (${c.device}, measured)`:'Measuring'],
-  ];
-  return <div className="observation-box cost-meter"><span className="eyebrow">PER-CAMERA COST · MEASURED</span>{rows.map(([label,value])=><div className="telemetry-row" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>;
-}
 
 function Capture(){
   const video=useRef<HTMLVideoElement>(null),socket=useRef<WebSocket|null>(null),stream=useRef<MediaStream|null>(null),timer=useRef<number>(0),running=useRef(false),wake=useRef<any>(null);
-  const [status,setStatus]=useState('Ready to connect'),[frames,setFrames]=useState(0),[error,setError]=useState(''),[active,setActive]=useState(false),[facing,setFacing]=useState('environment');
+  const [status,setStatus]=useState('Ready to connect'),[frames,setFrames]=useState(0),[error,setError]=useState(''),[active,setActive]=useState(false),[facing,setFacing]=useState('environment'),[quality,setQuality]=useState('fast');
   const stop=()=>{running.current=false;clearTimeout(timer.current);socket.current?.close();stream.current?.getTracks().forEach(t=>t.stop());wake.current?.release();setActive(false)};
   useEffect(()=>()=>stop(),[]);
   async function start(){
@@ -39,79 +33,77 @@ function Capture(){
     try{
       if(!window.isSecureContext)throw Error('Camera access needs HTTPS. Open the secure pairing URL from the dashboard.');
       if(!navigator.mediaDevices?.getUserMedia)throw Error('This browser does not support camera capture. Use Safari or Chrome.');
-      const token=location.hash.slice(1);if(!token)throw Error('Open the pairing link from the SafeSC dashboard first.');
+      const token=location.hash.slice(1);if(!token)throw Error('Open the pairing link from the Palladium dashboard first.');
       stream.current=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:15}},audio:false});
       video.current!.srcObject=stream.current;await video.current!.play();
       const ws=new WebSocket(wsUrl('/ws/capture'));socket.current=ws;running.current=true;setActive(true);
-      const canvas=document.createElement('canvas');let fps=8;let sending=false;let sentAt=0;
+      const canvas=document.createElement('canvas');let fps=12,encoding=false,inFlight=0;
       const send=()=>{
-        if(!running.current||ws.readyState!==WebSocket.OPEN||sending)return;
-        const v=video.current!;if(!v.videoWidth){timer.current=window.setTimeout(send,100);return}
-        const ratio=Math.min(1,1280/v.videoWidth);canvas.width=Math.floor(v.videoWidth*ratio/2)*2;canvas.height=Math.floor(v.videoHeight*ratio/2)*2;
-        canvas.getContext('2d')!.drawImage(v,0,0,canvas.width,canvas.height);sending=true;
-        sentAt=performance.now();const timestamp=sentAt/1000;
-        canvas.toBlob(async blob=>{if(!blob||ws.readyState!==WebSocket.OPEN){sending=false;return}
-          ws.send(JSON.stringify({type:'frame',timestamp}));ws.send(await blob.arrayBuffer());},'image/jpeg',.82);
+        if(!running.current||ws!==socket.current||ws.readyState!==WebSocket.OPEN)return;
+        timer.current=window.setTimeout(send,1000/fps);
+        if(encoding||inFlight>=2||ws.bufferedAmount>512*1024)return;
+        const v=video.current!;if(!v.videoWidth)return;
+        const ratio=Math.min(1,(quality==='fast'?960:1280)/Math.max(v.videoWidth,v.videoHeight));canvas.width=Math.floor(v.videoWidth*ratio/2)*2;canvas.height=Math.floor(v.videoHeight*ratio/2)*2;
+        canvas.getContext('2d')!.drawImage(v,0,0,canvas.width,canvas.height);encoding=true;
+        const timestamp=performance.now()/1000;
+        canvas.toBlob(async blob=>{try{if(!blob||!running.current||ws!==socket.current||ws.readyState!==WebSocket.OPEN)return;
+          const bytes=await blob.arrayBuffer();if(ws.readyState!==WebSocket.OPEN)return;
+          inFlight++;ws.send(JSON.stringify({type:'frame',timestamp}));ws.send(bytes);
+        }finally{encoding=false}},'image/jpeg',quality==='fast'?.72:.85);
       };
-      ws.onopen=()=>{setStatus('Pairing with SafeSC…');ws.send(JSON.stringify({token}))};
-      ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.type==='ready'){fps=m.fps;setStatus('Connected · streaming');send()}
-        if(m.type==='ack'){sending=false;setFrames(m.index);setStatus(m.model_status==='error'?'Streaming · model unavailable':m.model_status==='waiting_for_gpu'?'Streaming · analysis queued':m.model_status==='loading'?'Streaming · analysis starting':'Connected · streaming');timer.current=window.setTimeout(send,Math.max(0,1000/fps-(performance.now()-sentAt)))}
+      ws.onopen=()=>{setStatus('Pairing with Palladium…');ws.send(JSON.stringify({token}))};
+      ws.onmessage=e=>{if(ws!==socket.current)return;const m=JSON.parse(e.data);if(m.type==='ready'){fps=Math.min(m.fps,quality==='fast'?12:8);setStatus('Connected · streaming');send()}
+        if(m.type==='ack'){inFlight=Math.max(0,inFlight-1);setFrames(m.index);setStatus(m.model_status==='error'?'Streaming · model unavailable':m.model_status==='waiting_for_gpu'?'Streaming · analysis queued':m.model_status==='loading'?'Streaming · analysis starting':'Connected · streaming')}
         if(m.type==='error'){setError(m.message);stop()}};
-      ws.onclose=e=>{if(running.current){setStatus('Disconnected');setError(e.reason||'Connection closed. Tap Start camera to reconnect.');stop()}};
+      ws.onclose=e=>{if(ws===socket.current&&running.current){setStatus('Disconnected');setError(e.reason||'Connection closed. Tap Start camera to reconnect.');stop()}};
       ws.onerror=()=>setError('Unable to reach server. Check your connection and secure pairing URL.');
       try{wake.current=await (navigator as any).wakeLock?.request('screen')}catch{}
     }catch(e){setError(String(e));stop();setStatus('Not connected')}
   }
-  return <div className="capture-page"><div className="brand"><Shield size={26}/><strong>Safe<span>SC</span></strong><small>CAMERA LINK</small></div><h1>Your phone.<br/>A clearer view.</h1><p>Secure camera link to your SafeSC review workspace. Audio is off.</p>
+  return <div className="capture-page"><div className="brand-lockup"><Logo variant="mark" size={28}/><span className="wordmark">PALLADIUM</span><small className="lockup-tag">CAMERA LINK</small></div><h1>Your phone.<br/>A clearer view.</h1><p>Secure camera link to your Palladium review workspace. Audio is off.</p>
     <div className="phone-preview"><video ref={video} autoPlay playsInline muted/>{!active&&<Camera size={48}/>}<span className="phone-status"><i className={active?'dot green':'dot'}/>{status}</span></div>
-    <div className="capture-stats"><span>{frames} frames acknowledged</span><span>Rear camera · JPEG stream</span></div>
+    <div className="capture-stats"><span>{frames} frames acknowledged</span><span>{facing==='environment'?'Rear':'Front'} camera · {quality==='fast'?'Low latency':'More detail'}</span></div>
     {error&&<div className="error" role="alert">{error}</div>}
-    {!active?<><select aria-label="Camera" value={facing} onChange={e=>setFacing(e.target.value)}><option value="environment">Rear camera</option><option value="user">Front camera</option></select><button className="primary wide" onClick={start}><Camera size={18}/>Start camera</button></>:<button className="danger wide" onClick={stop}>Stop streaming</button>}
+    {!active?<><select aria-label="Camera" value={facing} onChange={e=>setFacing(e.target.value)}><option value="environment">Rear camera</option><option value="user">Front camera</option></select><select aria-label="Stream quality" value={quality} onChange={e=>setQuality(e.target.value)}><option value="fast">Low latency · 960px · up to 12 FPS</option><option value="detail">More detail · 1280px · up to 8 FPS</option></select><button className="primary wide" onClick={start}><Camera size={18}/>Start camera</button></>:<button className="danger wide" onClick={stop}>Stop streaming</button>}
     <p className="fine">Keep this page open and the phone awake. Landscape gives the clearest event view. Works over Wi-Fi or cellular. If the connection drops, reconnect here; a new stream starts at zero.</p></div>
 }
 
-function Trajectories({url}:{url:string}){
-  const host=useRef<HTMLDivElement>(null),index=useRef(0);const [data,setData]=useState<AnyRecord|null>(null),[frame,setFrame]=useState(0),[error,setError]=useState('');
-  useEffect(()=>{fetch(url).then(r=>r.json()).then(setData).catch(e=>setError(String(e)))},[url]);
-  useEffect(()=>{if(!data||!host.current)return;const el=host.current;
-    const scene=new THREE.Scene();scene.background=new THREE.Color('#101b22');const camera=new THREE.PerspectiveCamera(45,el.clientWidth/320,.01,10000);camera.position.set(2,2,4);
-    const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(el.clientWidth,320);el.appendChild(renderer.domElement);
-    const controls=new OrbitControls(camera,renderer.domElement);scene.add(new THREE.GridHelper(10,20,0x34515c,0x20343e));
-    const geometry=new THREE.BufferGeometry();const points=new THREE.Points(geometry,new THREE.PointsMaterial({color:0x63ddbf,size:.035}));scene.add(points);
-    const box=new THREE.Box3().setFromPoints(data.points[0].map((p:number[])=>new THREE.Vector3(...p as [number,number,number])));
-    const center=box.getCenter(new THREE.Vector3());controls.target.copy(center);camera.position.copy(center).add(new THREE.Vector3(1,1,2).multiplyScalar(Math.max(box.getSize(new THREE.Vector3()).length(),1)));
-    let raf=0;function render(){geometry.setAttribute('position',new THREE.Float32BufferAttribute(data!.points[index.current].flat(),3));controls.update();renderer.render(scene,camera);raf=requestAnimationFrame(render)}render();
-    return()=>{cancelAnimationFrame(raf);controls.dispose();geometry.dispose();(points.material as THREE.Material).dispose();renderer.dispose();el.replaceChildren()};
-  },[data]);
-  return <section className="panel"><div className="panel-title"><Layers size={18}/><h3>Estimated 3D reconstruction</h3></div><p className="fine">{data?.simulated?'SIMULATED FIXTURE':data?.units||'Loading trajectories…'}</p>{error&&<p>{error}</p>}<div ref={host}/>{data&&<input aria-label="Trajectory frame" type="range" min={0} max={data.points.length-1} value={frame} onChange={e=>{index.current=+e.target.value;setFrame(+e.target.value)}}/>}<small>Frame {frame} · Drag to orbit</small></section>
-}
-
-function ReviewPage({id,onBack}:{id:string,onBack:()=>void}){
-  const [detail,setDetail]=useState<AnyRecord|null>(null),[error,setError]=useState(''),[note,setNote]=useState('');const videos=useRef<(HTMLVideoElement|null)[]>([]);
-  const load=()=>api('/incidents/'+id).then(setDetail).catch(e=>setError(e.message));useEffect(()=>{load();const t=setInterval(load,4000);return()=>clearInterval(t)},[id]);
-  if(!detail)return <p>{error||'Loading incident…'}</p>;const i=detail.incident,r=i.record;
-  async function decide(decision:string){try{await post(`/incidents/${id}/review`,{decision,note});load()}catch(e){setError(String(e))}}
-  const available=['original','enhanced','review','bvimamba_review'].filter(k=>r.files[k]);
-  return <><button className="text-button" onClick={onBack}><ChevronLeft size={18}/>Back to incident queue</button><div className="page-heading"><div><span className="eyebrow">INCIDENT REVIEW</span><h1>Every detail. In context.</h1><p>{id} · {new Date(i.created_at).toLocaleString()}</p></div><span className="pill amber">{i.review_status.replace('_',' ')}</span></div>
-    {i.simulated&&<div className="simulation">SIMULATED DEVELOPMENT TRIGGER · Derived model artifacts, if present, have separate provenance.</div>}{r.trigger_origin==='reviewer'&&<div className="simulation">REVIEWER-MARKED MOMENT · This was saved by a person, not asserted as an AI incident.</div>}{error&&<div className="error">{error}</div>}
-    <div className="review-videos">{available.map((k,n)=><section className="panel" key={k}><div className="panel-title"><FileVideo size={18}/><h3>{k==='original'?'Original incident window':k==='enhanced'?'Low-light enhanced':k==='bvimamba_review'?'BVI comparison copy':'AI-enhanced review copy'}</h3></div><video controls playsInline src={media(id,k)} ref={el=>{videos.current[n]=el}} onSeeked={e=>{const t=e.currentTarget.currentTime;videos.current.forEach(v=>{if(v&&Math.abs(v.currentTime-t)>.4)v.currentTime=t})}}/><p className="fine">{k==='original'?'Extracted from the source; stream timestamps preserved.':'Derived visualization. Generated details are estimates.'}</p></section>)}</div>
-    <div className="review-grid"><section className="panel"><div className="panel-title"><Eye size={18}/><h3>Observable actions</h3></div>{incidentLabel(r)&&<p className="rule-evidence"><strong>{incidentLabel(r)}</strong>{(r.rule_evidence||[]).map((e:string)=><span key={e}>{e}</span>)}</p>}{r.observable_events.map((e:AnyRecord,n:number)=><article className="observation" key={n}><time>{e.timestamp_start.toFixed(1)} – {e.timestamp_end.toFixed(1)}s</time><p>{e.observation}</p><small>{e.actors.join(' · ')}</small></article>)}<h4>Uncertainty</h4>{r.uncertainties.map((u:string)=><p className="uncertainty" key={u}>{u}</p>)}<p className="fine">{r.trigger_origin!=='reviewer'&&<>Score {(i.confidence*100).toFixed(0)}% · </>}{r.confidence_note}</p><h4>Supporting frames</h4><div className="frame-links">{r.supporting_frames.map((f:number)=>{const stamp=r.frame_timestamps.find((x:AnyRecord)=>x.index===f)?.timestamp;return <button key={f} onClick={()=>videos.current.forEach(v=>{if(v&&stamp!==undefined)v.currentTime=stamp-r.clip_offset})}>#{f}{stamp!==undefined?` · ${stamp.toFixed(1)}s`:''}</button>})}</div></section>
-    <section className="panel"><div className="panel-title"><Check size={18}/><h3>Human review</h3></div><p>Choose the next step. Decisions remain inside this workspace.</p><textarea aria-label="Reviewer note" placeholder="Add context or a reviewer note…" value={note} onChange={e=>setNote(e.target.value)}/><div className="review-actions"><button className="primary" onClick={()=>decide('confirmed')}>Confirm for follow-up</button><button onClick={()=>decide('needs_review')}>Needs more review</button><button onClick={()=>decide('dismissed')}>Dismiss</button></div><h4>Review history</h4>{detail.history.map((h:AnyRecord)=><p className="fine" key={h.id}>{new Date(h.timestamp).toLocaleTimeString()} · {h.decision} {h.note&&`— ${h.note}`}</p>)}</section></div>
-    <LearningPermission sourceId={i.source_id} incidentId={i.id} confirmed={i.review_status==='confirmed'}/>{r.files.trajectory_original&&<Trajectories url={media(id,'trajectory_original')}/>}
-    <section className="panel"><div className="panel-title"><Lock size={18}/><h3>Provenance & processing</h3></div><p className="hash">Original window SHA-256: {r.original_sha256}</p><p className="fine">Streaming observer: {r.model.name} · Revision: {r.model.revision} · Lighting: {r.lighting_condition}</p>{r.observation_model&&<p className="fine">Observation verifier: {r.observation_model.name} · Revision: {r.observation_model.revision}</p>}{detail.jobs.map((j:AnyRecord)=><div className="job" key={j.id}><span>{j.kind} · {j.status}</span>{j.error&&<p className="error">{j.error}</p>}{j.status==='failed'&&<button onClick={()=>post(`/jobs/${j.id}/retry`,{}).then(load)}>Retry job</button>}</div>)}<p className="fine">Queued review jobs start after live monitoring stops. Phone intake remains available during a running job.</p><button onClick={()=>post(`/incidents/${id}/compare`,{}).then(load).catch(e=>setError(String(e)))}>Generate another enhancement comparison</button><details><summary>Transformation log</summary><pre>{JSON.stringify(r.transforms,null,2)}</pre></details><details><summary>Model response audit</summary><pre>{JSON.stringify(r.model_output_audit||[],null,2)}</pre></details></section>
-  </>
-}
 
 const hasCommandCenter = import.meta.env.MODE === 'hosted';
-const commandTab = 'Command center';
+// Five sidebar sections, each with one job. A section may hold sub-views (segmented tabs). Sub-views with a
+// `src` embed the 3D command view in a same-origin frame (so the theme choice is shared); they are hosted-only.
+type SubView = {id: string, hosted?: boolean, src?: string};
+type Section = {id: string, icon: any, title: string, desc: string, note?: string, subs: SubView[]};
+const sections: Section[] = [
+  {id: 'Home', icon: Activity, title: 'Palladium', desc: 'Campus safety where AI watches and people decide.',
+    subs: [{id: 'Status'}, {id: 'How it works', hosted: true, src: '/command/?embedded=1#/about'}]},
+  {id: 'Respond', icon: Radio, title: 'Review and respond', desc: 'When the AI flags something, a person reviews it and decides what happens next.',
+    subs: [{id: 'Live map', hosted: true, src: '/command/?embedded=1'}, {id: 'Review queue'}, {id: 'Cameras'}]},
+  {id: 'Plan', icon: MapPin, title: 'Plan ahead', desc: 'Where to station ambassadors, and which walking routes are safer.',
+    note: "Patrol and routes uses Palladium's own incident history. Forecast and history uses public LAPD reports.",
+    subs: [{id: 'Patrol and routes', hosted: true, src: '/command/?embedded=1#/trends'}, {id: 'Forecast and history'}, {id: 'Past incidents', hosted: true, src: '/command/?embedded=1#/incidents'}]},
+  {id: 'Learn', icon: BookOpen, title: 'Learn from reviewed clips', desc: 'Reviewed clips, with permission, become training examples that improve the model.', subs: [{id: 'Learn'}]},
+  {id: 'Privacy', icon: Lock, title: 'Privacy and data', desc: 'What is kept, for how long, and who can see it.', subs: [{id: 'Privacy'}]},
+];
+const visibleSubs = (s: Section) => s.subs.filter(x => !x.hosted || hasCommandCenter);
+const defaultSub = (s: Section) => visibleSubs(s)[0].id;
+const commandViews = sections.flatMap(s => s.subs.filter(x => x.src).map(x => ({key: s.id + '/' + x.id, src: x.src!, title: x.id})));
+// Landing view, plus the old deep links (#activity, #learning).
+const initNav = (() => {
+  const section = location.hash === '#learning' ? 'Learn' : location.hash === '#activity' ? 'Plan' : hasCommandCenter ? 'Respond' : 'Home';
+  const subs: Record<string, string> = Object.fromEntries(sections.map(s => [s.id, defaultSub(s)]));
+  if (location.hash === '#activity') subs.Plan = 'Forecast and history';
+  const frame = sections.find(s => s.id === section)!.subs.find(x => x.id === subs[section])?.src ? section + '/' + subs[section] : '';
+  return {section, subs, frame};
+})();
 
-function CommandCenter({visible}:{visible:boolean}){
+function CommandCenter({visible,src,title}:{visible:boolean,src:string,title:string}){
   const observer=useRef<ResizeObserver|null>(null);
   useEffect(()=>()=>observer.current?.disconnect(),[]);
   return <iframe
     className="command-frame"
-    title="3D command center"
-    src="/command/?embedded=1"
+    title={title}
+    src={src}
     hidden={!visible}
     onLoad={({currentTarget:frame})=>{
       observer.current?.disconnect();
@@ -130,8 +122,10 @@ function App(){
   const [bookmarkNotice,setBookmarkNotice]=useState('');
   const seenIncidents=useRef(new Set<string>());
   const [reviewAlert,setReviewAlert]=useState<AnyRecord|null>(null),[notificationPermission,setNotificationPermission]=useState('Notification' in window?Notification.permission:'unavailable');
-  const [authed,setAuthed]=useState(false),[token,setToken]=useState(''),[sources,setSources]=useState<AnyRecord[]>([]),[incidents,setIncidents]=useState<AnyRecord[]>([]),[health,setHealth]=useState<AnyRecord>({}),[selected,setSelected]=useState<string|null>(null),[pair,setPair]=useState(''),[error,setError]=useState(''),[uploading,setUploading]=useState(false),[tick,setTick]=useState(0),[connected,setConnected]=useState(false),[tab,setTab]=useState(location.hash==='#learning'?'Learning repository':hasCommandCenter?commandTab:'Overview');
-  const [commandOpened,setCommandOpened]=useState(tab===commandTab);
+  const [authed,setAuthed]=useState(false),[token,setToken]=useState(''),[sources,setSources]=useState<AnyRecord[]>([]),[incidents,setIncidents]=useState<AnyRecord[]>([]),[health,setHealth]=useState<AnyRecord>({}),[selected,setSelected]=useState<string|null>(null),[pair,setPair]=useState(''),[error,setError]=useState(''),[uploading,setUploading]=useState(false),[connected,setConnected]=useState(false),[section,setSection]=useState(initNav.section),[subs,setSubs]=useState<Record<string,string>>(initNav.subs)
+  const [commandOpened,setCommandOpened]=useState<string[]>(initNav.frame?[initNav.frame]:[]);
+  const openIncident=(id:string)=>{setSection('Respond');setSubs(p=>({...p,Respond:'Review queue'}));setSelected(id)};
+  const go=(sectionId:string,subId?:string)=>{const sec=sections.find(x=>x.id===sectionId)!,target=subId||defaultSub(sec),key=sectionId+'/'+target;if(sec.subs.find(x=>x.id===target)?.src)setCommandOpened(o=>o.includes(key)?o:[...o,key]);setSection(sectionId);setSubs(p=>({...p,[sectionId]:target}));setSelected(null);history.replaceState(null,'',sectionId==='Learn'?'#learning':key==='Plan/Forecast and history'?'#activity':location.pathname+location.search)};
   const refresh=async()=>{try{const [s,i,h]=await Promise.all([api('/sources'),api('/incidents'),api('/health')]);i.forEach((incident:AnyRecord)=>seenIncidents.current.add(incident.id));setSources(s);setIncidents(i);setHealth(h);setAuthed(true)}catch(e:any){if(e.status===401)setAuthed(false);else setConnected(false)}};
   useEffect(()=>{refresh()},[]);
   useEffect(()=>{if(!authed)return;let ws:WebSocket;let retry:number;let stopped=false;
@@ -139,42 +133,40 @@ function App(){
       if(!seenIncidents.current.has(m.payload.id)){
         seenIncidents.current.add(m.payload.id);setReviewAlert(m.payload);
         if('Notification' in window&&Notification.permission==='granted'&&document.hidden){
-          const notice=new Notification(m.payload.record?.trigger_origin==='reviewer'?'SafeSC · Marked moment saved':'SafeSC · Review requested',{body:'A possible safety event has supporting footage. Open the original clip and assess the context.',tag:m.payload.id});
-          notice.onclick=()=>{window.focus();setSelected(m.payload.id);setReviewAlert(null);notice.close()};
+          const notice=new Notification(m.payload.record?.trigger_origin==='reviewer'?'Palladium · Marked moment saved':'Palladium · Review requested',{body:'A possible safety event has supporting footage. Open the original clip and assess the context.',tag:m.payload.id});
+          notice.onclick=()=>{window.focus();openIncident(m.payload.id);setReviewAlert(null);notice.close()};
         }
       }
       setIncidents(old=>[m.payload,...old.filter(i=>i.id!==m.payload.id)])
     }};ws.onclose=()=>{setConnected(false);if(!stopped)retry=window.setTimeout(connect,2000)}};connect();
-    const poll=setInterval(()=>{refresh();setTick(t=>t+1)},2500);return()=>{stopped=true;clearInterval(poll);clearTimeout(retry);ws?.close()};
+    const poll=setInterval(()=>{refresh()},2500);return()=>{stopped=true;clearInterval(poll);clearTimeout(retry);ws?.close()};
   },[authed]);
   async function pairPhone(){try{setError('');const r=await post('/sources',{name:'Mobile camera',kind:'phone'});const capture=new URL('/capture',window.location.origin);capture.hash=new URL(r.capture_url,window.location.origin).hash;setPair(capture.href);refresh()}catch(e){setError(String(e))}}
   async function upload(file:File){setUploading(true);setError('');try{const body=new FormData();body.append('file',file);await api('/upload',{method:'POST',body});refresh()}catch(e){setError(String(e))}finally{setUploading(false)}}
   async function markMoment(sourceId:string){try{await post(`/sources/${sourceId}/bookmark`,{});setBookmarkNotice('Moment marked. Surrounding footage will appear for review after its context is saved.')}catch(e){setError(String(e))}}
   async function exportFeedback(){try{const data=await api('/reviews/export');const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='safesc-review-history.json';link.click();URL.revokeObjectURL(url)}catch(e){setError(String(e))}}
-  if(!authed)return <div className="login"><div className="brand"><Shield/><strong>Safe<span>SC</span></strong></div><span className="eyebrow">AUTHORIZED REVIEW WORKSPACE</span><h1>A clearer view.<br/>A human decision.</h1><p>Enter your workspace access token to continue.</p><form onSubmit={async e=>{e.preventDefault();try{await post('/login',{token});refresh()}catch(e){setError(String(e))}}}><input type="password" autoComplete="current-password" aria-label="Workspace access token" placeholder="Workspace access token" value={token} onChange={e=>setToken(e.target.value)}/><button className="primary">Open workspace <ArrowUpRight size={18}/></button></form>{error&&<p className="error">{error}</p>}<small>Access token: data/app_token on the server</small></div>;
+  if(!authed)return <><div className="login-theme"><ThemeToggle/></div><div className="login"><div className="brand-lockup"><Logo variant="shield" size={64}/><span className="wordmark">PALLADIUM</span></div><h1>A clearer view.<br/>A human decision.</h1><p>Campus safety where AI watches and people decide. Enter your access token to continue.</p><form onSubmit={async e=>{e.preventDefault();try{await post('/login',{token});refresh()}catch(e){setError(String(e))}}}><input type="password" autoComplete="current-password" aria-label="Workspace access token" placeholder="Workspace access token" value={token} onChange={e=>setToken(e.target.value)}/><button className="primary">Open workspace <ArrowUpRight size={18}/></button></form>{error&&<p className="error">{error}</p>}<small>Access token: data/app_token on the server</small></div></>;
   const source=sources.find(s=>s.status==='streaming')||sources[0],pending=incidents.filter(i=>i.review_status==='pending').length;
-  return <div className="shell"><aside><div className="brand"><Shield size={27}/><strong>Safe<span>SC</span></strong></div><div className="workspace"><i className="dot green"/><div>Campus safety lab<small>HUMAN REVIEW WORKSPACE</small></div></div><span className="nav-label">WORKSPACE</span>{[
-    ...(hasCommandCenter?[[commandTab,MapPin]]:[]),
-    ['Overview',Activity],['Live monitor',Radio],['Incident queue',Layers],['Campus activity',MapPin],['Learning repository',BookOpen],['Privacy & controls',Lock]
-  ].map(([label,Icon]:any)=><button key={label} aria-label={label} aria-current={tab===label&&!selected?'page':undefined} className={'nav '+(tab===label&&!selected?'active':'')} onClick={()=>{
-    if(label===commandTab)setCommandOpened(true);
-    setTab(label);setSelected(null);
-    history.replaceState(null,'',label==='Learning repository'?'#learning':location.pathname+location.search);
-  }}><Icon size={18}/>{label}{label==='Incident queue'&&pending>0&&<b>{pending}</b>}</button>)}<div className="sidebar-bottom"><Shield size={20}/><p>AI observes.<br/><strong>People decide.</strong></p><small>No identity recognition.<br/>No automatic dispatch.</small></div></aside>
-    <div className="main"><header><span>Workspace <span className="slash">/</span> {selected?'Incident review':tab}</span><div>{notificationPermission!=='unavailable'&&<button className="text-button" title="Notify this reviewer while the workspace is open. No campus-wide alerts are sent." onClick={async()=>{setNotificationPermission(await Notification.requestPermission())}}><Bell size={16}/>{notificationPermission==='granted'?'Review alerts on':'Enable review alerts'}</button>}<i className={'dot '+(connected?'green':'')}/>{connected?'Workspace connected':'Reconnecting'}<span className="avatar">SC</span></div></header><main>
-    {reviewAlert&&<div className="review-notification" role="status"><AlertTriangle size={20}/><div><strong>{reviewAlert.record?.trigger_origin==='reviewer'?'Marked moment saved · review required':'Possible incident · review required'}</strong><p>Open the original footage, assess the uncertainty, then confirm or dismiss.</p></div><button onClick={()=>{setSelected(reviewAlert.id);setReviewAlert(null)}}>Review footage <ArrowUpRight size={16}/></button><button className="text-button" aria-label="Dismiss notification" onClick={()=>setReviewAlert(null)}><X size={16}/></button></div>}
-    {commandOpened&&<CommandCenter visible={tab===commandTab&&!selected}/>}
-    {selected?<ReviewPage id={selected} onBack={()=>setSelected(null)}/>:tab===commandTab?null:tab==='Learning repository'?<React.Suspense fallback={<p>Loading learning repository…</p>}><LearningRepository/></React.Suspense>:tab==='Campus activity'?<React.Suspense fallback={<p>Loading campus activity…</p>}><ActivityMap/></React.Suspense>:<><div className="page-heading"><div><span className="eyebrow">SAFETY, WITH CONTEXT</span><h1>{tab==='Privacy & controls'?'Trust is part of the system.':tab==='Incident queue'?'The moments worth a closer look.':'A clearer view of campus.'}</h1><p>Observable events. Preserved context. Human decisions.</p></div><button onClick={pairPhone}><Smartphone size={17}/>Connect phone</button></div>
-    {error&&<div className="error" role="alert">{error}</div>}{health.verifier_research_mode&&<div className="simulation">HIGH-RECALL RESEARCH CANDIDATE · Owner-approved staged demo · Human review required. See Learning repository for measured misses and false alerts.</div>}{health.simulated&&<div className="simulation">SIMULATED DEVELOPMENT MODE · Fixture alerts are not real model results.</div>}
-    {source?.status==='streaming'&&<div className="live-actions"><button onClick={()=>markMoment(source.id)}><Eye size={16}/>Mark moment for review</button><span className="fine">Save context when you see something that deserves a closer look.</span></div>}
-    {bookmarkNotice&&<p className="fine" role="status">{bookmarkNotice}</p>}
-    {tab==='Privacy & controls'&&<p><button onClick={exportFeedback}>Export review history</button><span className="fine"> Reviewer feedback is auditable. Model training requires a separate evaluated release.</span></p>}
-    {tab==='Privacy & controls'?<div className="controls-grid">{[['Originals preserved','Untouched uploads and hashed incident windows are stored separately from generated review copies.'],['People stay anonymous','Only temporary person labels are used. Identity and demographic inference are excluded.'],['Human review required','Confirm, dismiss or request more review. No external dispatch occurs.'],['Short retention',`Incident media expires after ${health.retention_hours||24} hours. Reviewer decisions remain auditable.`],['Honest processing','Unavailable models report errors. Fixtures and enhanced videos carry visible labels.'],['Secure phone capture','Pairing links expire in one hour. Camera capture requires HTTPS; audio stays off.']].map(([title,copy])=><section className="panel" key={title}><Lock size={20}/><h3>{title}</h3><p>{copy}</p></section>)}</div>:<>
-    <div className="stats"><div><span>Connected sources</span><strong>{sources.filter(s=>s.status==='streaming').length}<small> / 1</small></strong><p><i className="dot green"/>Shared GPU pipeline</p></div><div><span>Awaiting review</span><strong>{pending.toString().padStart(2,'0')}</strong><p>Human attention required</p></div><div><span>Inference engine</span><strong className="model-name">{health.streaming_model==='moss'?'MOSS-VL':health.streaming_model||'—'}</strong><p>{health.gpu?.[0]||'GPU not connected'}</p></div><div><span>Evidence integrity</span><strong className="model-name">SHA-256</strong><p><Lock size={12}/>Original windows hashed</p></div></div>
-    {tab!=='Incident queue'&&<section className="monitor panel"><div className="panel-title"><Radio size={18}/><h3>Live monitor</h3><span className={'pill '+(source?.status==='streaming'?'teal':'')}>{source?.status||'No source connected'}</span></div><div className="monitor-grid"><div className="video-stage">{source?.status==='streaming'?<img src={`/api/sources/${source.id}/frame?t=${tick}`} alt="Current original camera frame"/>:<div className="empty-camera"><div className="camera-ring"><Camera size={34}/></div><h3>A view starts here.</h3><p>Pair your phone or upload a video to begin.</p><div><button className="primary" onClick={pairPhone}><Smartphone size={16}/>Pair phone camera</button><label className="button"><Upload size={16}/>Upload video<input hidden type="file" accept="video/mp4,video/quicktime,video/webm" onChange={e=>e.target.files?.[0]&&upload(e.target.files[0])}/></label></div></div>}<div className="video-caption"><span><i className="dot"/>ORIGINAL FEED</span><span>{source?.name||'Camera awaiting connection'}</span></div></div><div className="telemetry"><span className="eyebrow">STREAM TELEMETRY</span><h3>{source?.name||'No active camera'}</h3>{[[Sun,'Lighting',source?.telemetry?.lighting?.state?.replaceAll('_',' ')||'Waiting'],[Clock,'Pre-event buffer',`${(source?.telemetry?.buffer_seconds||0).toFixed(1)}s / 10s`],[Activity,'Observed activity',source?.telemetry?.safety_state==='NORMAL'?'No event flagged in assessed frames':source?.telemetry?.safety_state?.replaceAll('_',' ')||'Awaiting video'],[Eye,'Model status',source?.telemetry?.model_status||'Not started']].map(([Icon,label,value]:any)=><div className="telemetry-row" key={label}><span><Icon size={15}/>{label}</span><strong>{value}</strong></div>)}<div className="observation-box"><span className="eyebrow">LATEST OBSERVATION</span><p>{source?.telemetry?.last_observation?.observable_events?.[0]?.observation||'Observations appear when sufficient evidence is available.'}</p></div>{source?.telemetry?.cascade&&<CostMeter c={source.telemetry.cascade}/>}{source?.telemetry?.error&&<p className="error">{source.telemetry.error}</p>}</div></div></section>}
-    <section className="queue"><div className="section-heading"><div><h2>Incident queue <span>{incidents.length}</span></h2><p>Possible safety events, ready for a human perspective.</p></div><span className="fine">{uploading?'Uploading video…':'Newest first'}</span></div>{!incidents.length?<div className="empty-queue"><Check size={26}/><h3>No incidents to review.</h3><p>Flagged moments will appear here with supporting context.</p></div>:<div className="incident-grid">{incidents.map(i=><button className="incident-card" key={i.id} onClick={()=>setSelected(i.id)}><div className="card-image"><img src={media(i.id,'thumbnail')} alt="Incident thumbnail"/><span className="pill amber">{i.simulated?'SIMULATED':[incidentLabel(i.record),i.severity.replaceAll('_',' ')].filter(Boolean).join(' · ')}</span></div><div className="card-copy"><small><Clock size={12}/>{new Date(i.created_at).toLocaleTimeString()}<span>{i.review_status.replace('_',' ')}</span></small><h3>{i.record.observable_events[0]?.observation||'Possible safety incident'}</h3><p>{(i.end_time-i.start_time).toFixed(1)}s preserved · {i.record.lighting_condition.replaceAll('_',' ')}</p><div>Review evidence <ArrowUpRight size={17}/></div></div></button>)}</div>}</section></>}
-    </>}
-    <footer><Shield size={14}/>SafeSC is a human decision-support prototype.<span>Built for Trojans, by Trojans.</span></footer></main></div>
+  const sec=sections.find(x=>x.id===section)!,vsubs=visibleSubs(sec),sub=vsubs.some(x=>x.id===subs[section])?subs[section]:vsubs[0].id,viewKey=section+'/'+sub,isFrame=!!sec.subs.find(x=>x.id===sub)?.src;
+  const statsEl=<div className="stats"><div><span>Connected cameras</span><strong>{sources.filter(s=>s.status==='streaming').length}<small> / 1</small></strong><p><i className="dot green"/>Analysis running</p></div><div><span>Waiting for review</span><strong>{pending.toString().padStart(2,'0')}</strong><p>A person needs to look</p></div><div><span>AI model</span><strong className="model-name">{health.streaming_model==='moss'?'MOSS-VL':health.streaming_model||'—'}</strong><p>{health.gpu?.[0]||'GPU not connected'}</p></div><div><span>Evidence integrity</span><strong className="model-name">SHA-256</strong><p><Lock size={12}/>Original clips fingerprinted</p></div></div>;
+  const queueEl=<section className="queue"><div className="section-heading"><div><h2>Review queue <span>{incidents.length}</span></h2><p>Possible safety events, ready for a person to review.</p></div><span className="fine">{uploading?'Uploading video…':'Newest first'}</span></div>{!incidents.length?<div className="empty-queue"><Check size={26}/><h3>No incidents are waiting.</h3><p>When the AI flags something, it appears here for a person to review.</p></div>:<div className="incident-grid">{incidents.map(i=><button className="incident-card" key={i.id} onClick={()=>openIncident(i.id)}><div className="card-image"><img src={media(i.id,'thumbnail')} alt="Incident thumbnail"/><span className="pill amber">{i.simulated?'SIMULATED':[incidentLabel(i.record),i.severity.replaceAll('_',' ')].filter(Boolean).join(' · ')}</span></div><div className="card-copy"><small><Clock size={12}/>{new Date(i.created_at).toLocaleTimeString()}<span>{i.review_status.replace('_',' ')}</span></small><h3>{i.record.observable_events[0]?.observation||'Possible safety incident'}</h3><p>{(i.end_time-i.start_time).toFixed(1)}s preserved · {i.record.lighting_condition.replaceAll('_',' ')}</p><div>Review evidence <ArrowUpRight size={17}/></div></div></button>)}</div>}</section>;
+  const showStatus=!isFrame&&(section==='Home'||section==='Respond'||section==='Privacy');
+  return <div className="shell"><aside><div className="brand-lockup"><Logo variant="mark" size={30}/><div><span className="wordmark">PALLADIUM</span><span className="tagline">Campus safety</span></div></div><nav className="nav-list" aria-label="Palladium sections">{sections.map(({id,icon:Icon})=><button key={id} aria-label={id} aria-current={section===id?'page':undefined} className={'nav '+(section===id?'active':'')} onClick={()=>go(id)}><Icon size={18}/>{id}{id==='Respond'&&pending>0&&<b>{pending}</b>}</button>)}</nav><div className="sidebar-theme"><ThemeToggle/><span>Appearance</span></div><div className="sidebar-bottom"><Shield size={20}/><p>AI observes.<br/><strong>People decide.</strong></p><small>No identity recognition.<br/>No automatic dispatch.</small></div></aside>
+    <div className="main"><header><span>Palladium <span className="slash">/</span> {section}</span><div>{notificationPermission!=='unavailable'&&<button className="text-button" title="Notify this reviewer while the workspace is open. No campus-wide alerts are sent." onClick={async()=>{setNotificationPermission(await Notification.requestPermission())}}><Bell size={16}/>{notificationPermission==='granted'?'Review alerts on':'Enable review alerts'}</button>}<i className={'dot '+(connected?'green':'')}/>{connected?'Workspace connected':'Reconnecting'}<span className="avatar">SC</span></div></header><main>
+    {reviewAlert&&<div className="review-notification" role="status"><AlertTriangle size={20}/><div><strong>{reviewAlert.record?.trigger_origin==='reviewer'?'Marked moment saved · review required':'Possible incident · review required'}</strong><p>Open the original footage, assess the uncertainty, then confirm or dismiss.</p></div><button onClick={()=>{openIncident(reviewAlert.id);setReviewAlert(null)}}>Review footage <ArrowUpRight size={16}/></button><button className="text-button" aria-label="Dismiss notification" onClick={()=>setReviewAlert(null)}><X size={16}/></button></div>}
+    <div className="page-head"><div className="page-head-top"><div><span className="eyebrow">{section}</span><h1>{sec.title}</h1><p>{sec.desc}</p></div>{(section==='Home'||section==='Respond')&&!isFrame&&<button onClick={pairPhone}><Smartphone size={17}/>Connect phone</button>}</div>
+      {vsubs.length>1&&<div className="subtabs" role="tablist" aria-label={section+' views'}>{vsubs.map(x=><button key={x.id} role="tab" aria-selected={sub===x.id} className={'subtab '+(sub===x.id?'selected':'')} onClick={()=>go(section,x.id)}>{x.id}{x.id==='Review queue'&&pending>0&&<b>{pending}</b>}</button>)}</div>}
+      {vsubs.length>1&&sec.note&&<p className="subtabs-note">{sec.note}</p>}</div>
+    {commandViews.filter(v=>commandOpened.includes(v.key)).map(v=><CommandCenter key={v.key} src={v.src} title={v.title} visible={viewKey===v.key&&!selected}/>)}
+    {showStatus&&<>{error&&<div className="error" role="alert">{error}</div>}{health.verifier_research_mode&&<div className="simulation">HIGH-RECALL RESEARCH CANDIDATE · Owner-approved staged demo · Human review required. See Learn for measured misses and false alerts.</div>}{health.simulated&&<div className="simulation">SIMULATED DEVELOPMENT MODE · Fixture alerts are not real model results.</div>}</>}
+    {showStatus&&source?.status==='streaming'&&section!=='Privacy'&&<div className="live-actions"><button onClick={()=>markMoment(source.id)}><Eye size={16}/>Mark moment for review</button><span className="fine">Save context when you see something that deserves a closer look.</span></div>}
+    {showStatus&&bookmarkNotice&&<p className="fine" role="status">{bookmarkNotice}</p>}
+    {selected?<ReviewPage id={selected} onBack={()=>setSelected(null)}/>:isFrame?null:section==='Learn'?<React.Suspense fallback={<p>Loading learning repository…</p>}><LearningRepository/></React.Suspense>:viewKey==='Plan/Forecast and history'?<div className="plan-view"><React.Suspense fallback={<p>Loading forecast and history…</p>}><ActivityMap/></React.Suspense></div>:section==='Privacy'?<>
+    <p><button onClick={exportFeedback}>Export review history</button><span className="fine"> Reviewer feedback is auditable. Model training requires a separate evaluated release.</span></p>
+    <StorageStatus/><div className="controls-grid">{[['Originals preserved','Untouched uploads and hashed incident windows are stored separately from generated review copies.'],['People stay anonymous','Only temporary person labels are used. Identity and demographic inference are excluded.'],['Human review required','Confirm, dismiss or request more review. No external dispatch occurs.'],['Short retention',`Incident media expires after ${health.retention_hours||24} hours. Reviewer decisions remain auditable.`],['Honest processing','Unavailable models report errors. Fixtures and enhanced videos carry visible labels.'],['Secure phone capture','Pairing links expire in one hour. Camera capture requires HTTPS; audio stays off.']].map(([title,copy])=><section className="panel" key={title}><Lock size={20}/><h3>{title}</h3><p>{copy}</p></section>)}</div></>:viewKey==='Respond/Review queue'?<>{statsEl}{queueEl}</>:viewKey==='Respond/Cameras'?<LiveMonitor source={source} onPair={pairPhone} onUpload={upload} onOpen={openIncident}/>:<>
+    <ol className="how-steps" aria-label="How Palladium works">{['AI watches camera feeds and flags possible incidents','A person reviews the evidence and decides','Palladium alerts people nearby and sends the closest units'].map((t,n)=><li key={t}><b>{n+1}</b><span>{t}</span></li>)}</ol>
+    {statsEl}</>}
+    <footer><Shield size={14}/>Palladium is a human decision-support prototype.<span>Built for Trojans, by Trojans.</span></footer></main></div>
     {pair&&<div className="modal-backdrop" onClick={()=>setPair('')}><section className="pair-modal" onClick={e=>e.stopPropagation()}><button className="close" onClick={()=>setPair('')} aria-label="Close pairing"><X/></button><Smartphone size={30}/><h2>Bring your phone into view.</h2><p>Scan with your phone camera. Open the link, allow camera access, then tap Start camera.</p><div className="qr"><QRCodeSVG value={pair} size={210}/></div><input readOnly aria-label="Phone pairing URL" value={pair}/><button className="primary wide" onClick={()=>navigator.clipboard.writeText(pair)}>Copy pairing link</button><p className="fine">Link expires in 1 hour. HTTPS is required on your phone. Keep the capture page open.</p></section></div>}</div>
 }
 

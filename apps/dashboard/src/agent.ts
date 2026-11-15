@@ -51,7 +51,7 @@ function localPlan(incident: Incident, building: Building | null, officers: Offi
     })),
     support: policy.support,
     cautions: incident.uncertainties.slice(0, 2),
-    note: 'Dispatch agent offline (connect SafeSC); local rules plan',
+    note: 'Dispatch agent offline (connect Palladium); local rules plan',
   };
 }
 

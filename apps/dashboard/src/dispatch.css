@@ -65,7 +65,7 @@ aside.panel.queue { bottom: 340px; }
 /* officer phone */
 .officer { min-height: 100dvh; padding: 20px 16px 28px; background: var(--bg); color: var(--text); font-family: var(--font); max-width: 520px; margin: 0 auto; }
 .officer-head { display: flex; justify-content: space-between; align-items: center; }
-.officer-head .brand strong { color: var(--text); font-weight: 500; margin-right: 6px; }
+.officer-head .brand strong { color: var(--text); font-weight: 600; margin-right: 6px; }
 .officer-head .brand span { color: var(--text); font-weight: 300; }
 .link { font-size: 11px; color: var(--muted); }
 .link.up { color: var(--green); }

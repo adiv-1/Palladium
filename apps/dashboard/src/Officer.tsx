@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState} from 'react';
 import {openBus, type Assignment, type Bus, type BusMessage} from './bus';
 import {directionsUrl} from './buildings';
+import {Logo} from './Logo';
 import {UNIT_STATUS_LABEL, type UnitStatus} from './types';
 
 // The page an officer opens on their phone from the pairing link: ?unit=officer-3&room=...
@@ -59,7 +60,7 @@ export default function OfficerView({unitId, room}: {unitId: string; room: strin
   return (
     <div className={`officer ${status}`}>
       <header className="officer-head">
-        <div className="brand"><strong>SafeSC</strong><span>Unit</span></div>
+        <div className="brand"><Logo variant="mark" size={22} /><strong>Palladium</strong><span>Unit</span></div>
         <span className={`link ${linked ? 'up' : ''}`}>{linked ? 'Linked to dispatch' : 'Waiting for dispatch…'}</span>
       </header>
       <div className="officer-unit">

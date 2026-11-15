@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Request, Response, UploadFile, WebSo
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from .config import settings
-from .db import init, Source, Incident, Job, ReviewAction, rows, get, save
+from .db import init, Source, Incident, Job, ReviewAction, ArchiveState, rows, get, save
 from .schemas import SourceRequest, Review
 from .video import Frame, digest, decode
 from .runtime import hub, sessions, pairings, VideoSession, replay
@@ -26,7 +26,8 @@ def background(coro):
 
 @asynccontextmanager
 async def lifespan(app):
-    init(); background(worker()); background(retention())
+    from .archive import archive_worker
+    init(); background(worker()); background(retention()); background(archive_worker())
     yield
     for task in list(tasks): task.cancel()
     await asyncio.gather(*tasks,return_exceptions=True)
@@ -71,6 +72,10 @@ async def health():
         'visual_verifier':settings.observation_verifier_model,'visual_verifier_loaded':verifier_is_loaded(),
         'verifier_research_mode':settings.verifier_research_mode,'verifier_artifact':verifier_metadata(),
         'tracking_enabled':settings.enable_tracking,'relayvsr_enabled':settings.enable_relay_vsr,
+        'clip_review_enabled':settings.enable_clip_review,'preview_transport':'latest-frame-websocket',
+        'alert_threshold':settings.alert_confidence_threshold,'verification_frame_count':settings.verification_frame_count,
+        'max_inference_lag_seconds':settings.max_inference_lag_seconds,
+        'incident_windows':{'pre_seconds':settings.pre_event_seconds,'post_seconds':settings.post_event_seconds,'object_post_seconds':settings.object_post_event_seconds},
         'relift_enabled':settings.enable_relift,'bvimamba_enabled':settings.enable_bvimamba,
         'retention_hours':settings.retention_hours}
 
@@ -119,7 +124,7 @@ async def source_create(payload:SourceRequest):
     if payload.kind=='rtsp' and not settings.allow_rtsp: raise HTTPException(400,'RTSP must be explicitly enabled by the operator')
     if payload.kind=='rtsp' and (not payload.url or not payload.url.startswith(('rtsp://','rtsps://'))): raise HTTPException(400,'Expected RTSP URL')
     if sessions or upload_in_progress: raise HTTPException(409,'Stop the active source before connecting another')
-    source=save(Source(name=payload.name,kind=payload.kind))
+    source=save(Source(name=payload.name,kind=payload.kind,telemetry={'review_copies':payload.review_copies}))
     if payload.kind=='rtsp': background(replay(source,payload.url))
     token=secrets.token_urlsafe(32); pairings[token]={'source_id':source.id,'expires':time.time()+3600}
     return {'source':source,'capture_url':f'{settings.public_url}/capture#{token}'}
@@ -155,7 +160,10 @@ def incidents(): return sorted(rows(Incident),key=lambda i:i.created_at,reverse=
 def incident_detail(incident_id:str):
     incident=get(Incident,incident_id)
     if not incident: raise HTTPException(404)
-    return {'incident':incident,'jobs':[j for j in rows(Job) if j.incident_id==incident_id],
+    source=get(Source,incident.source_id)
+    return {'incident':incident,'source':{'name':source.name,'kind':source.kind} if source else None,
+        'archive':get(ArchiveState,incident_id),
+        'jobs':[j for j in rows(Job) if j.incident_id==incident_id],
         'history':[r for r in rows(ReviewAction) if r.incident_id==incident_id]}
 
 @app.post('/api/incidents/{incident_id}/review',dependencies=[Depends(authenticated)])
@@ -172,6 +180,15 @@ async def review(incident_id:str,payload:Review):
             await hub.publish('learning_warning',{'incident_id':incident.id,'message':str(error)})
     await hub.publish('incident',incident.model_dump()); return incident
 
+@app.get('/api/storage',dependencies=[Depends(authenticated)])
+def storage_status():
+    from . import archive
+    return {'enabled':archive.enabled(),'provider':'Supabase','bucket':settings.supabase_bucket,
+        'visibility':'private','cap_mb':settings.archive_max_mb,'used_bytes':archive.usage_bytes,
+        'eviction':'FIFO archived media; summaries and review history retained until retention expires',
+        'retention_hours':settings.retention_hours,'last_error':archive.last_error,
+        'incidents':[s.model_dump(exclude={'media','fingerprint'}) for s in rows(ArchiveState)]}
+
 @app.post('/api/jobs/{job_id}/retry',dependencies=[Depends(authenticated)])
 def retry(job_id:str):
     job=get(Job,job_id)
@@ -187,6 +204,23 @@ def compare(incident_id:str):
     if incident.record.get('expired'):raise HTTPException(410,'Source media has expired')
     existing=[j for j in rows(Job) if j.incident_id==incident_id and j.kind=='bvimamba' and j.status in ['queued','running']]
     return existing[0] if existing else save(Job(incident_id=incident_id,kind='bvimamba',priority=4))
+
+@app.post('/api/incidents/{incident_id}/refresh-motion',dependencies=[Depends(authenticated)])
+def refresh_motion(incident_id:str):
+    incident=get(Incident,incident_id)
+    if not incident:raise HTTPException(404)
+    if incident.record.get('expired'):raise HTTPException(410,'Source media has expired')
+    existing=[j for j in rows(Job) if j.incident_id==incident_id and j.kind=='relift_export' and j.status in ['queued','running']]
+    return existing[0] if existing else save(Job(incident_id=incident_id,kind='relift_export',priority=1))
+
+@app.post('/api/incidents/{incident_id}/clip-review',dependencies=[Depends(authenticated)])
+def request_clip_review(incident_id:str):
+    if not settings.enable_clip_review:raise HTTPException(400,'Secondary clip review is not enabled')
+    incident=get(Incident,incident_id)
+    if not incident:raise HTTPException(404)
+    if incident.record.get('expired'):raise HTTPException(410,'Source media has expired')
+    existing=[j for j in rows(Job) if j.incident_id==incident_id and j.kind=='review_brief' and j.status in ['queued','running']]
+    return existing[0] if existing else save(Job(incident_id=incident_id,kind='review_brief',priority=0))
 
 @app.get('/api/incidents/{incident_id}/media/{kind}',dependencies=[Depends(authenticated)])
 def media(incident_id:str,kind:str):
@@ -290,10 +324,47 @@ async def capture(ws:WebSocket):
     except Exception as e:
         try: await ws.send_json({'type':'error','message':str(e)[:500]})
         except RuntimeError: pass
+
     finally:
         if session: await session.close()
         try: await ws.close()
         except RuntimeError: pass
+
+@app.websocket('/ws/preview')
+async def preview(ws:WebSocket):
+    """One in-flight display frame per viewer; slow clients always skip to newest."""
+    if not hmac.compare_digest(ws.cookies.get('safesc_token',''),settings.app_token):
+        await ws.close(4401);return
+    source_id=ws.query_params.get('source_id','')
+    if not get(Source,source_id):await ws.close(4404);return
+    await ws.accept();last_index=-1;last_objects=-1;rtt=None
+    try:
+        while True:
+            session=sessions.get(source_id)
+            if not session or session.closing:
+                await ws.send_json({'type':'status','status':'waiting' if not session else 'completed'})
+                await asyncio.sleep(.25)
+                if not session and get(Source,source_id).status in ['completed','failed','disconnected']:break
+                continue
+            frame=session.latest_frame
+            if frame is None or frame.index==last_index:await asyncio.sleep(.01);continue
+            sample=getattr(session.detector,'object_sample',None)
+            version=getattr(session.detector,'object_version',0)
+            include=bool(sample and version!=last_objects)
+            started=time.monotonic()
+            await ws.send_json({'type':'frame','index':frame.index,'timestamp':frame.timestamp,
+                'previous_roundtrip_ms':rtt,'intake_fps':session.count/max(.01,time.monotonic()-session.started),
+                'objects_frame_included':include,'moss_context':getattr(session.detector,'observer_text','')[-350:],
+                'objects_sample':{k:v for k,v in sample.items() if k!='jpeg'} if sample else None})
+            await ws.send_bytes(frame.jpeg)
+            if include:await ws.send_bytes(sample['jpeg']);last_objects=version
+            ack=await asyncio.wait_for(ws.receive_json(),10)
+            if ack.get('type')!='displayed' or ack.get('index')!=frame.index:await ws.close(4400);return
+            rtt=round((time.monotonic()-started)*1000,1);last_index=frame.index
+    except (WebSocketDisconnect,asyncio.TimeoutError,RuntimeError):pass
+    finally:
+        try:await ws.close()
+        except RuntimeError:pass
 
 web=Path('apps/web/dist')
 if web.exists():

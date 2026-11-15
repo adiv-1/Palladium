@@ -13,7 +13,7 @@ class Observation(BaseModel):
     def validate_observation(self):
         if self.timestamp_end < self.timestamp_start:
             raise ValueError('Observation end precedes start')
-        if re.search(r'\b(criminal|guilty|robbery|burglary|theft|assault|murder|rape|kidnapping|ethnicity|race|suspect|male|female|man|woman|men|women|boy|girl|disabled)\b', self.observation, re.I):
+        if re.search(r'\b(criminal|guilty|robbery|burglary|theft|assault|murder|rape|kidnapping|ethnicity|race|suspect|male|female|man|woman|men|women|boy|girl|child|children|adult|teenager|elderly|disabled)\b', self.observation, re.I):
             raise ValueError('Observation contains unsupported legal or personal inference')
         if any(not re.fullmatch(r'person_[a-z0-9]+', a) for a in self.actors):
             raise ValueError('Actors must be anonymous person labels')
@@ -48,6 +48,7 @@ class SourceRequest(BaseModel):
     name: str = Field(default='Phone camera', min_length=1, max_length=80)
     kind: Literal['phone','webcam','rtsp'] = 'phone'
     url: str | None = None
+    review_copies: bool = True
 
 class Envelope(BaseModel):
     status: Literal['ok','unavailable','failed']

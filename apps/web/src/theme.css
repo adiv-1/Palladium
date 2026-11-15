@@ -1,0 +1,91 @@
+/* SafeSC design system. One set of semantic tokens, light and dark.
+   Look: soft grey canvas, large rounded cards with a gentle shadow, thin geometric type, round icon
+   buttons, a black "ink" pill for the active state. Red and yellow are light accents, never fills of whole panels.
+   Every stylesheet must use these tokens (no hard-coded greys, whites or rgba(255,255,255,x)). */
+:root,
+:root[data-theme='light'] {
+  --font: 'Urbanist', 'Segoe UI', system-ui, sans-serif;
+
+  --bg: #e6e6e8;            /* canvas */
+  --surface: #f3f3f4;       /* cards */
+  --surface-2: #ebebed;     /* inset areas inside a card */
+  --surface-strong: #ffffff;/* inputs, raised chips */
+  --border: rgba(20, 22, 26, 0.07);
+  --line: rgba(20, 22, 26, 0.12);
+  --text: #16181b;
+  --muted: #6c7178;
+  --faint: #9a9fa6;
+  --ink: #121315;           /* primary buttons, active nav pill */
+  --on-ink: #ffffff;
+
+  --red: #d8202f;
+  --red-hi: #ec3342;
+  --red-soft: rgba(216, 32, 47, 0.1);
+  --red-text: #b01420;
+  --yellow: #f0b400;
+  --yellow-soft: rgba(240, 180, 0, 0.18);
+  --yellow-text: #86610a;
+  --green: #2f8f83;         /* real data, success */
+  --green-soft: rgba(47, 143, 131, 0.12);
+  --violet: #7a6ab8;        /* simulated data tag */
+
+  --tint-1: rgba(20, 22, 26, 0.04);   /* hover, subtle fills */
+  --tint-2: rgba(20, 22, 26, 0.07);
+  --tint-3: rgba(20, 22, 26, 0.12);
+  --scrim: rgba(230, 230, 232, 0.72);  /* behind modals */
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 22px 44px -28px rgba(32, 36, 44, 0.38);
+  --shadow-pop: 0 28px 64px -26px rgba(20, 22, 28, 0.5);
+  --shadow-ink: 0 10px 22px -10px rgba(18, 19, 21, 0.55);
+
+  --radius-sm: 14px;
+  --radius: 22px;
+  --radius-lg: 30px;
+  --gutter: 14px;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #111213;
+  --surface: #1a1b1d;
+  --surface-2: #222326;
+  --surface-strong: #2b2c30;
+  --border: rgba(255, 255, 255, 0.07);
+  --line: rgba(255, 255, 255, 0.13);
+  --text: #ececee;
+  --muted: #a0a4ab;
+  --faint: #6f7379;
+  --ink: #f2f2f4;
+  --on-ink: #111213;
+
+  --red: #f0495a;
+  --red-hi: #ff6071;
+  --red-soft: rgba(240, 73, 90, 0.16);
+  --red-text: #ff8a96;
+  --yellow: #ffc933;
+  --yellow-soft: rgba(255, 201, 51, 0.16);
+  --yellow-text: #ffd966;
+  --green: #5fb3a8;
+  --green-soft: rgba(95, 179, 168, 0.16);
+  --violet: #a99bdc;
+
+  --tint-1: rgba(255, 255, 255, 0.045);
+  --tint-2: rgba(255, 255, 255, 0.08);
+  --tint-3: rgba(255, 255, 255, 0.14);
+  --scrim: rgba(10, 10, 11, 0.68);
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 24px 48px -28px rgba(0, 0, 0, 0.8);
+  --shadow-pop: 0 30px 70px -26px rgba(0, 0, 0, 0.9);
+  --shadow-ink: 0 10px 22px -10px rgba(0, 0, 0, 0.8);
+  color-scheme: dark;
+}
+
+/* Legacy names used by older stylesheets; they follow the active theme. */
+:root {
+  --panel: var(--surface);
+  --cardinal: var(--red);
+  --cardinal-hi: var(--red-hi);
+  --gold: var(--yellow);
+  --teal: var(--green);
+  --radius-old: var(--radius);
+}

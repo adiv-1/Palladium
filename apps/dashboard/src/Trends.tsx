@@ -20,6 +20,11 @@ const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
 const lerp = (a: LngLat, b: LngLat, t: number): LngLat => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 const pct = (v: number) => `${Math.round(v * 100)}%`;
+const INTRO = {
+  plan: 'Where should ambassadors stand? Palladium looks at where incidents happened and suggests posts.',
+  route: 'Pick where you are and where you are going. Palladium suggests a route that avoids past incident areas.',
+  whatif: 'Try changes, like fewer ambassadors or a smaller free-ride zone, and see what happens to coverage.',
+};
 const TYPES: IncidentType[] = ['altercation', 'person_down', 'rack_activity'];
 
 type Plan = {posts: Post[]; moves: {from: LngLat; to: LngLat; post: number}[]; before: LngLat[]; startedAt: number; cov: {before: number; after: number}};
@@ -166,10 +171,11 @@ export default function Trends() {
       <aside className="panel side">
         {!campus ? <p className="empty">Loading campus map…</p> : (<>
           <div className="seg big" role="tablist">
-            <button role="tab" aria-selected={tab === 'plan'} className={tab === 'plan' ? 'on' : ''} onClick={() => setTab('plan')}>Ambassador posts</button>
-            <button role="tab" aria-selected={tab === 'route'} className={tab === 'route' ? 'on' : ''} onClick={() => setTab('route')}>Get Somewhere</button>
+            <button role="tab" aria-selected={tab === 'plan'} className={tab === 'plan' ? 'on' : ''} onClick={() => setTab('plan')}>Patrol posts</button>
+            <button role="tab" aria-selected={tab === 'route'} className={tab === 'route' ? 'on' : ''} onClick={() => setTab('route')}>Safe route</button>
             <button role="tab" aria-selected={tab === 'whatif'} className={tab === 'whatif' ? 'on' : ''} onClick={() => setTab('whatif')}>What-if</button>
           </div>
+          <p className="intro">{tab === 'plan' ? INTRO.plan : tab === 'route' ? INTRO.route : INTRO.whatif}</p>
           <div className="field-label">Shift</div>
           <div className="seg">{(Object.keys(SHIFTS) as Shift[]).map((s) => <button key={s} className={shift === s ? 'on' : ''} onClick={() => setShift(s)} title={SHIFTS[s].hint}>{SHIFTS[s].label}</button>)}</div>
 
@@ -177,10 +183,10 @@ export default function Trends() {
             <div className="field-label">Ambassadors available <b>{count}</b></div>
             <input className="range" type="range" min={3} max={12} value={count} onChange={(e) => setCount(Number(e.target.value))} aria-label="Number of ambassadors" />
             <button className="primary wide-btn" onClick={() => run()}>{plan ? 'Re-run placement' : 'Place ambassadors'}</button>
-            <p className="note">Weighted k-means over past incidents in this shift (altercation ×3, person down ×2.5, bike rack ×1), snapped to real walkways.</p>
+            <p className="note">Posts are chosen to cover as many past incidents as possible, counting fights and medical calls more than bike-rack activity, and placed on real walkways.</p>
             {plan && (<>
               <div className="cov">
-                <div className="cov-head"><span>Incident risk covered within {COVER_M} m</span><Tag kind={campus.historyReal ? 'real' : 'simulated'} /></div>
+                <div className="cov-head"><span>Past incident risk covered within {COVER_M} m</span><Tag kind={campus.historyReal ? 'real' : 'simulated'} /></div>
                 <div className="cov-row"><small>Current posts</small><div className="meter"><i style={{width: pct(plan.cov.before)}} /></div><b>{pct(plan.cov.before)}</b></div>
                 <div className="cov-row"><small>Recommended</small><div className="meter gold"><i style={{width: pct(clamp((t - plan.startedAt - 0.4) / 2.6) * plan.cov.after)}} /></div><b>{pct(plan.cov.after)}</b></div>
               </div>
@@ -203,7 +209,7 @@ export default function Trends() {
             <button className="primary wide-btn" onClick={findRoute} disabled={!from || !to}>Find safest route</button>
             {routeError && <p className="error">{routeError}</p>}
             {routes && <RouteCard r={routes} shiftLabel={shiftInfo.label} real={campus.historyReal} onReplay={() => setRoutes({...routes, startedAt: timeRef.current})} />}
-            {!routes && <p className="note">Routes follow real OpenStreetMap walkways. Each street segment is penalised by nearby past incidents in the selected shift, so the route bends away from hotspots.</p>}
+            {!routes && <p className="note">Routes follow real OpenStreetMap walkways. Streets near past incidents in the selected shift count as less attractive, so the route bends away from them.</p>}
           </>)}
         </>)}
       </aside>
@@ -211,7 +217,7 @@ export default function Trends() {
       {selectedPost && <PostDetail post={selectedPost} real={!!campus?.historyReal} onClose={() => setSelected(null)} />}
       <div className="panel legend-lite">
         {TYPES.map((k) => <span key={k}><i style={{background: `rgb(${TYPE_COLOR[k].slice(0, 3).join(',')})`}} />{INCIDENT_LABEL[k]}</span>)}
-        <span><i className="gold" />Ambassador post</span>
+        <span><i className="gold" />Patrol post</span>
         <label className="heat-toggle"><input type="checkbox" checked={heat} onChange={() => setHeat(!heat)} /> Incident heat</label>
       </div>
     </div>
@@ -235,7 +241,7 @@ function RouteCard({r, shiftLabel, real, onReplay}: {r: Routes; shiftLabel: stri
         </div>
       ))}
       <p className="route-sum">{same ? `The fastest route is already the safest for the ${shiftLabel.toLowerCase()} shift.`
-        : `Safest adds ${Math.round(s.meters - f.meters)} m (${Math.max(0, Math.round(s.minutes - f.minutes))} min) and cuts exposure to past incidents by ${avoided}%.`}</p>
+        : `Safest adds ${Math.round(s.meters - f.meters)} m (${Math.max(0, Math.round(s.minutes - f.minutes))} min) and cuts the risk from past incidents by ${avoided}%.`}</p>
       <button className="ghost" onClick={onReplay}>Replay walk</button>
     </div>
   );
@@ -247,7 +253,7 @@ function PostDetail({post, real, onClose}: {post: Post; real: boolean; onClose: 
   return (
     <aside className="panel detail post-detail" key={post.id}>
       <div className="panel-head">
-        <div><span className="eyebrow">Recommended post {post.rank}</span><h2>{post.place}</h2><Tag kind={real ? 'real' : 'simulated'} /></div>
+        <div><span className="eyebrow">Suggested post {post.rank}</span><h2>{post.place}</h2><Tag kind={real ? 'real' : 'simulated'} /></div>
         <button className="ghost close" onClick={onClose} aria-label="Close">×</button>
       </div>
       <p className="why">{post.why}</p>

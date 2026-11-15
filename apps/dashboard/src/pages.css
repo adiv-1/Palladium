@@ -6,9 +6,8 @@
 
 /* nav */
 .brand-nav { display: flex; align-items: center; gap: 16px; min-width: 0; }
-.logo { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font: 300 19px var(--font); letter-spacing: .01em; }
-.logo strong { font-weight: 400; }
-.logo i { width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, var(--red), var(--yellow)); box-shadow: 0 4px 10px -3px color-mix(in srgb, var(--red) 55%, transparent); }
+.logo { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font: 600 15px var(--font); }
+.logo strong { font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
 .tabs { display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; background: var(--surface-strong); border: 1px solid var(--border); box-shadow: var(--shadow-card); }
 .tabs a { display: inline-flex; align-items: center; gap: 7px; padding: 8px 16px; border-radius: 999px; color: var(--muted); text-decoration: none; font: 400 13px var(--font); letter-spacing: .02em; transition: color .18s, background .18s, box-shadow .18s; white-space: nowrap; }
 .tabs a:hover { color: var(--text); background: var(--tint-1); }
@@ -129,7 +128,7 @@ header.strip .chips { margin-left: 8px; }
 
 @media (max-width: 1100px) { .alert-panel { left: var(--gutter); transform: none; width: calc(100vw - 24px); animation-name: rise; } .post-detail { width: 300px; } }
 @media (max-width: 800px) { .panel.side { width: auto; right: var(--gutter); bottom: auto; max-height: 52vh; } .post-detail { top: auto; bottom: var(--gutter); width: auto; left: var(--gutter); max-height: 40vh; } .legend-lite { display: none; } .tabs { overflow-x: auto; } .pending { border-radius: var(--radius); } }
-@media (prefers-reduced-motion: reduce) { .logo i, .pulse-dot, .siren, .pending, .alert-card, .student-app.danger, .boot i { animation: none !important; } .tabs a, .theme-toggle, .post-list button, .seg button { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .pulse-dot, .siren, .pending, .alert-card, .student-app.danger, .boot i { animation: none !important; } .tabs a, .theme-toggle, .post-list button, .seg button { transition: none; } }
 
 /* Live page (command center): theme tokens handle light and dark; only layout rules live here. */
 .command-center .command-map .pending { position: absolute; top: 48px; }
@@ -143,3 +142,9 @@ header.strip .chips { margin-left: 8px; }
 
 .command-center.app:not(.embedded) .command-map { position: sticky; top: 12px; align-self: start; }
 .command-center .command-review .intercept-panel, .command-center .command-review .intercept { max-width: none; width: 100%; }
+
+.muted-link { display: inline-block; margin-top: 6px; font: 400 11px var(--font); letter-spacing: 0; text-transform: none; color: var(--muted); text-decoration: underline; }
+.muted-note { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+.intro { color: var(--muted); font-size: 12.5px; font-weight: 300; line-height: 1.5; margin: 10px 0 2px; }
+.hero-logo { margin-bottom: 10px; }
+.student-app .logo strong { font-size: 15px; }

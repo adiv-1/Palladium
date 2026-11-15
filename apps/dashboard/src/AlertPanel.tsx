@@ -2,6 +2,7 @@ import {useState} from 'react';
 import {ALERT_RADIUS_M, type ActiveAlert} from './alerts';
 import {INCIDENT_LABEL, type Incident} from './types';
 import {Tag} from './Panels';
+import {studentLink} from './Nav';
 
 const clock = (ms: number) => new Date(ms).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit', second: '2-digit'});
 
@@ -36,7 +37,7 @@ export function AlertPanel({alert, devices, onClose}: {alert: ActiveAlert; devic
       <div className="stat-row">
         <div><b>{alert.officers.length}</b><span>DPS units alerted</span></div>
         <div><b>{inside}</b><span>app users within {ALERT_RADIUS_M} m <Tag kind="simulated" /></span></div>
-        <div><b>{phones}</b><span>real student phones linked</span></div>
+        <div><b>{phones}</b><span>real student phones linked</span><a className="muted-link" href={studentLink()} target="_blank" rel="noreferrer">Open the student app</a></div>
       </div>
       <blockquote className="sms">{alert.msg.message}</blockquote>
       <div className="report">
@@ -51,7 +52,7 @@ export function AlertPanel({alert, devices, onClose}: {alert: ActiveAlert; devic
           ))}
           <div><dt>Status</dt><dd>{r.status}</dd></div>
         </dl>
-        <p className="fine">Descriptors are placeholders. The vision pipeline does not estimate them, and SafeSC never infers identity or demographics.</p>
+        <p className="fine">Descriptors are placeholders. The vision pipeline does not estimate them, and Palladium never infers identity or demographics.</p>
         <button className="ghost" onClick={copy}>{copied ? 'Copied' : 'Copy report JSON'}</button>
       </div>
     </section>

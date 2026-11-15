@@ -3,8 +3,12 @@
 Keep shareable project explanations in this folder. Local account records, support history, deployment credentials, and account screenshots are excluded from version control.
 
 - [Architecture](architecture.md): data flow, phone connection, and model responsibilities.
+- [Live observations and incident review](review-workflow.md): latest-frame preview, separate clip review, enhancement fixes and measured limits.
+- [Private incident storage](storage.md): Supabase archive, FIFO media eviction, retention and recovery.
 - [Models and licenses](models.md): isolated runtime setup, pinned checkpoints, and known limitations.
 - [Historical activity data](activity-data.md): LAPD sources, geography, deduplication, and interpretation.
+- [Preloaded activity outlook and planning](activity-forecasting.md): full-zone forecasts, walking comparisons, ambassador scenarios, preparation, and retrospective results.
+- [Pedestrian distribution and imagery](pedestrian-distribution.md): verified count corridors, satellite/aerial context, and requirements for a flow model.
 - [Deployment and measured verification](deployment.md): runtime layout, engineering results, and operating boundaries.
 - [Roadmap](roadmap.md): agreed future work, explicitly separated from implemented behavior.
 - [Reviewed learning](learning.md): permissioned video repository, exact training inputs, actual LoRA results, and research deployment boundaries.

@@ -1,0 +1,220 @@
+{
+  "model_id": "0c44a591236509a7",
+  "version": "pooled-seasonal-gamma-poisson-v1",
+  "data_through": "2026-10-31",
+  "training_end": "2026-10-15",
+  "selected": "Recent seasonal",
+  "cells": 172,
+  "area_km2": 8.783905683980736,
+  "network_coverage": {
+    "components": 16,
+    "largest_component_nodes": 16307,
+    "nodes": 16351,
+    "cells_with_connections": 172,
+    "total_cells": 172
+  },
+  "bundle_bytes": 21141704,
+  "evaluation": {
+    "kind": "retrospective rolling-origin evaluation on a revised snapshot",
+    "selected": "Recent seasonal",
+    "selection_metric": "validation mean negative predictive log score; lower is better",
+    "candidates": [
+      {
+        "config": {
+          "name": "Static spatial baseline",
+          "half_life": 730,
+          "pooling": 40,
+          "seasonal": false
+        },
+        "validation_mean_negative_log_score": 0.027841342715902162,
+        "validation_folds": [
+          {
+            "cutoff": "2025-09-01",
+            "mean_negative_log_score": 0.031557072016097185,
+            "mean_absolute_count_error": 0.009232485235410953,
+            "interval_80_coverage": 0.9950166112956811,
+            "report_family_occurrences": 99,
+            "top_20_percent_area_capture": 0.42424242424242425,
+            "prediction_windows": 19264
+          },
+          {
+            "cutoff": "2026-01-01",
+            "mean_negative_log_score": 0.020923267303753993,
+            "mean_absolute_count_error": 0.0072418088374456525,
+            "interval_80_coverage": 0.996937292358804,
+            "report_family_occurrences": 60,
+            "top_20_percent_area_capture": 0.3,
+            "prediction_windows": 19264
+          },
+          {
+            "cutoff": "2026-04-01",
+            "mean_negative_log_score": 0.031043688827855305,
+            "mean_absolute_count_error": 0.009120146593420893,
+            "interval_80_coverage": 0.9950166112956811,
+            "report_family_occurrences": 97,
+            "top_20_percent_area_capture": 0.4742268041237113,
+            "prediction_windows": 19264
+          }
+        ],
+        "final_test_folds": [
+          {
+            "cutoff": "2026-08-01",
+            "mean_negative_log_score": 0.02564156847399636,
+            "mean_absolute_count_error": 0.007984076176922632,
+            "interval_80_coverage": 0.9961067275747508,
+            "report_family_occurrences": 75,
+            "top_20_percent_area_capture": 0.3466666666666667,
+            "prediction_windows": 19264
+          },
+          {
+            "cutoff": "2026-09-01",
+            "mean_negative_log_score": 0.030009378684226918,
+            "mean_absolute_count_error": 0.008983805563866009,
+            "interval_80_coverage": 0.9952761627906976,
+            "report_family_occurrences": 95,
+            "top_20_percent_area_capture": 0.49473684210526314,
+            "prediction_windows": 19264
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "Recent seasonal",
+          "half_life": 365,
+          "pooling": 40
+        },
+        "validation_mean_negative_log_score": 0.027284999864947312,
+        "validation_folds": [
+          {
+            "cutoff": "2025-09-01",
+            "mean_negative_log_score": 0.030780555230601636,
+            "mean_absolute_count_error": 0.00921081180879131,
+            "interval_80_coverage": 0.9950166112956811,
+            "report_family_occurrences": 99,
+            "top_20_percent_area_capture": 0.4444444444444444,
+            "prediction_windows": 19264
+          },
+          {
+            "cutoff": "2026-01-01",
+            "mean_negative_log_score": 0.020722549303681153,
+            "mean_absolute_count_error": 0.00723515637316671,
+            "interval_80_coverage": 0.996937292358804,
+            "report_family_occurrences": 60,
+            "top_20_percent_area_capture": 0.31666666666666665,
+            "prediction_windows": 19264
+          },
+          {
+            "cutoff": "2026-04-01",
+            "mean_negative_log_score": 0.030351895060559138,
+            "mean_absolute_count_error": 0.00908989887073722,
+            "interval_80_coverage": 0.9950166112956811,
+            "report_family_occurrences": 97,
+            "top_20_percent_area_capture": 0.4329896907216495,
+            "prediction_windows": 19264
+          }
+        ],
+        "final_test_folds": [
+          {
+            "cutoff": "2026-08-01",
+            "mean_negative_log_score": 0.02556824640606275,
+            "mean_absolute_count_error": 0.0079471588914313,
+            "interval_80_coverage": 0.9961067275747508,
+            "report_family_occurrences": 75,
+            "top_20_percent_area_capture": 0.3333333333333333,
+            "prediction_windows": 19264
+          },
+          {
+            "cutoff": "2026-09-01",
+            "mean_negative_log_score": 0.02972008509545903,
+            "mean_absolute_count_error": 0.008928345722035626,
+            "interval_80_coverage": 0.9952761627906976,
+            "report_family_occurrences": 95,
+            "top_20_percent_area_capture": 0.45263157894736844,
+            "prediction_windows": 19264
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "Pooled seasonal, two-year half-life",
+          "half_life": 730,
+          "pooling": 40
+        },
+        "validation_mean_negative_log_score": 0.02735236677720314,
+        "validation_folds": [
+          {
+            "cutoff": "2025-09-01",
+            "mean_negative_log_score": 0.030952208686789735,
+            "mean_absolute_count_error": 0.009217511798710913,
+            "interval_80_coverage": 0.9950166112956811,
+            "report_family_occurrences": 99,
+            "top_20_percent_area_capture": 0.42424242424242425,
+            "prediction_windows": 19264
+          },
+          {
+            "cutoff": "2026-01-01",
+            "mean_negative_log_score": 0.020700914565454184,
+            "mean_absolute_count_error": 0.007235184587776183,
+            "interval_80_coverage": 0.996937292358804,
+            "report_family_occurrences": 60,
+            "top_20_percent_area_capture": 0.36666666666666664,
+            "prediction_windows": 19264
+          },
+          {
+            "cutoff": "2026-04-01",
+            "mean_negative_log_score": 0.030403977079365506,
+            "mean_absolute_count_error": 0.009106845589933297,
+            "interval_80_coverage": 0.9950166112956811,
+            "report_family_occurrences": 97,
+            "top_20_percent_area_capture": 0.4742268041237113,
+            "prediction_windows": 19264
+          }
+        ]
+      },
+      {
+        "config": {
+          "name": "Modern-regime seasonal",
+          "half_life": 365,
+          "pooling": 40,
+          "modern": true
+        },
+        "validation_mean_negative_log_score": 0.027387067113978855,
+        "validation_folds": [
+          {
+            "cutoff": "2025-09-01",
+            "mean_negative_log_score": 0.030841111020715274,
+            "mean_absolute_count_error": 0.008691774832531765,
+            "interval_80_coverage": 0.9950166112956811,
+            "report_family_occurrences": 99,
+            "top_20_percent_area_capture": 0.3838383838383838,
+            "prediction_windows": 19264
+          },
+          {
+            "cutoff": "2026-01-01",
+            "mean_negative_log_score": 0.02074882192318588,
+            "mean_absolute_count_error": 0.006949239620390248,
+            "interval_80_coverage": 0.996937292358804,
+            "report_family_occurrences": 60,
+            "top_20_percent_area_capture": 0.31666666666666665,
+            "prediction_windows": 19264
+          },
+          {
+            "cutoff": "2026-04-01",
+            "mean_negative_log_score": 0.03057126839803541,
+            "mean_absolute_count_error": 0.008863644799368364,
+            "interval_80_coverage": 0.9950166112956811,
+            "report_family_occurrences": 97,
+            "top_20_percent_area_capture": 0.4536082474226804,
+            "prediction_windows": 19264
+          }
+        ]
+      }
+    ],
+    "limitations": [
+      "Publication availability and historical revisions cannot be reconstructed.",
+      "80% predictive intervals are conditional empirical-Bayes approximations, not fully Bayesian calibrated guarantees.",
+      "Report-family counts overlap; do not sum across families.",
+      "No pedestrian exposure or validated personal risk rate."
+    ]
+  }
+}
