@@ -5,7 +5,7 @@ A standalone, CPU-first video analysis module that watches a camera stream and r
 
 | Event type | Observed pattern |
 |---|---|
-| `possible_snatching` | A carried bag leaves its holder abruptly and departs with another person |
+| `possible_snatching` | **The act of taking**: hands meet, then one person flees or the two tug and part — whatever the object is (phone, wallet, bag…), from body keypoints. Also: a carried, detected object leaves its holder abruptly with another person |
 | `suspicious_object_removal` | A resting, unattended bag is carried away by a track that never handled it, while whoever set it down is still in view — or from a configured monitored zone |
 | `possible_restricted_area_entry` | A person stands inside an explicitly configured polygon (opt-in) |
 | `rapid_object_transfer`, `uncertain_interaction` | Info-level context; not alerts |
@@ -26,7 +26,7 @@ and nothing outside it is modified.
 ```bash
 cd services/theft_detection
 uv sync --python 3.11 --extra test
-uv run theft-detect fetch-models yolox_tiny        # 20 MB, SHA-256 verified, Apache-2.0
+uv run theft-detect fetch-models                   # yolox_tiny (20 MB) + rtmpose_t (13 MB), SHA-256 verified, Apache-2.0
 uv run theft-detect make-demo                      # renders synthetic demo clips into data/demo/
 uv run theft-detect serve --config configs/demo.yaml
 ```
@@ -102,12 +102,13 @@ det.run()                                   # or det.start() / det.stop(); or de
 | RTSP / HTTP stream | `rtsp://…` | Reconnects with back-off. Only authorised test sources; refused via the API unless `api.allow_network_sources: true` |
 | Synthetic scene | `synthetic:<scenario>[:seed]` | Rendered live; uses the colour-blob detector; events flagged `simulated` |
 
-Supported objects: people, backpacks, handbags, suitcases. **Not** phones, wallets, keys.
+Objects: the action route needs none. The object route tracks backpacks, handbags, suitcases,
+laptops, phones, books and umbrellas when the detector sees them (small items usually are not).
 
 ## Verification
 
 ```bash
-uv run pytest                                       # 119 tests; real-model tests skip if weights are absent
+uv run pytest                                       # 135 tests; real-model tests skip if weights are absent
 uv run python benchmarks/eval_traces.py --seeds 100 --seed-base 90000
 uv run python demo/fetch_sample_footage.py
 uv run python benchmarks/eval_videos.py evaluation/annotations.json

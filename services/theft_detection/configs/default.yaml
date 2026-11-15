@@ -19,7 +19,13 @@ detector:
   providers: [CPUExecutionProvider]
   intra_op_threads: 4      # upper bound on detector CPU threads
   min_score: 0.10
-  classes: {person: person, backpack: bag, handbag: bag, suitcase: bag}
+  classes: {person: person, backpack: bag, handbag: bag, suitcase: bag, laptop: bag, "cell phone": bag, book: bag, umbrella: bag}
+
+pose:                       # body keypoints for the action route (people near another person only)
+  enabled: true
+  model: rtmpose_t         # rtmpose_t | rtmpose_s
+  threads: 2
+  max_people: 6
 
 tracker:
   high_thresh: {person: 0.45, bag: 0.30}
@@ -39,6 +45,9 @@ engine:
   carry_min: 1.0           # a lifted object must travel this far to count as removed
   zone_dwell_s: 1.0
   cooldown_s: 10.0
+  action_reach: 0.25       # arm extension towards the other person that counts as reaching
+  action_hand_dist: 0.15   # wrists this close = hand contact
+  action_pull_apart: 0.3   # torsos moving this far apart while both pull = a tug
   emit_info_events: true
   emit_unknown_origin_pickups: false
 

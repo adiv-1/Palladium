@@ -37,7 +37,7 @@ from .interactions.motion import GlobalMotionEstimator
 from .monitoring.metrics import Metrics
 from .monitoring.trials import TrialRecorder
 from .tracking.bytetrack import ByteTracker
-from .types import BAG, Detection, RawEvent, Track
+from .types import BAG, PERSON, Detection, RawEvent, Track
 from .video.reader import FrameReader
 from .video.sources import VideoSource, open_source
 
@@ -99,6 +99,8 @@ class TheftDetector:
         self.render_preview = False     # set by the API so annotated frames are encoded
         self._base_zones = list(self.cfg.zones)
         self._reader: FrameReader | None = None
+        self._pose = None
+        self.last_poses: dict = {}
 
     # ------------------------------------------------------------------------------------
     @property
@@ -131,14 +133,14 @@ class TheftDetector:
         inference_ms = (time.perf_counter() - t0) * 1000.0
         gm = self.motion.update(image)
         h, w = image.shape[:2]
-        result = self._advance(dets, ts, gm, (w, h), wall_ts)
+        result = self._advance(dets, ts, gm, (w, h), wall_ts, image=image)
         result.inference_ms = inference_ms
         result.total_ms = (time.perf_counter() - t0) * 1000.0
         lag_ms = (time.time() - wall_ts) * 1000.0 if wall_ts else result.total_ms
         self.metrics.record_frame(inference_ms, result.total_ms, lag_ms)
 
         if self.evidence.enabled or self.render_preview:
-            annotated = annotate(image, result.tracks, self.cfg, result.events)
+            annotated = annotate(image, result.tracks, self.cfg, result.events, self.last_poses)
             if self.render_preview:
                 ok, buf = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 75])
                 if ok:
@@ -152,16 +154,44 @@ class TheftDetector:
 
     def process_detections(self, detections: list[Detection], ts: float,
                            global_motion: tuple[float, float] = (0.0, 0.0),
-                           frame_size: tuple[int, int] | None = None) -> FrameResult:
-        """Skip the detector: feed detections from another model, a trace, or a test."""
-        return self._advance(detections, ts, global_motion, frame_size, None)
+                           frame_size: tuple[int, int] | None = None, poses: dict | None = None) -> FrameResult:
+        """Skip the detector: feed detections (and optionally body keypoints per track id) from
+        another model, a trace, or a test."""
+        return self._advance(detections, ts, global_motion, frame_size, None, poses=poses)
+
+    def _poses_for(self, image: np.ndarray, tracks: list[Track]) -> dict:
+        """Keypoints for people who are close to someone else (bounded; none in a sparse scene)."""
+        cfg = self.cfg.pose
+        people = [t for t in tracks if t.category == PERSON and t.lost_s == 0.0]
+        near: list[Track] = []
+        for p in people:
+            ph = p.box[3] - p.box[1]
+            cx, cy = (p.box[0] + p.box[2]) * 0.5, (p.box[1] + p.box[3]) * 0.5
+            if any(q is not p and ((q.box[0] + q.box[2]) * 0.5 - cx) ** 2 + ((q.box[1] + q.box[3]) * 0.5 - cy) ** 2
+                   <= (cfg.near * max(ph, q.box[3] - q.box[1])) ** 2 for q in people):
+                near.append(p)
+        near = sorted(near, key=lambda t: -(t.box[3] - t.box[1]))[:cfg.max_people]
+        if not near:
+            return {}
+        if self._pose is None:
+            from .detection.pose import RtmPoseEstimator
+            self._pose = RtmPoseEstimator(cfg.model, self.cfg.detector.weights_dir, cfg.threads)
+        t0 = time.perf_counter()
+        kps = self._pose.estimate(image, [t.box for t in near])
+        self.metrics.record_pose((time.perf_counter() - t0) * 1000.0, len(near))
+        self.last_poses = {t.track_id: kp for t, kp in zip(near, kps)}
+        return self.last_poses
 
     def _advance(self, dets: list[Detection], ts: float, gm: tuple[float, float],
-                 frame_size: tuple[int, int] | None, wall_ts: float | None) -> FrameResult:
+                 frame_size: tuple[int, int] | None, wall_ts: float | None,
+                 image: np.ndarray | None = None, poses: dict | None = None) -> FrameResult:
         self._frame_size = frame_size or self._frame_size
         tracks = self.tracker.update(dets, ts)
         self.trials.on_frame(ts, tracks)
-        raw_events = self.engine.update(ts, tracks, gm, self._frame_size, detections=dets)
+        self.last_poses = {}
+        if poses is None and image is not None and self.cfg.pose.enabled and self.cfg.detector.backend == "yolox_onnx":
+            poses = self._poses_for(image, tracks)
+        raw_events = self.engine.update(ts, tracks, gm, self._frame_size, detections=dets, poses=poses)
         events: list[Event] = []
         for raw in raw_events:
             ev = self._to_event(raw, wall_ts)
@@ -292,6 +322,7 @@ class TheftDetector:
             "reader": self.state.reader,
             "queue_depth": len(self._reader._queue) if self._reader is not None else 0,
             "detector": getattr(self._detector, "name", self.cfg.detector.backend),
+            "pose_model": getattr(self._pose, "name", None),
             "providers": getattr(self._detector, "providers", []),
             "simulated": self.simulated,
             "evidence_capture": self.evidence.enabled,
@@ -317,7 +348,11 @@ _BAG_COLOR = (40, 170, 255)
 _ALERT_COLOR = (60, 60, 235)
 
 
-def annotate(image: np.ndarray, tracks: list[Track], cfg: Config, events: list[Event] | None = None) -> np.ndarray:
+_ARMS = ((5, 7), (7, 9), (6, 8), (8, 10), (5, 6))
+
+
+def annotate(image: np.ndarray, tracks: list[Track], cfg: Config, events: list[Event] | None = None,
+             poses: dict | None = None) -> np.ndarray:
     """Draw boxes, ephemeral track IDs and configured zones. No faces are located or cropped."""
     out = image.copy()
     h, w = out.shape[:2]
@@ -335,6 +370,13 @@ def annotate(image: np.ndarray, tracks: list[Track], cfg: Config, events: list[E
         cv2.rectangle(out, (x1, y1), (x2, y2), color, 2 if t.lost_s == 0 else 1)
         tag = f"{t.label} #{t.track_id}" if t.category == BAG else f"person #{t.track_id}"
         cv2.putText(out, tag, (x1, max(y1 - 5, 12)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1, cv2.LINE_AA)
+    for kp in (poses or {}).values():       # arms and wrists only
+        for a, b in _ARMS:
+            if kp[a, 2] >= 0.3 and kp[b, 2] >= 0.3:
+                cv2.line(out, (int(kp[a, 0]), int(kp[a, 1])), (int(kp[b, 0]), int(kp[b, 1])), (0, 220, 255), 2, cv2.LINE_AA)
+        for j in (9, 10):
+            if kp[j, 2] >= 0.3:
+                cv2.circle(out, (int(kp[j, 0]), int(kp[j, 1])), 4, (0, 0, 255), -1, cv2.LINE_AA)
     if events:
         cv2.rectangle(out, (0, 0), (w - 1, h - 1), _ALERT_COLOR, 4)
         cv2.putText(out, events[0].event_type.replace("_", " "), (10, 26),

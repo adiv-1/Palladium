@@ -63,10 +63,14 @@ class _Ctx:
                           polygon=[(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
 
 
+def _reach(sc: Scenario, pid: str, t0: float, t1: float, towards: str) -> None:
+    sc.person(pid).reaches.append((t0, t1, towards))
+
+
 # ======================================================================================
 # negatives
 # ======================================================================================
-def n01_handoff(rng) -> Scenario:
+def _n01_handoff(rng) -> Scenario:
     c = _Ctx(rng)
     T = 12.0
     t1, d = c.u(3, 5), c.u(0.9, 1.5)
@@ -114,7 +118,7 @@ def n03_strap_adjust(rng) -> Scenario:
                     T, [c.person("A", a, 0), c.person("P", p, 2)], [c.bag("bag", segs)])
 
 
-def n04_exchange(rng) -> Scenario:
+def _n04_exchange(rng) -> Scenario:
     c = _Ctx(rng)
     T = 11.0
     t1, d = c.u(3, 4.5), c.u(1.0, 1.4)
@@ -215,7 +219,7 @@ def n08_occlusion(rng) -> Scenario:
                     T, persons, bags)
 
 
-def n09_drop_and_return(rng) -> Scenario:
+def _n09_drop_and_return(rng) -> Scenario:
     c = _Ctx(rng)
     a = c.path(-c.edge + 0.4).to(c.X(-0.3), c.y, 0.8)
     t_drop = a.t
@@ -331,7 +335,7 @@ def n16_runs_after_crossing(rng) -> Scenario:
 # ======================================================================================
 # positives (staged-style)
 # ======================================================================================
-def p01_runby_snatch(rng) -> Scenario:
+def _p01_runby_snatch(rng) -> Scenario:
     c = _Ctx(rng)
     xa, va = c.u(-0.9, -0.3), c.pick(0.0, 0.0, c.u(0.3, 0.5))
     vb = c.u(2.2, 3.2)
@@ -358,7 +362,7 @@ def p01_runby_snatch(rng) -> Scenario:
                     labels=[Label(SNATCH, t_g)])
 
 
-def p02_walkup_yank(rng) -> Scenario:
+def _p02_walkup_yank(rng) -> Scenario:
     c = _Ctx(rng)
     xa = c.u(-0.6, 0.0)
     b = c.path(c.edge).stay(c.u(1.0, 2.0)).to(c.X(xa + 0.55), c.y, 0.9).stay(c.u(0.2, 1.5))
@@ -436,9 +440,13 @@ def _hidden_exchange(rng, depart_speed: float | None, kind: str, label: str | No
     bag = c.bag("bag", [Seg(0, t_c, c.held("A", 1)), Seg(t_c + 0.4, T, c.held("B", -1))],
                 label=c.pick("backpack", "handbag"))
     bag.hidden = [(t_c - 0.1, t_c + contact)]
-    return Scenario(f"{kind}", "positive" if label else "negative", description, T,
-                    [c.person("A", a, 0), c.person("B", b.until(T), 1)], [bag],
-                    labels=[Label(label, t_c)] if label else [])
+    sc = Scenario(f"{kind}", "positive" if label else "negative", description, T,
+                  [c.person("A", a, 0), c.person("B", b.until(T), 1)], [bag],
+                  labels=[Label(label, t_c)] if label else [])
+    _reach(sc, "A", t_c, t_c + contact, "B"); _reach(sc, "B", t_c - 0.2, t_c + contact, "A")
+    if label and c.rng.random() < 0.6:
+        _reach(sc, "A", t_c + contact, t_c + contact + c.u(0.5, 0.9), "B")
+    return sc
 
 
 def p06_snatch_bag_hidden(rng) -> Scenario:
@@ -457,6 +465,100 @@ def n18_hidden_handoff_stay(rng) -> Scenario:
                             "A hands the bag over between their bodies (not visible); both stay together.")
 
 
+
+
+def n01_handoff(rng) -> Scenario:
+    sc = _n01_handoff(rng)
+    b = sc.bags[0]
+    t0, t1 = b.segs[0].t1, b.segs[1].t0                    # both reach while the bag changes hands
+    _reach(sc, "A", t0 - 0.2, t1, "B"); _reach(sc, "B", t0 - 0.2, t1, "A")
+    return sc
+
+
+def n04_exchange(rng) -> Scenario:
+    sc = _n04_exchange(rng)
+    t0, t1 = sc.bags[0].segs[0].t1, sc.bags[1].segs[1].t0
+    _reach(sc, "A", t0 - 0.2, t1, "B"); _reach(sc, "B", t0 - 0.2, t1, "A")
+    return sc
+
+
+def n09_drop_and_return(rng) -> Scenario:
+    sc = _n09_drop_and_return(rng)
+    t0, t1 = sc.bags[0].segs[2].t1, sc.bags[0].segs[3].t0
+    _reach(sc, "A", t0 - 0.2, t1, "B"); _reach(sc, "B", t0 - 0.2, t1, "A")
+    return sc
+
+
+def p01_runby_snatch(rng) -> Scenario:
+    sc = _p01_runby_snatch(rng)
+    t_g = sc.labels[0].onset
+    _reach(sc, "B", t_g - 0.3, t_g + 0.25, "A")
+    if rng.random() < 0.6:                                  # the holder reacts
+        _reach(sc, "A", t_g + 0.1, t_g + rng.uniform(0.6, 1.0), "B")
+    return sc
+
+
+def p02_walkup_yank(rng) -> Scenario:
+    sc = _p02_walkup_yank(rng)
+    t_g = sc.labels[0].onset
+    _reach(sc, "B", t_g - 0.4, t_g + 0.35, "A")
+    if rng.random() < 0.6:
+        _reach(sc, "A", t_g + 0.1, t_g + rng.uniform(0.6, 1.0), "B")
+    return sc
+
+
+# --------------------------------------------------------------------------------------
+# Action-route cases: no detectable object at all (phone, wallet, anything).
+# --------------------------------------------------------------------------------------
+def _no_object(rng, name: str, kind: str, description: str, contact: tuple[float, float], mutual: bool,
+               depart: tuple[float, float] | None, react: float, label: str | None) -> Scenario:
+    c = _Ctx(rng)
+    xa = c.u(-0.5, 0.0)
+    dur = c.u(*contact)
+    b = c.path(c.edge).stay(c.u(1.0, 2.0)).to(c.X(xa + 0.55), c.y + 0.03 * c.H, 0.9)
+    t_c = b.t
+    b.stay(dur)
+    if depart is not None:
+        b.to(c.X(c.edge + 1.0), c.y + 0.03 * c.H, c.u(*depart))
+    T = max(b.t, t_c + dur) + 3.0
+    a = c.path(xa).until(T)
+    sc = Scenario(name, kind, description, T, [c.person("A", a, 0), c.person("B", b.until(T), 1)], [],
+                  labels=[Label(label, t_c)] if label else [])
+    _reach(sc, "B", t_c - 0.2, t_c + dur, "A")
+    if mutual:
+        _reach(sc, "A", t_c, t_c + dur, "B")
+    if c.rng.random() < react:
+        _reach(sc, "A", t_c + dur, t_c + dur + c.u(0.5, 0.9), "B")
+    return sc
+
+
+def p07_grab_unseen_object_and_run(rng) -> Scenario:
+    return _no_object(rng, "P07_grab_of_undetected_object_then_runs", "positive",
+                      "Staged: someone walks up, takes something the detector cannot see (e.g. a phone) from the "
+                      "other person's hand and runs; the other person reacts in most runs.",
+                      (0.3, 0.9), bool(rng.random() < 0.4), (2.2, 3.2), 0.7, SNATCH)
+
+
+def n19_handshake(rng) -> Scenario:
+    return _no_object(rng, "N19_handshake_then_walks_away", "negative",
+                      "Two people shake hands for 1-3 s; one then walks away (or both stay).",
+                      (1.0, 3.0), True, (0.6, 0.95) if rng.random() < 0.7 else None, 0.0, None)
+
+
+def n21_touch_then_walks(rng) -> Scenario:
+    return _no_object(rng, "N21_brief_touch_then_walks_away", "negative",
+                      "One person briefly taps the other (e.g. to get attention) and walks on.",
+                      (0.3, 0.8), False, (0.6, 0.95), 0.0, None)
+
+
+def x01_tag_and_run(rng) -> Scenario:
+    """Deliberately indistinguishable: the same motion as a grab-and-run, with nothing taken."""
+    return _no_object(rng, "X01_tag_and_run_game", "negative",
+                      "A game of tag: one person touches the other and sprints off; the other often gives chase. "
+                      "Nothing is taken. Video cannot separate this from a grab.",
+                      (0.3, 0.8), False, (2.2, 3.2), 0.5, None)
+
+
 NEGATIVES: list[Callable[[np.random.Generator], Scenario]] = [
     n01_handoff, n02_own_pickup, n03_strap_adjust, n04_exchange, n05_help_carry, n06_move_to_chair,
     n07_crowd, n08_occlusion, n09_drop_and_return, n10_runner_own_bag, n11_camera_shake,
@@ -468,10 +570,11 @@ POSITIVES: list[Callable[[np.random.Generator], Scenario]] = [
     p01_runby_snatch, p02_walkup_yank, p03_unattended_removal, p04_monitored_zone_removal,
     p05_restricted_entry, p06_snatch_bag_hidden,
 ]
+NEGATIVES += [n19_handshake, n21_touch_then_walks]
+POSITIVES += [p07_grab_unseen_object_and_run]
+LOOKALIKES = [x01_tag_and_run]
 ALL = NEGATIVES + POSITIVES
-BY_NAME: dict[str, Callable[[np.random.Generator], Scenario]] = {
-    fn(np.random.default_rng(0)).name: fn for fn in ALL
-}
+BY_NAME = {fn(np.random.default_rng(0)).name: fn for fn in ALL + LOOKALIKES}
 
 
 def build(name: str, seed: int = 0) -> Scenario:

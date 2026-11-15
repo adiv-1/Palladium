@@ -18,7 +18,11 @@ to look, not a finding.
 | A calm hand-over hidden between two bodies | Indistinguishable from a slow, hidden take in boxes: logged at info level, never an alert. A real slow, hidden take is therefore missed by design | N17 / N18 traces |
 | Info-level events in SafeSC | Not turned into incidents; they appear only in the worker's timeline and SafeSC's worker telemetry | by design |
 | Low light, heavy compression, motion blur | People are still detected; **bags drop out much earlier** (0 % retained at 10 % brightness, 9 % at JPEG quality 8) | `bench_robustness.py` |
-| Phone, wallet or key snatching | Not detected at all — not a supported class | Mixkit 31395, 31354 |
+| Phone, wallet or key snatching | The object is rarely detected; the action route reports the grab from the arms and body motion when the hands meet visibly and one person then flees or the two tug | Scripted P07: 100/100. Real: both phone clips still missed (dark; no hand-to-hand contact) |
+| A game of tag, a playful grab-and-run, a shove followed by running | **Reported as `possible_snatching`**: the same motion with nothing taken. Stated in the event's uncertainties; only a reviewer can tell | Scripted X01: 100/100 raise an alert |
+| Calm take with no reaction: reach in, take, walk away at normal pace while the other person does not react | Not reported by the action route (looks like a hand-over); object route only if the object is seen | by design |
+| Hands not visible (back to camera, hidden by a body, low light) | No hand contact is measured, so the action route stays silent | Mixkit 31395 |
+| People missed or boxes very noisy | The action route needs both people tracked with keypoints: recall 77 % at 35 % missed people; 9 false alerts per 1.6 h at 10 % box jitter | sweeps |
 | Item taken *out of* a bag | Not detected — the bag itself never moves | Mixkit 31354 |
 | Handheld or panning camera | Smooth pans are compensated; shake marks the window unstable and candidates are dismissed as `camera_motion`, which can also suppress a real event | N11 traces |
 | Heavy box jitter while a bag holder is passed at close range and then runs off | Person tracks swap and a false `possible_snatching` can result (2–4 per 1.5 h of negative traces at 6–10 % jitter) | N16 jitter sweep |

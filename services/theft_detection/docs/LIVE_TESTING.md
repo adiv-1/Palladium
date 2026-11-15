@@ -37,8 +37,10 @@ The page shows `status: error` with the reason; the system never substitutes ano
 * Put the camera 3–5 m away, roughly chest height, so both people are fully in view and the bag
   is at least ~40 px tall in the 640×480 image. Most webcams are wide-angle: closer is better
   than further for the bag.
-* Use a clearly visible bag: a backpack, handbag or small suitcase (these are the only bag
-  classes the detector knows). Phones and wallets are not supported.
+* Any object works for the snatch trials (phone, wallet, book, bag): the action route judges the
+  arms and bodies, not the object. Keep both people's **hands and arms visible to the camera** -
+  side-on to the camera is best; a back turned to it hides the hands. For the pick-up and
+  unattended-bag trials use a clearly visible backpack, handbag or suitcase.
 * Keep the laptop still. Camera movement holds decisions back on purpose.
 * Both participants agree to be filmed; no one else is in view. No physical struggle: the
   "snatch" is a quick lift-and-walk, and the holder lets go.
@@ -65,7 +67,7 @@ For each trial: pick the scenario in **Staged trials**, press **Start trial**, a
 | S3 | Adjust or reposition | A swings the bag from shoulder to hand and back; moves it to a chair | no alert |
 | S4 | Walk past | A and B walk past each other closely, A carrying the bag | no alert |
 | S5 | Fast with own bag | A jogs through the view with their bag, passing B | no alert |
-| S6 | Abrupt snatch | B walks up, lifts the bag from A's hand quickly and walks/jogs away; A stays | `possible_snatching` |
+| S6 | Abrupt snatch | B walks up, takes the object from A's hand and **jogs** away; A reaches after B or follows. Also try a short tug before B leaves. Repeat with a phone | `possible_snatching` |
 | S7 | Obscured transfer | B takes the bag while their bodies hide it from the camera, then walks off | either: an info event or an alert, with the "not visible" uncertainty |
 | S8 | Bag hidden | A turns so the bag is behind them for 2–3 s, then turns back | no alert |
 
@@ -85,6 +87,14 @@ Open the trial's JSON line:
 * **`no candidate`** — the bag never became "held" (needs ~1 s with one person first) or the bag
   track broke (see `bag_detection_gaps`).
 * **`camera motion`** — the laptop moved.
+
+* **`hand contact then ordinary parting`** — the hands met but nobody fled, tugged or reacted. A calm
+  take is, to the camera, a hand-over.
+* **No candidate and no hand contact shown** — the wrists were not visible (red dots on the live
+  view show detected wrists; yellow lines the arms).
+
+Also try the look-alike on purpose: a tag-and-run game **will** raise an alert. That is expected
+and is the reason every event goes to a reviewer.
 
 Do not change thresholds to make one trial pass. Collect all trials first, then look at the
 pattern across them.

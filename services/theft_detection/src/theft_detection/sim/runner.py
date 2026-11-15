@@ -14,7 +14,7 @@ from ..config import Config
 from ..events.engine import SEVERITY_REVIEW, EventEngine
 from ..tracking.bytetrack import ByteTracker
 from ..types import Decision, RawEvent
-from .world import FRAME_H, FRAME_W, ObsParams, Scenario, observe
+from .world import FRAME_H, FRAME_W, ObsParams, Scenario, observe, observe_poses
 
 
 @dataclass
@@ -80,7 +80,7 @@ class Score:
 
 
 def run_trace(sc: Scenario, cfg: Config | None = None, fps: float = 10.0,
-              params: ObsParams | None = None, seed: int = 0) -> TraceResult:
+              params: ObsParams | None = None, seed: int = 0, poses: bool = True) -> TraceResult:
     cfg = cfg or Config()
     params = params or ObsParams()
     rng = np.random.default_rng(seed)
@@ -98,7 +98,8 @@ def run_trace(sc: Scenario, cfg: Config | None = None, fps: float = 10.0,
         dets, gm = observe(sc, t, rng, params, t - last_t)
         last_t = t
         tracks = tracker.update(dets, t)
-        events += engine.update(t, tracks, gm, (FRAME_W, FRAME_H), detections=dets)
+        kps = observe_poses(sc, t, tracks, rng) if poses else None
+        events += engine.update(t, tracks, gm, (FRAME_W, FRAME_H), detections=dets, poses=kps)
         frames += 1
     return TraceResult(sc, events, list(engine.decisions), frames)
 

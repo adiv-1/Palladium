@@ -103,6 +103,40 @@ must stay inside for a dwell time.
 Whether stage 2 earns its latency is measured, not assumed: see
 [EVALUATION.md](EVALUATION.md#does-stage-2-pay-for-itself).
 
+## The action route (object-agnostic)
+
+The object route above needs the object to be detected. The action route does not: it classifies
+the *act* of taking something from a person, from body keypoints, so it also covers phones,
+wallets, laptops, or a bag hidden between two bodies. Code: `events/actions.py`,
+`detection/pose.py`.
+
+```text
+person tracks ──► pose (RTMPose-t, only for people within 1.8 body heights of someone else,
+                        at most 6 per frame; wrists, shoulders, hips; facial points discarded)
+              ──► per pair of people, per frame:
+                    hand contact   wrists within 0.15 body heights, or a wrist inside the other's
+                                   body area with that arm stretched towards them, or both arms
+                                   stretched towards each other with hands <= 0.35 apart
+                                   (two people holding the same thing)
+              ──► when the contact ends and the two separate (or one leaves at the frame edge):
+```
+
+| Evidence after the contact | Outcome |
+|---|---|
+| The person who reached leaves fast (≥ 1.3 body heights/s) **and** the contact lasted ≥ 3 frames or the other person reacts (keeps an arm stretched towards them, or sets off after them) | `possible_snatching` (review) |
+| A tug: both arms stretched towards each other for ≥ 3 frames **while the torsos moved ≥ 0.3 body heights apart** | `possible_snatching` (review), even without a fast get-away |
+| Fast departure after a reach, but brief contact and no reaction | `uncertain_interaction` (info) |
+| Anything else (handshake, hand-over, tap on the shoulder, people passing) | dismissed: `hand_contact_then_ordinary_parting` / `..._stayed_together` |
+
+"Reach" is the furthest wrist's extension from the torso centre towards the other person's torso
+(a hanging arm ≈ 0.15, a stretched one 0.3–0.45); it is defined as zero when the two torsos
+overlap in the image, where a hanging arm would otherwise look like a reach.
+
+Both routes share the per-pair cooldown, so one incident produces one event, whichever route
+fires first. Events from this route carry `features.action_route = 1`, no `object_label`, and the
+uncertainties "what, if anything, changed hands was not identified" and "a greeting, a game or
+other consensual contact followed by one person leaving quickly looks the same in video".
+
 ## Duplicate suppression
 
 * Per object and per pair of people: a cooldown (10 s by default) after an event.

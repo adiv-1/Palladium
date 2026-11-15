@@ -1,0 +1,46 @@
+{
+  "seeds_per_scenario": 100,
+  "seed_base": 90000,
+  "note": "mock detections; temporal logic only",
+  "analysis_fps": 10.0,
+  "per_scenario": [
+    {
+      "scenario": "X01_tag_and_run_game",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 100,
+      "info_events": 0,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 0
+    }
+  ],
+  "overall": {
+    "true_positives": 0,
+    "false_positives": 100,
+    "false_negatives": 0,
+    "precision": 0.0,
+    "recall": null,
+    "false_alerts_in_negative_footage": 100,
+    "negative_footage_hours": 0.274,
+    "false_alerts_per_hour_negative": 364.71,
+    "median_time_to_detection_s": null,
+    "p90_time_to_detection_s": null,
+    "info_events": 0
+  },
+  "stage1_only": {
+    "true_positives": 0,
+    "false_positives": 0,
+    "false_negatives": 0,
+    "precision": null,
+    "recall": null,
+    "false_alerts_in_negative_footage": 0,
+    "negative_footage_hours": 0.274,
+    "false_alerts_per_hour_negative": 0.0,
+    "median_time_to_detection_s": null,
+    "p90_time_to_detection_s": null,
+    "info_events": 0
+  },
+  "dismissal_reasons": {}
+}

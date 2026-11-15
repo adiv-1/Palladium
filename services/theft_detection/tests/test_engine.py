@@ -252,7 +252,7 @@ def test_runner_with_own_bag_identity_swap_seed_is_dismissed():
     from dataclasses import replace
 
     sc = scenarios.n10_runner_own_bag(np.random.default_rng(90004))
-    res = run_trace(sc, Config(), fps=10.0, params=replace(ObsParams(), bag_miss=0.4), seed=90004)
+    res = run_trace(sc, Config(), fps=10.0, params=replace(ObsParams(), bag_miss=0.4), seed=90004, poses=False)   # object route only: the pinned seed predates simulated keypoints
     assert review(res.events) == []
     assert "prior_holder_still_has_an_object" in [d.reason for d in res.decisions]
 

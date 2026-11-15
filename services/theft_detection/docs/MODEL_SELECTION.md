@@ -78,11 +78,28 @@ dependency list reviewed.
 | Dense optical flow | Costs as much as the detector at full resolution. Only the global (camera) motion is estimated, by phase correlation on a 160-px thumbnail (< 1 ms). |
 | Vision-language model on every frame | Explicitly out of scope; seconds per frame. SafeSC's Qwen verifier could be triggered *by* this module's candidates instead. |
 
+## Pose model (action route)
+
+| | Choice | Licence |
+|---|---|---|
+| Body keypoints | RTMPose-t, 256×192, official ONNX export from MMPose (`rtmpose_t`, SHA-256 pinned) | Code and released weights Apache-2.0 |
+
+Chosen because it is top-down (runs only on the people that matter), small (13 MB), fast on CPU
+(measured 8 ms per person, 16–39 ms per frame when people are close together) and permissively
+licensed. Not chosen: Ultralytics YOLO-pose (AGPL, as above); MediaPipe Pose (single person);
+MoveNet MultiPose (needs TFLite conversion; lower accuracy on partly hidden arms); OpenPose
+(non-commercial licence). `rtmpose_s` is registered as a drop-in for more accuracy.
+
+Caveat: the weights were trained by the MMPose authors on several public pose datasets
+("body7"). The weights are published under Apache-2.0, but some of those datasets carry their
+own terms; have this reviewed before commercial distribution.
+
 ## Supported objects
 
-`person`, `backpack`, `handbag`, `suitcase` (COCO classes) — the last three are tracked as
-one "bag" category, because the detector often switches between backpack and handbag for the
-same object. **Phones, wallets, keys, laptops and other small items are not supported**: at
-typical camera distances they are a few pixels across and are frequently hidden in a hand.
-COCO's `cell phone` class exists but was not enabled; enabling it would claim a capability that
-was not validated.
+The **action route needs no object class at all**: it works from the two people's arms.
+
+The object route tracks `backpack`, `handbag`, `suitcase`, `laptop`, `cell phone`, `book` and
+`umbrella` (COCO classes) as one "carried object" category, because the detector often switches
+labels for the same object. Small items (phones, wallets, keys) are a few pixels across at camera
+distance and are rarely detected; when they are not, only the action route can report the event,
+and it then says that the object was not identified.

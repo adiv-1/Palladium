@@ -39,10 +39,10 @@ def stage1_only(res: TraceResult) -> TraceResult:
 
 
 def evaluate(cfg: Config, seeds: int, fps: float, params: ObsParams, only: str | None = None,
-             verbose: bool = False, seed_base: int = 1000):
+             verbose: bool = False, seed_base: int = 1000, poses: bool = True, builders=None):
     total, total_s1 = Score(), Score()
     rows, reasons = [], Counter()
-    for fn in scenarios.ALL:
+    for fn in (builders or scenarios.ALL):
         per, per_s1 = Score(), Score()
         name = ""
         for seed in range(seeds):
@@ -50,7 +50,7 @@ def evaluate(cfg: Config, seeds: int, fps: float, params: ObsParams, only: str |
             name = sc.name
             if only and only not in name:
                 break
-            res = run_trace(sc, cfg, fps=fps, params=params, seed=seed_base + seed)
+            res = run_trace(sc, cfg, fps=fps, params=params, seed=seed_base + seed, poses=poses)
             sc_score = score_result(res)
             per.add(sc_score)
             per_s1.add(score_result(stage1_only(res)))
@@ -104,6 +104,9 @@ def main() -> None:
     ap.add_argument("--seed-base", type=int, default=1000,
                     help="1000 = seeds used while tuning; use e.g. 90000 for a held-out run")
     ap.add_argument("--sweep", choices=sorted(SWEEPS), default=None)
+    ap.add_argument("--no-poses", action="store_true", help="object route only (no body keypoints)")
+    ap.add_argument("--lookalikes", action="store_true",
+                    help="evaluate the deliberately indistinguishable scenes instead (alerts are expected)")
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--json", default=None)
     args = ap.parse_args()
@@ -120,14 +123,16 @@ def main() -> None:
         for v in values:
             fps = float(v) if field == "fps" else args.fps
             params = ObsParams() if field == "fps" else replace(ObsParams(), **{field: v})
-            total, _, rows, _ = evaluate(cfg, args.seeds, fps, params, args.only, seed_base=args.seed_base)
+            total, _, rows, _ = evaluate(cfg, args.seeds, fps, params, args.only, seed_base=args.seed_base,
+                                         poses=not args.no_poses)
             sm = total.summary()
             out["sweep"]["points"].append({"value": v, **sm, "per_scenario": rows})
             print(f"{v:>12} {sm['precision']!s:>9} {sm['recall']!s:>7} {sm['false_alerts_per_hour_negative']!s:>10} "
                   f"{sm['median_time_to_detection_s']!s:>12} {sm['p90_time_to_detection_s']!s:>10}")
     else:
         total, total_s1, rows, reasons = evaluate(cfg, args.seeds, args.fps, ObsParams(), args.only, args.verbose,
-                                                  seed_base=args.seed_base)
+                                                  seed_base=args.seed_base, poses=not args.no_poses,
+                                                  builders=scenarios.LOOKALIKES if args.lookalikes else None)
         print_rows(rows)
         print("\nwith stage-2 verification :", json.dumps(total.summary()))
         print("stage 1 only (unverified) :", json.dumps(total_s1.summary()))

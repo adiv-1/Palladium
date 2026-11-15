@@ -6,7 +6,12 @@
   disk and no frame leaves the process.
 * The detector outputs boxes for `person`, `backpack`, `handbag`, `suitcase`. The tracker uses
   box geometry and motion only.
-* The event engine sees boxes and timestamps, never pixels.
+* For people who are close to another person, a pose model estimates **body joints** (shoulders,
+  elbows, wrists, hips, knees, ankles) so that reaching and pulling can be recognised. The five
+  facial points of the COCO keypoint format are discarded immediately; no face is located,
+  cropped or described. Keypoints are kept only in memory for the few seconds an interaction
+  lasts.
+* The event engine sees boxes, joints and timestamps, never pixels.
 
 ## What is deliberately absent
 

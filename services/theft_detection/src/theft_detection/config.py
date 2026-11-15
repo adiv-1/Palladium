@@ -50,8 +50,22 @@ class DetectorConfig(_Model):
             "backpack": "bag",
             "handbag": "bag",
             "suitcase": "bag",
+            # other things people carry; small ones are rarely detected at camera distance,
+            # which is why the action route does not depend on them
+            "laptop": "bag",
+            "cell phone": "bag",
+            "book": "bag",
+            "umbrella": "bag",
         }
     )
+
+
+class PoseConfig(_Model):
+    enabled: bool = True             # body keypoints for people who are near another person
+    model: str = "rtmpose_t"         # rtmpose_t | rtmpose_s
+    threads: int = Field(default=2, ge=1, le=16)
+    max_people: int = Field(default=6, ge=2, le=20)   # hard cap per frame
+    near: float = 1.8                # body heights between two people for pose to be computed
 
 
 class TrackerConfig(_Model):
@@ -109,6 +123,15 @@ class EngineConfig(_Model):
     relinked_min_verify_s: float = 1.0
     review_min_score: float = 0.60
     max_unstable_frac: float = 0.3
+
+    # --- action route (body keypoints; object-agnostic) ---------------------------------
+    action_near: float = 1.6         # only pairs whose torsos are this close are examined
+    action_hand_dist: float = 0.15   # wrists this close count as hand contact
+    action_reach: float = 0.25       # arm extension towards the other person that counts as reaching
+    action_linked_dist: float = 0.35 # hands this close with both arms reaching = holding the same thing
+    action_pull_apart: float = 0.3   # torsos moving this far apart while linked = a tug
+    action_gap_s: float = 0.4        # contact is over after this long without it
+    action_window_s: float = 2.0     # the two must separate within this time after contact
 
     # --- unattended objects -----------------------------------------------------------
     unattended_min_s: float = 3.0
@@ -206,6 +229,7 @@ class Config(_Model):
     source: SourceConfig = Field(default_factory=SourceConfig)
     detector: DetectorConfig = Field(default_factory=DetectorConfig)
     tracker: TrackerConfig = Field(default_factory=TrackerConfig)
+    pose: PoseConfig = Field(default_factory=PoseConfig)
     engine: EngineConfig = Field(default_factory=EngineConfig)
     zones: list[ZoneConfig] = Field(default_factory=list)
     evidence: EvidenceConfig = Field(default_factory=EvidenceConfig)

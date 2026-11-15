@@ -41,11 +41,11 @@ def test_tampered_weights_are_refused(tmp_path):
         ensure_model("yolox_nano", tmp_path, download=False)
 
 
-def test_default_classes_exist_in_coco_and_exclude_small_items():
+def test_default_classes_exist_in_coco_and_cover_carried_objects():
     classes = DetectorConfig().classes
     assert set(classes) <= set(COCO_CLASSES)
     assert set(classes.values()) == {PERSON, BAG}
-    assert not {"cell phone", "laptop", "book"} & set(classes)   # not claimed as supported
+    assert {"backpack", "handbag", "suitcase", "cell phone", "laptop"} <= set(classes)
 
 
 def test_blob_detector_finds_the_synthetic_people_and_bag():

@@ -10,6 +10,77 @@
 There is **no validated real-world detection rate**. Producing one needs consented staged
 recordings in campus-like settings plus hours of ordinary footage (see *Next steps*).
 
+## Update 2026-11-15 (later) — action route: classify the act, not the object
+
+**Why.** The bag could not be detected during the real grab under any setting, and "bag" is only
+one kind of object. Body keypoints on the same clip (RTMPose-t, ~8 ms per person) showed the act
+itself clearly: hands joined, both arms stretched, torsos pulling apart, then one person leaving.
+The action route (see [ARCHITECTURE.md](ARCHITECTURE.md#the-action-route-object-agnostic)) uses
+only that.
+
+### Real footage (real YOLOX-Tiny + real RTMPose-t, 10 FPS; `benchmarks/results/action_videos.json`)
+
+| Clip | Before | With the action route |
+|---|---|---|
+| Mixkit 31359 staged handbag snatch | info event only | **`possible_snatching` review alert**, 5.9 s (contact from 3.2 s to 5.2 s; alert 0.7 s after the hands parted). Evidence: 1.8 s of contact, 11 frames of both arms stretched towards each other while the torsos moved 0.72 body heights apart, the other person kept reaching for 3 frames afterwards |
+| Mixkit 31395 phone taken at night | nothing | nothing — still missed (dark, brief, one hand barely visible) |
+| Mixkit 31354 phone lifted from an open bag | nothing | nothing — still missed (no hand contact between the two people) |
+| 6 ordinary-activity clips (7.6 min) | 0 alerts | **0 alerts, 0 info events**; 14 real hand contacts were examined and dismissed, including a 3 s mutual-reach contact (handshake-like, torsos moved 0.02 apart) |
+
+**This is not independent evidence.** The staged clip is the only real positive and the action
+rules were designed while looking at it (the tug rule in particular). The independent test is the
+staged webcam trials.
+
+### Scripted scenarios, held out (100 runs each, 27 scenarios, mock detections and mock keypoints)
+
+New scenarios, defined before results: P07 grab of an object the detector never sees, then run
+(positive); N19 handshake then one walks away; N21 brief tap then walks on (negatives).
+Wrist keypoints are missed 10 % of the time and jittered by 2 % of body height.
+
+| | Object route only | Object + action routes |
+|---|---|---|
+| P07 undetectable object grabbed | 0 / 100 | **100 / 100** |
+| P01 run-by snatch | 93 | **100** |
+| P02 walk up and pull away | 91 | **99** |
+| P06 bag hidden during the grab | 92 (alert ≈ 2.4 s) | **100** (≈ 2.0 s) |
+| P03, P04, P05 | 100 each | 100 each |
+| False review alerts, 20 negative scenarios (7.3 h) | 0 | **0** |
+| Overall recall | 0.823 | **0.999** |
+| Time to detection median / p90 | 1.11 / 2.23 s | 1.12 / 1.95 s |
+
+Robustness with both routes (25 runs per scenario per point; snatch = P01+P02+P06+P07, 100 events):
+
+| Condition | Snatch detected | False review alerts |
+|---|---|---|
+| Bag detections missed 0 / 10 / 25 / 40 / 55 % | 100 / 100 / 100 / 100 / 99 | 0 / 0 / 1 / 0 / 2 |
+| Analysis rate 3 / 5 / 8 / 10 / 15 FPS | 55 / 94 / 99 / 100 / 99 | 0 / 0 / 0 / 0 / 1 |
+| People missed 2 / 10 / 20 / 35 % | 100 / 100 / 95 / 77 | 0 / 1 / 0 / 0 |
+| Box jitter 0 / 3 / 6 / 10 % | 100 / 100 / 99 / 98 | 1 / 0 / 3 / **9** |
+
+The action route makes snatch detection almost independent of bag detection (the earlier
+dominant failure), at the price of depending on *person* detection and keypoints: recall falls
+when people are missed 35 % of the time, and heavy jitter now produces false alerts in five
+scenarios instead of one.
+
+### The look-alike it cannot separate
+
+X01, a game of tag (touch, sprint off, the other often chases; nothing is taken):
+**100 of 100 runs raise `possible_snatching`.** The motion is the same as a grab-and-run. This
+is inherent to judging the act without seeing an object, it is stated in every such event's
+uncertainties, and it is why these are review candidates and not findings. Expect the same from
+playful grabs between friends.
+
+### Cost (real clips, real-time pacing, 25 s each)
+
+| Scene | Frame total mean / p95 | Capture → result p95 | Pose | CPU | Peak memory | Dropped |
+|---|---|---|---|---|---|---|
+| Store aisle, 3–5 people close together, pose on | 52.5 / 75.5 ms | 73 ms | 22.5 ms mean, 30.6 p95, on 133 of 251 frames | 22 % | 204 MB | 0 |
+| Same, pose off | 36.8 / 41.5 ms | 41 ms | — | 23 % | 204 MB | 0 |
+| Two people, pose on | 43.2 / 67.8 ms | 68 ms | 18.6 ms mean on 49 of 251 frames | 22 % | 204 MB | 0 |
+
+10 analysed FPS is held in all three. Pose runs only when people are within 1.8 body heights of
+each other and costs nothing otherwise.
+
 ## Update 2026-11-15 — hidden exchanges, possession checks, tracker fix
 
 **Why.** Frame-by-frame analysis of the missed staged snatch (Mixkit 31359, every 24 fps frame,

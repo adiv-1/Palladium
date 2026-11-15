@@ -20,6 +20,9 @@ class Metrics:
         self._lag_ms: deque[float] = deque(maxlen=window)
         self._frame_walls: deque[float] = deque(maxlen=window)
         self._cpu: deque[float] = deque(maxlen=window)
+        self._pose_ms: deque[float] = deque(maxlen=window)
+        self.pose_frames = 0
+        self.pose_people = 0
         self._last_cpu_sample = time.monotonic()
         self.frames_analysed = 0
         self.events_emitted = 0
@@ -38,6 +41,12 @@ class Metrics:
                 self._last_cpu_sample = now
                 self._cpu.append(self._proc.cpu_percent(None))   # percent of ONE core
                 self.peak_rss_mb = max(self.peak_rss_mb, self._rss_mb())
+
+    def record_pose(self, ms: float, people: int) -> None:
+        with self._lock:
+            self._pose_ms.append(ms)
+            self.pose_frames += 1
+            self.pose_people += people
 
     def _rss_mb(self) -> float:
         return self._proc.memory_info().rss / (1024 * 1024)
@@ -68,6 +77,8 @@ class Metrics:
                 "analysed_fps": round(fps, 2),
                 "inference_ms": self._stats(self._inference_ms),
                 "frame_total_ms": self._stats(self._total_ms),
+                "pose_ms_when_run": self._stats(self._pose_ms),
+                "pose_frames": self.pose_frames, "pose_people": self.pose_people,
                 "capture_to_result_ms": self._stats(self._lag_ms),
                 "cpu_percent_of_one_core": {"mean": round(float(np.mean(cpu)), 1) if cpu else None,
                                             "max": round(float(np.max(cpu)), 1) if cpu else None},

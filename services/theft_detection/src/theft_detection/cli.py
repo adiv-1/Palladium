@@ -133,8 +133,12 @@ def cmd_run(args) -> int:
 
 def cmd_fetch_models(args) -> int:
     from .detection.models import MODEL_REGISTRY, ensure_model
+    from .detection.pose import POSE_REGISTRY, ensure_pose_model
 
-    for name in args.names or ["yolox_tiny"]:
+    for name in args.names or ["yolox_tiny", "rtmpose_t"]:
+        if name in POSE_REGISTRY:
+            print(f"{name}: {ensure_pose_model(name, args.weights_dir)} (sha256 verified, licence {POSE_REGISTRY[name].license})")
+            continue
         if name not in MODEL_REGISTRY:
             print(f"unknown model '{name}'. Known: {', '.join(MODEL_REGISTRY)}", file=sys.stderr)
             return 2

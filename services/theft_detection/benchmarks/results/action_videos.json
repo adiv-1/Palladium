@@ -1,0 +1,293 @@
+{
+  "summary": {
+    "videos": 9,
+    "annotated_seconds": 479.5,
+    "true_positives": 1,
+    "false_negatives": 0,
+    "false_positives": 0,
+    "unsupported_object_events": 2,
+    "precision": 1.0,
+    "recall": 1.0,
+    "negative_seconds": 454.1,
+    "false_alerts_in_negative_videos": 0,
+    "median_delay_s": 2.12,
+    "model": "yolox_tiny",
+    "analysis_fps": 10.0
+  },
+  "videos": [
+    {
+      "video": "data/stock/mixkit_31359.mp4",
+      "status": "ended",
+      "detail": "",
+      "wall_s": 3.6,
+      "frames_analysed": 76,
+      "matched": [
+        {
+          "label": {
+            "start": 3.8,
+            "end": 5.5,
+            "type": "possible_snatching",
+            "object": "handbag",
+            "supported": true,
+            "note": "a runner pulls a handbag from a standing person; handheld camera pans with the action"
+          },
+          "delay_s": 2.12
+        }
+      ],
+      "missed": [],
+      "unsupported_missed": [],
+      "false_alerts": [],
+      "info_events": [],
+      "dismissed": [
+        {
+          "kind": "transfer",
+          "reason": "duplicate_within_cooldown",
+          "at_s": 6.5
+        }
+      ],
+      "safesc_predictions": [
+        {
+          "start": 3.208,
+          "end": 5.917,
+          "detected_at": 5.917
+        }
+      ],
+      "model_version": "theft_detection/0.1.0 detector=yolox_tiny@sha256:427cc366d34e tracker=bytetrack-np",
+      "duration": 7.6,
+      "had_events": true
+    },
+    {
+      "video": "data/stock/mixkit_31395.mp4",
+      "status": "ended",
+      "detail": "",
+      "wall_s": 4.9,
+      "frames_analysed": 108,
+      "matched": [],
+      "missed": [],
+      "unsupported_missed": [
+        {
+          "start": 5.2,
+          "end": 6.5,
+          "type": "possible_snatching",
+          "object": "cell phone",
+          "supported": false,
+          "note": "phone taken from a hand at night: phones are not a configured class"
+        }
+      ],
+      "false_alerts": [],
+      "info_events": [],
+      "dismissed": [],
+      "safesc_predictions": [],
+      "model_version": "theft_detection/0.1.0 detector=yolox_tiny@sha256:427cc366d34e tracker=bytetrack-np",
+      "duration": 10.8,
+      "had_events": true
+    },
+    {
+      "video": "data/stock/mixkit_31354.mp4",
+      "status": "ended",
+      "detail": "",
+      "wall_s": 3.5,
+      "frames_analysed": 70,
+      "matched": [],
+      "missed": [],
+      "unsupported_missed": [
+        {
+          "start": 2.5,
+          "end": 4.0,
+          "type": "possible_snatching",
+          "object": "cell phone",
+          "supported": false,
+          "note": "phone lifted out of an open bag; the bag itself never leaves its holder"
+        }
+      ],
+      "false_alerts": [],
+      "info_events": [],
+      "dismissed": [],
+      "safesc_predictions": [],
+      "model_version": "theft_detection/0.1.0 detector=yolox_tiny@sha256:427cc366d34e tracker=bytetrack-np",
+      "duration": 7.0,
+      "had_events": true
+    },
+    {
+      "video": "data/samples/classroom.mp4",
+      "status": "ended",
+      "detail": "",
+      "wall_s": 26.7,
+      "frames_analysed": 328,
+      "matched": [],
+      "missed": [],
+      "unsupported_missed": [],
+      "false_alerts": [],
+      "info_events": [],
+      "dismissed": [
+        {
+          "kind": "removal",
+          "reason": "object_no_longer_detected_without_a_single_adjacent_person",
+          "at_s": 22.8
+        }
+      ],
+      "safesc_predictions": [],
+      "model_version": "theft_detection/0.1.0 detector=yolox_tiny@sha256:427cc366d34e tracker=bytetrack-np",
+      "duration": 32.8,
+      "had_events": false
+    },
+    {
+      "video": "data/samples/face-demographics-walking-and-pause.mp4",
+      "status": "ended",
+      "detail": "",
+      "wall_s": 39.8,
+      "frames_analysed": 909,
+      "matched": [],
+      "missed": [],
+      "unsupported_missed": [],
+      "false_alerts": [],
+      "info_events": [],
+      "dismissed": [
+        {
+          "kind": "action",
+          "reason": "hand_contact_then_stayed_together",
+          "at_s": 33.5
+        },
+        {
+          "kind": "action",
+          "reason": "hand_contact_then_stayed_together",
+          "at_s": 38.25
+        },
+        {
+          "kind": "action",
+          "reason": "hand_contact_then_ordinary_parting",
+          "at_s": 43.75
+        },
+        {
+          "kind": "action",
+          "reason": "hand_contact_then_stayed_together",
+          "at_s": 62.17
+        },
+        {
+          "kind": "action",
+          "reason": "hand_contact_then_stayed_together",
+          "at_s": 64.42
+        }
+      ],
+      "safesc_predictions": [],
+      "model_version": "theft_detection/0.1.0 detector=yolox_tiny@sha256:427cc366d34e tracker=bytetrack-np",
+      "duration": 90.9,
+      "had_events": false
+    },
+    {
+      "video": "data/samples/one-by-one-person-detection.mp4",
+      "status": "ended",
+      "detail": "",
+      "wall_s": 43.8,
+      "frames_analysed": 1394,
+      "matched": [],
+      "missed": [],
+      "unsupported_missed": [],
+      "false_alerts": [],
+      "info_events": [],
+      "dismissed": [],
+      "safesc_predictions": [],
+      "model_version": "theft_detection/0.1.0 detector=yolox_tiny@sha256:427cc366d34e tracker=bytetrack-np",
+      "duration": 139.4,
+      "had_events": false
+    },
+    {
+      "video": "data/samples/people-detection.mp4",
+      "status": "ended",
+      "detail": "",
+      "wall_s": 18.4,
+      "frames_analysed": 496,
+      "matched": [],
+      "missed": [],
+      "unsupported_missed": [],
+      "false_alerts": [],
+      "info_events": [],
+      "dismissed": [
+        {
+          "kind": "action",
+          "reason": "hand_contact_then_stayed_together",
+          "at_s": 18.67
+        },
+        {
+          "kind": "action",
+          "reason": "hand_contact_then_stayed_together",
+          "at_s": 32.83
+        }
+      ],
+      "safesc_predictions": [],
+      "model_version": "theft_detection/0.1.0 detector=yolox_tiny@sha256:427cc366d34e tracker=bytetrack-np",
+      "duration": 49.7,
+      "had_events": false
+    },
+    {
+      "video": "data/samples/store-aisle-detection.mp4",
+      "status": "ended",
+      "detail": "",
+      "wall_s": 44.4,
+      "frames_analysed": 654,
+      "matched": [],
+      "missed": [],
+      "unsupported_missed": [],
+      "false_alerts": [],
+      "info_events": [],
+      "dismissed": [
+        {
+          "kind": "action",
+          "reason": "hand_contact_then_stayed_together",
+          "at_s": 14.01
+        },
+        {
+          "kind": "action",
+          "reason": "hand_contact_then_stayed_together",
+          "at_s": 20.3
+        },
+        {
+          "kind": "action",
+          "reason": "hand_contact_then_stayed_together",
+          "at_s": 25.01
+        },
+        {
+          "kind": "action",
+          "reason": "hand_contact_then_stayed_together",
+          "at_s": 25.61
+        },
+        {
+          "kind": "action",
+          "reason": "hand_contact_then_stayed_together",
+          "at_s": 30.71
+        },
+        {
+          "kind": "action",
+          "reason": "hand_contact_then_stayed_together",
+          "at_s": 36.6
+        },
+        {
+          "kind": "action",
+          "reason": "hand_contact_then_stayed_together",
+          "at_s": 56.31
+        }
+      ],
+      "safesc_predictions": [],
+      "model_version": "theft_detection/0.1.0 detector=yolox_tiny@sha256:427cc366d34e tracker=bytetrack-np",
+      "duration": 65.4,
+      "had_events": false
+    },
+    {
+      "video": "data/samples/worker-zone-detection.mp4",
+      "status": "ended",
+      "detail": "",
+      "wall_s": 34.8,
+      "frames_analysed": 759,
+      "matched": [],
+      "missed": [],
+      "unsupported_missed": [],
+      "false_alerts": [],
+      "info_events": [],
+      "dismissed": [],
+      "safesc_predictions": [],
+      "model_version": "theft_detection/0.1.0 detector=yolox_tiny@sha256:427cc366d34e tracker=bytetrack-np",
+      "duration": 75.9,
+      "had_events": false
+    }
+  ]
+}

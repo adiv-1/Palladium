@@ -69,6 +69,7 @@ class Person:
     path: list[tuple[float, float, float]]
     width_ratio: float = 0.36
     color: int = 0  # palette index for the renderer
+    reaches: list[tuple[float, float, str]] = field(default_factory=list)  # (t0, t1, towards person id)
 
     def feet(self, t: float) -> tuple[float, float]:
         kf = self.path
@@ -181,6 +182,37 @@ class Scenario:
                 out.update(p for p in (s.anchor.person, segs[i + 1].anchor.person) if p)
         return out
 
+    def keypoints(self, pid: str, t: float) -> np.ndarray:
+        """COCO-17 style (x, y, score) with shoulders, hips and wrists filled in. An arm reaches
+        towards another person's near hand during the person's scripted ``reaches``."""
+        p = self.person(pid)
+        x, y = p.feet(t)
+        H = p.height
+        kp = np.zeros((17, 3), dtype=np.float32)
+        kp[5] = (x - 0.12 * H, y - 0.80 * H, 0.9)
+        kp[6] = (x + 0.12 * H, y - 0.80 * H, 0.9)
+        kp[11] = (x - 0.08 * H, y - 0.50 * H, 0.9)
+        kp[12] = (x + 0.08 * H, y - 0.50 * H, 0.9)
+        kp[9] = (x - 0.15 * H, y - 0.47 * H, 0.9)
+        kp[10] = (x + 0.15 * H, y - 0.47 * H, 0.9)
+        for t0, t1, target in p.reaches:
+            if not (t0 - 0.2 <= t <= t1 + 0.2):
+                continue
+            u = _smooth(min((t - (t0 - 0.2)) / 0.2, ((t1 + 0.2) - t) / 0.2, 1.0))
+            q = self.person(target)
+            qx, qy = q.feet(t)
+            side = 1.0 if qx >= x else -1.0
+            goal = (qx - side * 0.15 * q.height, qy - 0.47 * q.height)      # the other's near hand
+            sx, sy = x, y - 0.80 * H
+            dx, dy = goal[0] - sx, goal[1] - sy
+            n = math.hypot(dx, dy)
+            k = min(n, 0.45 * H) / max(n, 1e-6)                             # arm length limit
+            j = 10 if side > 0 else 9
+            rx, ry = sx + dx * k, sy + dy * k
+            kp[j, 0] += (rx - kp[j, 0]) * u
+            kp[j, 1] += (ry - kp[j, 1]) * u
+        return kp
+
     def camera_offset(self, t: float) -> tuple[float, float]:
         if not self.shake or not (self.shake[1] <= t <= self.shake[2]):
             return 0.0, 0.0
@@ -254,6 +286,38 @@ def observe(sc: Scenario, t: float, rng: np.random.Generator, params: ObsParams,
         x, y = rng.uniform(100, FRAME_W - 100), rng.uniform(200, FRAME_H - 60)
         dets.append(Detection((x, y, x + 50, y + 55), float(rng.uniform(0.3, 0.45)), "handbag", BAG))
     return dets, gm
+
+
+def observe_poses(sc: Scenario, t: float, tracks, rng: np.random.Generator, jitter: float = 0.02,
+                  wrist_miss: float = 0.10) -> dict:
+    """Mock keypoints for the person tracks, as the pose model would return them."""
+    ox, oy = sc.camera_offset(t)
+    out = {}
+    for tr in tracks:
+        if tr.category != PERSON or tr.lost_s > 0:
+            continue
+        best, best_iou = None, 0.5
+        for p in sc.persons:
+            b = p.box(t)
+            b = (b[0] + ox, b[1] + oy, b[2] + ox, b[3] + oy)
+            w = min(b[2], tr.box[2]) - max(b[0], tr.box[0])
+            h = min(b[3], tr.box[3]) - max(b[1], tr.box[1])
+            if w <= 0 or h <= 0:
+                continue
+            inter = w * h
+            iou_ = inter / ((b[2] - b[0]) * (b[3] - b[1]) + (tr.box[2] - tr.box[0]) * (tr.box[3] - tr.box[1]) - inter)
+            if iou_ > best_iou:
+                best, best_iou = p, iou_
+        if best is None:
+            continue
+        kp = sc.keypoints(best.pid, t)
+        kp[:, 0] += ox + rng.normal(0, jitter * best.height, 17)
+        kp[:, 1] += oy + rng.normal(0, jitter * best.height, 17)
+        for j in (9, 10):
+            if rng.random() < wrist_miss:
+                kp[j, 2] = 0.1
+        out[tr.track_id] = kp
+    return out
 
 
 def _cover(inner: Box, outer: Box) -> float:

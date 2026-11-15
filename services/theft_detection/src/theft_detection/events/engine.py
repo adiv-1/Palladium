@@ -121,6 +121,8 @@ class EventEngine:
         self.cfg = cfg or EngineConfig()
         self.zones = [z for z in (zones or []) if z.active]
         self.decisions: deque[Decision] = deque(maxlen=200)
+        from .actions import ActionEngine
+        self.actions = ActionEngine(self)
         self.reset()
 
     def reset(self) -> None:
@@ -139,6 +141,7 @@ class EventEngine:
         self._bag_dets: deque[tuple[float, list[Box]]] | None = None
         self._last_ts: float | None = None
         self._frame_size: tuple[int, int] | None = None
+        self.actions.reset()
         self.decisions.clear()
 
     # ====================================================================================
@@ -151,6 +154,7 @@ class EventEngine:
         global_motion: tuple[float, float] = (0.0, 0.0),
         frame_size: tuple[int, int] | None = None,
         detections: list[Detection] | None = None,
+        poses: dict | None = None,
     ) -> list[RawEvent]:
         """Advance one analysed frame. ``detections`` (optional) are this frame's raw detector
         output; with them the verifier can see objects that no confirmed track has claimed."""
@@ -215,6 +219,8 @@ class EventEngine:
         for c in list(self._pickups):
             self._verify_pickup(c, ts, visible_persons, events)
 
+        if poses is not None:
+            self.actions.update(ts, visible_persons, poses, events)
         self._update_zones(ts, persons, events)
         self._cleanup(ts, tracks)
         if not cfg.emit_info_events:
@@ -242,6 +248,7 @@ class EventEngine:
                        "to": person_ref(c.taker), "elapsed_s": round(ts - c.t0, 2)} for c in self._transfers]
         candidates += [{"kind": "pickup", "object": object_ref(c.obj_id), "from": None,
                         "to": person_ref(c.taker), "elapsed_s": round(ts - c.t0, 2)} for c in self._pickups]
+        candidates += self.actions.snapshot()
         return {"stream_time_s": round(ts, 2), "objects": objects, "open_candidates": candidates,
                 "camera_unstable": bool(self._unstable and self._unstable[-1][1])}
 

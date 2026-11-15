@@ -122,7 +122,7 @@ class TrialRecorder:
                 raise RuntimeError("no trial is running")
             self._active = None
         window = [d for d in decisions if a.start_ts <= d.ts <= stream_ts]
-        candidates = [d for d in window if d.kind in ("transfer", "pickup", "removal", "disappearance")]
+        candidates = [d for d in window if d.kind in ("transfer", "pickup", "removal", "disappearance", "action")]
         review = [e for e in a.events if e["severity"] == "review"]
         info = [e for e in a.events if e["severity"] != "review"]
         if review:
