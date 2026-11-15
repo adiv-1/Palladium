@@ -45,6 +45,7 @@ class SourceRequest(BaseModel):
     name: str = Field(default='Phone camera', min_length=1, max_length=80)
     kind: Literal['phone','webcam','rtsp'] = 'phone'
     url: str | None = None
+    review_copies: bool = True
 
 class Envelope(BaseModel):
     status: Literal['ok','unavailable','failed']

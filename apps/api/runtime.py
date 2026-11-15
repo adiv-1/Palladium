@@ -25,6 +25,7 @@ pairings={}
 class VideoSession:
     def __init__(self,source):
         self.source=source; self.buffer=CircularBuffer(settings.pre_event_seconds+settings.post_event_seconds+settings.max_inference_lag_seconds+5)
+        self.review_copies=source.telemetry.get('review_copies',True)
         self.gate=TemporalGate(settings.alert_confidence_threshold,settings.alert_cooldown_seconds,settings.alert_agreement_seconds)
         self.light=LightingGate(settings.dark_luminance_threshold,settings.light_luminance_threshold)
         self.detector=FixtureDetector() if settings.streaming_model=='fixture' else MossDetector(settings.moss_ws_url)
@@ -178,7 +179,7 @@ class VideoSession:
                 self.chat_notes.append({**note,'received_stream_time':frame.timestamp})
                 self.chat_notes=self.chat_notes[-30:];self.last_chat_id=note['id']
         self.source.status='streaming'
-        self.source.telemetry={'timestamp':frame.timestamp,'frame_count':self.count,'lighting':lighting,
+        self.source.telemetry={'review_copies':self.review_copies,'timestamp':frame.timestamp,'frame_count':self.count,'lighting':lighting,
             'frame_width':int(image.shape[1]),'frame_height':int(image.shape[0]),
             'buffer_seconds':frame.timestamp-self.buffer.frames[0].timestamp,'buffer_bytes':self.buffer.size,
             'model':settings.streaming_model,'model_status':'error' if self.error else ('waiting_for_gpu' if self.inference_state=='waiting_for_gpu' else getattr(self.detector,'phase',self.inference_state)),
@@ -234,6 +235,7 @@ class VideoSession:
             'moss_observations':[n for n in self.chat_notes if frames[0].timestamp-10<=n['received_stream_time']<=end],
             'alert_gate':{'threshold':settings.alert_confidence_threshold,'rule':'two original-frame sets','score':d.confidence},
             'sampling_policy':'Original context and motion transitions; motion only selects frames, never triggers incidents',
+            'review_copies_requested':self.review_copies,
             'model_output_audit':candidate.get('output_audit',list(getattr(self.detector,'response_audit',[]))),
             'confidence_note':'Uncalibrated model score, not probability of harm',
             'inference_error':self.error,'frame_timestamps':[{'index':f.index,'timestamp':f.timestamp} for f in frames]}
@@ -248,7 +250,7 @@ class VideoSession:
             await asyncio.to_thread(save,ReviewAction(incident_id=incident.id,decision='needs_review',note='Reviewer marked this moment from the source feed'))
         self.update_alert(candidate.get('notice_id'),status='saved',incident_id=incident.id)
         for kind,enabled in [('review_brief',settings.enable_clip_review),('relayvsr',settings.enable_relay_vsr),('relift',settings.enable_relift)]:
-            if enabled: await asyncio.to_thread(save,Job(incident_id=incident.id,kind=kind,priority=0 if kind=='review_brief' else 2 if kind=='relayvsr' else 3))
+            if enabled and (kind=='review_brief' or self.review_copies): await asyncio.to_thread(save,Job(incident_id=incident.id,kind=kind,priority=0 if kind=='review_brief' else 2 if kind=='relayvsr' else 3))
         await hub.publish('incident',incident.model_dump())
     async def close(self):
         self.closing=True

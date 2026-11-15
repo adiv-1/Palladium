@@ -45,7 +45,7 @@ async def main(origin,output):
     async with httpx.AsyncClient(base_url=origin,headers=headers,timeout=240) as c:
         h=await c.get('/api/health');h.raise_for_status();assert h.json()['active_sources']==0
         warm=await c.post('/api/models/moss/warm');warm.raise_for_status()
-        r=await c.post('/api/sources',json={'name':'Research acceptance · real video replay · no human bookmark','kind':'phone'})
+        r=await c.post('/api/sources',json={'name':'Research acceptance · real video replay · no human bookmark','kind':'phone','review_copies':False})
         r.raise_for_status();pair=r.json();source_id=pair['source']['id'];print('Source',source_id,'duration',round(at,1),flush=True)
         ack_times=[];pending={};alerts={};started=time.monotonic();index=0;phase=-1
         async with websockets.connect(origin.replace('https:','wss:')+'/ws/capture',max_size=2**22) as ws:

@@ -123,7 +123,7 @@ async def source_create(payload:SourceRequest):
     if payload.kind=='rtsp' and not settings.allow_rtsp: raise HTTPException(400,'RTSP must be explicitly enabled by the operator')
     if payload.kind=='rtsp' and (not payload.url or not payload.url.startswith(('rtsp://','rtsps://'))): raise HTTPException(400,'Expected RTSP URL')
     if sessions or upload_in_progress: raise HTTPException(409,'Stop the active source before connecting another')
-    source=save(Source(name=payload.name,kind=payload.kind))
+    source=save(Source(name=payload.name,kind=payload.kind,telemetry={'review_copies':payload.review_copies}))
     if payload.kind=='rtsp': background(replay(source,payload.url))
     token=secrets.token_urlsafe(32); pairings[token]={'source_id':source.id,'expires':time.time()+3600}
     return {'source':source,'capture_url':f'{settings.public_url}/capture#{token}'}
