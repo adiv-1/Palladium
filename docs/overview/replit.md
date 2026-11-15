@@ -29,7 +29,7 @@ Laptop dashboard                 Phone Safari / Chrome
 6. Publish, open the HTTPS `.replit.app` URL, and enter the existing SafeSC workspace token. No additional reviewer token is configured in Replit. The login cookie belongs to the Replit app origin; the gateway forwards it to the existing authenticated backend.
 7. Click Connect phone **on the published Replit dashboard**, scan the new QR code and start the camera. Pairing links use the dashboard's current origin automatically, so both the phone capture page and its WebSocket use Replit. Keep the phone page foregrounded. Existing links from the Runpod dashboard still point at Runpod.
 
-The GitHub import does not include `.env`, original clips, local databases, model weights, or cloud keys. Do not paste `RUNPOD_TOKEN`, `VULTR_API_KEY`, `HF_TOKEN`, SSH keys, or the Mac's entire `.env` into Replit. No `VITE_` secret is needed. The gateway never bypasses backend authorization, logs request bodies/tokens, or stores video; uploads, playback range responses, WebSocket bytes and cookies pass through it.
+The **replit-ui deployment branch** excludes `.env`, original clips, local databases, model weights, and cloud keys. The full main branch separately includes the uploader-authorized public demonstration clips under `demo/videos/`. Do not paste `RUNPOD_TOKEN`, `VULTR_API_KEY`, `HF_TOKEN`, SSH keys, or the Mac's entire `.env` into Replit. No `VITE_` secret is needed. The gateway never bypasses backend authorization, logs request bodies/tokens, or stores video; uploads, playback range responses, WebSocket bytes and cookies pass through it.
 
 The public historical activity snapshot is versioned on the full **main** branch
 under `public-data/activity/`, separately from private operational data. Restore

@@ -174,12 +174,41 @@ async def upload(file:UploadFile):
         await file.close()
 
 @app.get('/api/incidents',dependencies=[Depends(authenticated)])
-def incidents():
+def incidents(deleted:bool=False):
+    from .incident_management import deleted as is_deleted
     from .presentation import processing_summary
     jobs={}
     for job in rows(Job):jobs.setdefault(job.incident_id,[]).append(job)
     return [{**i.model_dump(),'processing_summary':processing_summary(i,jobs.get(i.id,[]))}
-        for i in sorted(rows(Incident),key=lambda i:i.created_at,reverse=True)]
+        for i in sorted(rows(Incident),key=lambda i:i.created_at,reverse=True) if is_deleted(i)==deleted]
+
+from .incident_management import QueueChange, ReviewedLabel
+
+@app.delete('/api/incidents/{incident_id}',dependencies=[Depends(authenticated)])
+async def incident_delete(incident_id:str,payload:QueueChange|None=None):
+    from .incident_management import set_queue_deleted
+    try:incident=await asyncio.to_thread(set_queue_deleted,incident_id,True,payload.note if payload else '')
+    except LookupError:raise HTTPException(404,'Incident not found')
+    except ValueError as error:raise HTTPException(409,str(error))
+    await hub.publish('incident',incident.model_dump())
+    return incident
+
+@app.post('/api/incidents/{incident_id}/restore',dependencies=[Depends(authenticated)])
+async def incident_restore(incident_id:str,payload:QueueChange|None=None):
+    from .incident_management import set_queue_deleted
+    try:incident=await asyncio.to_thread(set_queue_deleted,incident_id,False,payload.note if payload else '')
+    except LookupError:raise HTTPException(404,'Incident not found')
+    await hub.publish('incident',incident.model_dump())
+    return incident
+
+@app.post('/api/incidents/{incident_id}/label',dependencies=[Depends(authenticated)])
+async def incident_label(incident_id:str,payload:ReviewedLabel):
+    from .incident_management import set_reviewed_label
+    try:incident=await asyncio.to_thread(set_reviewed_label,incident_id,payload)
+    except LookupError:raise HTTPException(404,'Incident not found')
+    except ValueError as error:raise HTTPException(409,str(error))
+    await hub.publish('incident',incident.model_dump())
+    return incident
 
 @app.get('/api/incidents/{incident_id}',dependencies=[Depends(authenticated)])
 def incident_detail(incident_id:str):

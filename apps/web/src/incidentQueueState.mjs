@@ -3,7 +3,9 @@ export function deriveIncidentCard(incident) {
   const record=incident.record||{};
   const manual=record.trigger_origin==='reviewer';
   const initialObservation=typeof record.observable_events?.[0]?.observation==='string'?record.observable_events[0].observation:null;
-  const actionTitle=record.action==='object_taking'?'Object-taking flagged':record.action==='physical_contact'?'Physical contact flagged':'Possible event flagged';
+  const label=record.reviewed_label;
+  const reviewed=!!label&&typeof label.title==='string'&&label.title.trim().length>0;
+  const tags=reviewed&&Array.isArray(label.tags)?label.tags.filter(t=>typeof t==='string'&&t.trim()).map(t=>t.trim()):[];
   const gps=record.geolocation;
   let locationLabel=null;
   if(gps){
@@ -14,7 +16,9 @@ export function deriveIncidentCard(incident) {
   }
   const duration=Number(incident.end_time)-Number(incident.start_time);
   return {
-    title:manual?(initialObservation||'Requested clip review'):actionTitle,
+    title:reviewed?label.title.trim():'Saved video for review',
+    description:reviewed&&typeof label.description==='string'?label.description:'Review the preserved original footage and its context.',
+    reviewed,tags,deleted:record.queue_deleted?.active===true,
     manual,initialObservation,
     held:record.retention_hold?.active===true,locationLabel,
     reviewStatus:({pending:'Awaiting review',confirmed:'Flagged for follow-up',dismissed:'Dismissed',needs_review:'Needs more context'})[incident.review_status]||'Awaiting review',
@@ -22,4 +26,9 @@ export function deriveIncidentCard(incident) {
     lighting:typeof record.lighting_condition==='string'?record.lighting_condition.replaceAll('_',' '):null,
     mediaUnavailable:record.expired===true||record.media_evicted===true&&!record.files?.thumbnail,
   };
+}
+
+export function updateIncidentQueue(incidents,incident){
+  const remaining=incidents.filter(item=>item.id!==incident.id);
+  return incident.record?.queue_deleted?.active===true?remaining:[incident,...remaining].sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
 }
