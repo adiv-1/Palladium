@@ -72,7 +72,10 @@ def init(recover=True):
         for job in s.exec(select(Job).where(Job.status=='running')):
             job.status='failed'; job.error='Worker restarted; retry explicitly'; s.add(job)
         for src in s.exec(select(Source).where(Source.status.in_(['streaming','processing','warming','waiting_for_gpu']))):
-            src.status='disconnected'; s.add(src)
+            src.status='disconnected'
+            if 'geolocation' in src.telemetry:
+                src.telemetry={**src.telemetry,'geolocation':{'status':'disabled','provenance':'browser_permission'}}
+            s.add(src)
         s.commit()
 
 def save(obj):

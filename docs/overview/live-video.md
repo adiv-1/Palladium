@@ -41,6 +41,18 @@ Pairing tokens remain in the phone URL fragment and first signaling message;
 reviewers use the existing HttpOnly workspace cookie. Source rooms isolate peers.
 No audio is captured.
 
+## Optional camera geotags
+
+The phone capture page has a default-off **Share camera location** toggle. Once the camera is paired, enabling it requests browser location permission and starts a location watch. It does not delay camera startup, frame acknowledgements, or WebRTC playback. Accepted fixes are limited to one every five seconds and include latitude, longitude, the browser's accuracy in meters, and its measurement timestamp. Permission failure leaves the video running. Switching the toggle off, disconnecting, or stopping the camera stops the watch and clears the live position.
+
+The private dashboard shows a location and its reported accuracy in the live monitor. Saved incidents retain a separate geotag from the camera's location history at the event time, including its measurement time and provenance; a usable fix must precede the event and be no more than 60 seconds old. Later movement does not rewrite an incident's saved position. No location is invented for earlier uploads, remote cameras, denied permission, or missing/stale fixes. A camera without a position provider needs a separate configured-location feature; its IP address is not treated as its physical location.
+
+Browser coordinates are user-device reports, not verified addresses or incident locations, and indoor precision varies. No reverse-geocoding service or map tiles are requested automatically. **Open map** is an explicit reviewer action. Incident geotags are private metadata included in the existing incident archive and follow that incident's retention or recall hold. Location sharing does not grant training permission.
+
+The capture protocol advertises `geolocation: true` in its ready message and accepts separate JSON `geolocation` updates only on the paired capture socket. Invalid or stale updates are rejected without interrupting camera frames. Source recovery after a worker restart clears live coordinates; saved incident snapshots remain intact.
+
+Reference: [browser location watches and permissions](https://developer.mozilla.org/en-US/docs/Web/API/Geolocation/watchPosition).
+
 ## MOSS delivery
 
 The adapter previously imposed an artificial 12 tokens/second pacing cap. It now

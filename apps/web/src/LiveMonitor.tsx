@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {receiveLiveVideo,hasDecodedVideo,type LiveMetrics} from './liveVideo';
+import CameraLocation from './CameraLocation';
 import {Camera,Smartphone,Upload,Radio,Eye,Sun,Clock,Activity,MessageSquare,AlertTriangle,LoaderCircle} from 'lucide-react';
 type Data=Record<string,any>;
 const socketUrl=(path:string)=>`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}${path}`;
@@ -111,6 +112,7 @@ export default function LiveMonitor({source,onPair,onUpload,onOpen}:{source?:Dat
     {live?<LiveVideo source={source!}/>:<div className="empty-camera live-empty"><div className="camera-ring"><Camera size={34}/></div><h3>{finishing?'Stream ended.':'A view starts here.'}</h3><p>{finishing?'Processing the remaining frames and saving incident context.':'Connect a phone or upload a video to start the live view and MOSS observation feed.'}</p>{!finishing&&<div><button className="primary" onClick={onPair}><Smartphone size={16}/>Pair phone camera</button><label className="button"><Upload size={16}/>Upload video<input hidden type="file" accept="video/mp4,video/quicktime,video/webm" onChange={e=>e.target.files?.[0]&&onUpload(e.target.files[0])}/></label></div>}</div>}
     <ObservationFeed source={source} onOpen={onOpen}/></div>
     <div className="live-telemetry">{[[Sun,'Lighting',source?.telemetry?.lighting?.state?.replaceAll('_',' ')||'Waiting'],[Clock,'Preserved context',`${(source?.telemetry?.buffer_seconds||0).toFixed(1)}s buffered`],[Activity,'Event verification',source?.telemetry?.safety_state==='NORMAL'?'No event flagged':source?.telemetry?.safety_state?.replaceAll('_',' ')||'Awaiting video'],[Eye,'Analysis status',source?.telemetry?.model_status||'Not started']].map(([Icon,label,value]:any)=><div key={label}><Icon size={15}/><span>{label}</span><strong>{value}</strong></div>)}</div>
+    {source&&['phone','webcam'].includes(source.kind)&&<CameraLocation location={source.telemetry?.geolocation} live={!!live} title={live?'Camera location':'Last camera location'}/>}
     {source?.telemetry?.error&&<p className="error">{source.telemetry.error}</p>}
   </section>
 }

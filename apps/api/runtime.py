@@ -41,6 +41,17 @@ class VideoSession:
         self.last_published=0;self.persistence_errors=[];self.review_alerts=[];self.previous_thumbnail=None
         self.model_update_task=None
         self.detector.on_update=self.model_updated
+        from .geolocation import Geolocation
+        self.geolocation=Geolocation()
+        self.source.telemetry={**self.source.telemetry,'geolocation':dict(self.geolocation.current)}
+    async def update_geolocation(self,payload):
+        current_time=self.latest_frame.timestamp if self.latest_frame else 0
+        result=self.geolocation.update(payload,current_time)
+        if result['accepted']:
+            self.source.telemetry={**self.source.telemetry,'geolocation':dict(self.geolocation.current)}
+            await asyncio.to_thread(save,self.source)
+            await hub.publish('source',self.source.model_dump())
+        return result
     def model_updated(self):
         """Coalesce native token bursts; never wait for the next camera frame."""
         if self.closing:return
@@ -96,6 +107,7 @@ class VideoSession:
             uncertainties=['Reviewer-requested bookmark; this is not an AI incident claim.'],
             supporting_frames=[f.index for f in list(self.buffer.frames)[-2:]])
         self.pending.append({'trigger':end,'detection':detection,'origin':'reviewer',
+            'geolocation':self.geolocation.snapshot(end),
             'output_audit':list(getattr(self.detector,'response_audit',[]))})
         return {'status':'marked','timestamp':end,'context':'Surrounding footage is saved after the post-event window or when the stream stops'}
     async def prepare_upload(self):
@@ -184,6 +196,7 @@ class VideoSession:
                     'label':'Possible incident — review required','origin':'temporal_review_gate',
                     'evidence_rule':'Two corroborating original-frame sets; human review required'})
                 self.pending.append({'trigger':event_end,'detection':detection,'notice_id':notice_id,'post_seconds':post_seconds,
+                    'geolocation':self.geolocation.snapshot(event_end),
                     'output_audit':list(getattr(self.detector,'response_audit',[]))})
     async def push(self,frame):
         self.buffer.append(frame); self.count+=1
@@ -219,7 +232,7 @@ class VideoSession:
         previous_chat_id=self.last_chat_id
         self.collect_notes(frame.timestamp)
         self.source.status='streaming'
-        self.source.telemetry={'review_copies':self.review_copies,'timestamp':frame.timestamp,'frame_count':self.count,'lighting':lighting,
+        self.source.telemetry={'geolocation':dict(self.geolocation.current),'review_copies':self.review_copies,'timestamp':frame.timestamp,'frame_count':self.count,'lighting':lighting,
             'capture_active':True,'stream_ended':False,
             'frame_width':int(image.shape[1]),'frame_height':int(image.shape[0]),
             'buffer_seconds':frame.timestamp-self.buffer.frames[0].timestamp,'buffer_bytes':self.buffer.size,
@@ -251,6 +264,7 @@ class VideoSession:
             await hub.publish('recording_error',{'source_id':self.source.id,'error':str(error)})
     async def persist(self,candidate,end,frozen_frames=None):
         trigger=candidate['trigger']; d=candidate['detection']
+        geotag=(candidate.get('geolocation') or self.geolocation.snapshot(trigger)) if self.source.kind in ('phone','webcam') else {'status':'unavailable','reason':'No phone geolocation is attached to uploaded or remote video','provenance':'browser_permission'}
         frames=frozen_frames if frozen_frames is not None else self.buffer.window(max(0,trigger-settings.pre_event_seconds),min(end,trigger+candidate.get('post_seconds',settings.post_event_seconds)))
         if not frames: return
         incident=Incident(source_id=self.source.id,start_time=frames[0].timestamp,end_time=frames[-1].timestamp,
@@ -270,7 +284,7 @@ class VideoSession:
             await asyncio.to_thread(write_clip,frames,original)
         thumbnail=folder/'thumbnail.jpg'; thumbnail.write_bytes(frames[len(frames)//2].jpeg)
         source_hash=self.source.original_sha256
-        record={'action':d.action,'observable_events':[x.model_dump() for x in d.observable_events], 'uncertainties':d.uncertainties,
+        record={'geolocation':geotag,'action':d.action,'observable_events':[x.model_dump() for x in d.observable_events], 'uncertainties':d.uncertainties,
             'supporting_frames':d.supporting_frames,'model':{'name':settings.streaming_model,'revision':settings.model_revision},
             'visual_verifier':settings.observation_verifier_model,
             'observation_model':{'name':'Qwen/Qwen3-VL-4B-Instruct','revision':getattr(getattr(self.detector,'verifier',None),'revision','unconfigured'),
@@ -310,7 +324,7 @@ class VideoSession:
     async def close(self):
         self.closing=True
         self.source.status='processing'
-        self.source.telemetry={**self.source.telemetry,'capture_active':False,'stream_ended':True}
+        self.source.telemetry={**self.source.telemetry,'capture_active':False,'stream_ended':True,'geolocation':{'status':'disabled','provenance':'browser_permission'}}
         await asyncio.to_thread(save,self.source)
         await hub.publish('source',self.source.model_dump())
         if self.model_update_task:await self.model_update_task
@@ -338,6 +352,8 @@ class VideoSession:
             if torch.cuda.is_available(): torch.cuda.empty_cache()
         from .recording import cleanup
         await cleanup(self.source.id)
+        self.geolocation.clear()
+        self.source.telemetry={**self.source.telemetry,'geolocation':dict(self.geolocation.current)}
         self.source.status='failed' if self.error else 'completed'; await asyncio.to_thread(save,self.source)
         self.source.telemetry={**self.source.telemetry,'error':self.error,
             'model_status':'error' if self.error else 'completed','last_observation':self.last_observation,

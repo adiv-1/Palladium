@@ -163,7 +163,12 @@ async def upload(file:UploadFile):
         await file.close()
 
 @app.get('/api/incidents',dependencies=[Depends(authenticated)])
-def incidents(): return sorted(rows(Incident),key=lambda i:i.created_at,reverse=True)
+def incidents():
+    from .presentation import processing_summary
+    jobs={}
+    for job in rows(Job):jobs.setdefault(job.incident_id,[]).append(job)
+    return [{**i.model_dump(),'processing_summary':processing_summary(i,jobs.get(i.id,[]))}
+        for i in sorted(rows(Incident),key=lambda i:i.created_at,reverse=True)]
 
 @app.get('/api/incidents/{incident_id}',dependencies=[Depends(authenticated)])
 def incident_detail(incident_id:str):
@@ -278,10 +283,13 @@ async def capture(ws:WebSocket):
         if not pairing or pairing['expires']<time.time(): await ws.close(4401,'Pairing expired'); return
         if sessions or upload_in_progress: await ws.close(4409,'Another stream is active'); return
         source=get(Source,pairing['source_id']); session=VideoSession(source); session.native_recording_expected=settings.enable_native_recording and hello.get('native_recording') is True; sessions[source.id]=session
-        await ws.send_json({'type':'ready','fps':settings.capture_fps,'source_id':source.id,'native_recording':settings.enable_native_recording})
+        await ws.send_json({'type':'ready','fps':settings.capture_fps,'source_id':source.id,'native_recording':settings.enable_native_recording,'geolocation':True})
         index=0; first=None
         while True:
             meta=await asyncio.wait_for(ws.receive_json(),30)
+            if meta.get('type')=='geolocation':
+                await ws.send_json(await session.update_geolocation(meta))
+                continue
             if meta.get('type')=='stop':
                 await session.close(); session=None
                 await ws.send_json({'type':'stopped'})
