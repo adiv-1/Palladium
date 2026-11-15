@@ -79,7 +79,14 @@ export default function OfficerView({unitId, room}: {unitId: string; room: strin
             <span className={`prio ${assignment.priority}`}>{assignment.priority}</span>
             <strong>{assignment.label}</strong>
           </div>
+          {assignment.urgency && <span className={`urgency ${assignment.urgency}`}>{assignment.urgency}</span>}
           <h2>{assignment.place}</h2>
+          {assignment.message && (
+            <div className="agent-outreach">
+              <small>From dispatch agent</small>
+              <p>{assignment.message}</p>
+            </div>
+          )}
           {(assignment.address || assignment.floors) && (
             <p className="where">{[assignment.address, assignment.floors && `${assignment.floors} floors`].filter(Boolean).join(' · ')}</p>
           )}

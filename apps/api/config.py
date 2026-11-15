@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     rack_dwell_seconds: float = Field(45, ge=5, le=600)
     rack_zones: str = ''
     cascade_cooldown_seconds: float = Field(30, ge=0, le=600)
+    # Dispatch agent (apps/api/dispatch_agent.py): recommends units; a person approves.
+    dispatch_agent_model: str = 'claude-opus-5-5'
+    anthropic_api_key: str = ''
     allow_rtsp: bool = False
     max_upload_mb: int = 500
 

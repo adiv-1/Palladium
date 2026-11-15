@@ -7,6 +7,7 @@ import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&ur
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
 import './dispatch.css';
+import './agent.css';
 import App from './App';
 import OfficerView from './Officer';
 

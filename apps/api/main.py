@@ -207,6 +207,17 @@ async def events(ws:WebSocket):
     except (WebSocketDisconnect,RuntimeError): pass
     finally: hub.listeners.discard(q)
 
+from . import dispatch_agent
+
+@app.post('/api/dispatch/recommend',dependencies=[Depends(authenticated)])
+async def dispatch_recommend(body:dispatch_agent.RecommendRequest):
+    return await dispatch_agent.recommend(body)
+
+@app.post('/api/dispatch/approve',dependencies=[Depends(authenticated)])
+def dispatch_approve(body:dispatch_agent.ApproveRequest):
+    try: return dispatch_agent.approve(body)
+    except dispatch_agent.ApprovalError as e: raise HTTPException(e.status,e.detail)
+
 # Dispatch relay between the command dashboard and officer phones. The room id is a random
 # 128-bit capability the dashboard generates and shares through the officer pairing link;
 # the relay only forwards small JSON messages between peers in the same room and keeps nothing.

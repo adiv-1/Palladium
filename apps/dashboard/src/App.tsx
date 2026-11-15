@@ -12,6 +12,7 @@ import {buildingAt, parseBuildings} from './buildings';
 import {acknowledge, arrive, AUTO_ACK_MS, cancel, clearUnit, createDispatch, POLICY, proposeUnits, remainingSeconds, resolve, tick, type DispatchState} from './dispatch';
 import {dashboardRoom, openBus, type Assignment, type Bus, type BusMessage} from './bus';
 import {INCIDENT_LABEL} from './types';
+import {approvePlan, requestRecommendation, type Recommendation} from './agent';
 import type {Building, Dispatch, DispatchRecord, Funnel, HistoryPoint, Incident, Officer, Rack} from './types';
 
 const GOOGLE_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || '';
@@ -46,6 +47,9 @@ export default function App() {
   const [demoFunnel, setDemoFunnel] = useState({frames: 0, candidates: 0, vlmChecks: 0});
   const [devices, setDevices] = useState<Record<string, number>>({});
   const [relayUp, setRelayUp] = useState(false);
+  const [recs, setRecs] = useState<Record<string, Recommendation>>({});
+  const [recLoading, setRecLoading] = useState<Record<string, boolean>>({});
+  const messagesRef = useRef<Record<string, {urgency: string; byUnit: Record<string, string>}>>({});
 
   const officers = ds.officers;
   const lastInteraction = useRef(0);
@@ -59,6 +63,10 @@ export default function App() {
   const devicesRef = useRef(devices);
   devicesRef.current = devices;
   const room = useMemo(() => dashboardRoom(), []);
+  const buildingsRef = useRef<Building[]>([]);
+  buildingsRef.current = buildings;
+  const recsRef = useRef<Record<string, Recommendation>>({});
+  recsRef.current = recs;
   const bus = useRef<Bus | null>(null);
 
   const cameras = useMemo(() => (buildings.length ? makeCameras(buildings) : []), [buildings]);
@@ -143,15 +151,31 @@ export default function App() {
     setViewState((cur) => ({...cur, ...v, transitionDuration: duration, transitionInterpolator: fly}));
   }, []);
 
+  const assess = useCallback(async (incident: Incident) => {
+    setRecLoading((m) => ({...m, [incident.id]: true}));
+    const building = buildingsRef.current.find((b) => b.id === incident.buildingId) ?? null;
+    const rec = await requestRecommendation(incident, building, dsRef.current.officers);
+    setRecs((m) => ({...m, [incident.id]: rec}));
+    setRecLoading((m) => ({...m, [incident.id]: false}));
+    setSelectedId((id) => {
+      if (id === incident.id) setChosen(rec.units.map((u) => u.unit_id).filter((uid) => dsRef.current.officers.some((o) => o.id === uid && o.status === 'available')));
+      return id;
+    });
+  }, []);
+
   const focus = useCallback((incident: Incident) => {
     setSelectedId(incident.id);
     setSelectedBuildingId(null);
-    const units = proposeUnits(dsRef.current.officers, incident);
-    setChosen(units.filter((u) => u.recommended).map((u) => u.officer.id));
+    const existing = recsRef.current[incident.id];
+    if (existing) setChosen(existing.units.map((u) => u.unit_id));
+    else {
+      setChosen(proposeUnits(dsRef.current.officers, incident).filter((u) => u.recommended).map((u) => u.officer.id));
+      if (incident.status === 'unreviewed') void assess(incident);
+    }
     const dispatched = incident.status === 'approved';
     setMode(dispatched ? 'dispatch' : 'focus');
     flyTo({longitude: incident.position[0], latitude: incident.position[1], zoom: dispatched ? 17.2 : 18.3, pitch: 62}, 2000);
-  }, [flyTo]);
+  }, [flyTo, assess]);
 
   const backToOrbit = useCallback(() => {
     setMode('orbit');
@@ -183,6 +207,7 @@ export default function App() {
       floors: b?.tags['building:levels'], observation: incident.observation, reason: d.reason, support: d.support,
       position: incident.position, partners: s.officers.filter((o) => d.unitIds.includes(o.id) && o.id !== unit.id).map((o) => o.callsign),
       assignedAt: unit.assignedAt ?? d.createdAt,
+      message: messagesRef.current[d.id]?.byUnit[unit.id], urgency: messagesRef.current[d.id]?.urgency,
     };
   }, [buildings]);
 
@@ -278,8 +303,11 @@ export default function App() {
         return;
       }
     }
+    const rec = recsRef.current[incident.id];
+    const messages = rec ? await approvePlan(rec, units.map((u) => u.id), 'Approved on the command view') : {};
     const t = Date.now();
     const {state, dispatch} = createDispatch(dsRef.current, incident, units.map((u) => u.id), t);
+    messagesRef.current[dispatch.id] = {urgency: rec?.urgency ?? '', byUnit: messages};
     apply(() => state);
     setIncidents((list) => list.map((i) => (i.id === incident.id ? {...i, status: 'approved', dispatchId: dispatch.id, officerId: units[0].id, decidedAt: t} : i)));
     setArcs((list) => [...list, ...units.map((u) => ({incidentId: incident.id, officerId: u.id, path: arcPath(u.position, incident.position), startedAt: timeRef.current, seconds: 2.2}))]);
@@ -288,7 +316,7 @@ export default function App() {
     const far = units.reduce((m, u) => Math.max(m, distance(u.position, incident.position)), 0);
     flyTo({longitude: incident.position[0], latitude: incident.position[1], zoom: far > 400 ? 16.4 : 17.1, pitch: 58}, 1600);
     const phones = units.filter((u) => devicesRef.current[u.id] && Date.now() - devicesRef.current[u.id] < 7000);
-    showToast(`Dispatched ${units.map((u) => u.callsign).join(' + ')}${phones.length ? ` · ${phones.length} phone${phones.length > 1 ? 's' : ''} notified` : ' · no phones linked, auto-acknowledging'}`);
+    showToast(`Agent contacted ${units.map((u) => u.callsign).join(' + ')}${phones.length ? ` · ${phones.length} phone${phones.length > 1 ? 's' : ''} notified` : ' · no phones linked, auto-acknowledging'}`);
   }, [selectedId, chosen, apply, flyTo, showToast]);
 
   const finishIncident = useCallback((status: 'resolved', dispatchId: string) => {
@@ -408,6 +436,7 @@ export default function App() {
         <IncidentDetail incident={selected} building={selectedBuilding} officers={officers} proposals={proposals} chosen={chosen}
           onToggleUnit={(id) => setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))}
           dispatch={selectedDispatch} devices={devices} onDispatch={dispatchUnits} onDismiss={dismiss}
+          rec={recs[selected.id] ?? null} recLoading={!!recLoading[selected.id]} onReassess={() => void assess(selected)}
           onResolve={() => selectedDispatch && finishIncident('resolved', selectedDispatch.id)}
           onCancel={() => selectedDispatch && cancelDispatch(selectedDispatch.id)}
           onClose={() => {setSelectedId(null); backToOrbit();}} />

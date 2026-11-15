@@ -29,6 +29,34 @@ Press **D**, or click **Stage demo incident**, to fire a staged event.
 
 Vite proxies `/api` and `/ws` to the API. Set `SAFESC_API` to point the proxy somewhere else. SafeSC sources carry no location, so live incidents are pinned to **simulated** camera positions.
 
+## AI dispatch agent
+
+When an incident is selected, the SafeSC backend's dispatch agent (Claude, model from `DISPATCH_AGENT_MODEL`, default `claude-opus-5-5`) reads the incident and the position, status and ETA of every unit stationed on campus. It recommends:
+
+- which units to send
+- an urgency level (critical, high, moderate or low) and a priority (P1 to P3)
+- a two-sentence overview
+- support to request
+- cautions
+- a short outreach message per unit
+
+**Human in the loop.** The person monitoring reviews the recommendation and can untick units. Nothing is sent until they press **"Approve — agent contacts N units"**. Approval is recorded in `data/dispatch_audit.jsonl` on the SafeSC server. The agent's messages then go to the units' phones (officer page), and the units travel to the site.
+
+**Endpoints** (reviewer login required):
+
+- `POST /api/dispatch/recommend`
+- `POST /api/dispatch/approve`
+
+**Setup:**
+
+1. Set `ANTHROPIC_API_KEY` (and optionally `DISPATCH_AGENT_MODEL`) in the SafeSC `.env`.
+2. Start the API on port 8000.
+3. In the dashboard, click **Connect SafeSC** and enter the token from `data/app_token`.
+
+**Fallback.** Without a key, or if the API is unreachable, the dashboard shows a rules-based plan with the same layout, clearly labelled **"Rules fallback"**. Model calls are logged to `data/dispatch_agent_usage.jsonl`.
+
+**Honesty notes.** Units and officers are simulated. EMS "requests" are not sent anywhere. The agent never infers identity, guilt or ownership.
+
 ## Data provenance
 
 | Data | Source | Label on screen |

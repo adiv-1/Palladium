@@ -18,6 +18,8 @@ export type Assignment = {
   position: LngLat;
   partners: string[];
   assignedAt: number;
+  message?: string; // outreach written by the dispatch agent for this unit
+  urgency?: string;
 };
 
 export type BusMessage =

@@ -3,6 +3,7 @@ import {QRCodeSVG} from 'qrcode.react';
 import {buildingFacts, CATEGORY_LABEL} from './buildings';
 import {DEMO_SPEED, POLICY, progress, remainingSeconds, type Proposal} from './dispatch';
 import {officerLink} from './bus';
+import type {Recommendation} from './agent';
 import {Tag} from './Panels';
 import {severityColor} from './layers';
 import {INCIDENT_LABEL, SEVERITY_LABEL, UNIT_STATUS_LABEL} from './types';
@@ -42,7 +43,7 @@ export function IncidentDetail(p: {
   incident: Incident | null; building: Building | null; officers: Officer[]; proposals: Proposal[];
   chosen: string[]; onToggleUnit: (id: string) => void; dispatch: DispatchRecord | null;
   onDispatch: () => void; onDismiss: () => void; onResolve: () => void; onCancel: () => void; onClose: () => void;
-  devices: Record<string, number>;
+  devices: Record<string, number>; rec: Recommendation | null; recLoading: boolean; onReassess: () => void;
 }) {
   const now = useNow();
   const i = p.incident;
@@ -80,30 +81,57 @@ export function IncidentDetail(p: {
         <BuildingFacts building={p.building} />
       </>)}
 
-      {i.status === 'unreviewed' && (<>
-        <h3>Dispatch plan</h3>
-        <p className="reason">{policy.reason}</p>
-        {policy.support.map((s) => <p className="support" key={s}>{s}</p>)}
-        <div className="unit-picker">
-          {p.proposals.length === 0 && <p className="fine">No units available.</p>}
-          {p.proposals.slice(0, 6).map(({officer, eta}) => (
-            <label key={officer.id} className={`unit-option ${p.chosen.includes(officer.id) ? 'on' : ''}`}>
-              <input type="checkbox" checked={p.chosen.includes(officer.id)} onChange={() => p.onToggleUnit(officer.id)} />
-              <span className="mode">{MODE_ICON[officer.mode]}</span>
-              <strong>{officer.callsign}</strong>
-              <span className="eta">{secs(eta)}</span>
-              {p.devices[officer.id] && now - p.devices[officer.id] < 7000 ? <span className="paired">📱</span> : null}
-            </label>
-          ))}
+      {i.status === 'unreviewed' && (
+        <div className="agent-card">
+          <div className="agent-head">
+            <h3>Agent recommendation</h3>
+            {p.rec && <span className={`urgency ${p.rec.urgency}`}>{p.rec.urgency}</span>}
+            {p.rec && <span className="prio-inline">{p.rec.priority}</span>}
+          </div>
+          {p.recLoading || !p.rec ? (
+            <p className="agent-loading">Dispatch agent is assessing units…</p>
+          ) : (<>
+            <p className="agent-source">
+              {p.rec.source === 'agent' ? <Tag kind="live" title={p.rec.model} /> : <Tag kind="estimate" title={p.rec.note} />}
+              <span>{p.rec.source === 'agent' ? `AI agent · ${p.rec.model ?? ''}` : 'Rules fallback'}</span>
+            </p>
+            {p.rec.note && <p className="fine">{p.rec.note}</p>}
+            <p className="agent-overview">{p.rec.overview}</p>
+            <div className="agent-units">
+              {p.rec.units.length === 0 && <p className="fine">The agent found no available unit.</p>}
+              {p.rec.units.map((u) => {
+                const proposal = p.proposals.find((x) => x.officer.id === u.unit_id);
+                const officer = p.officers.find((o) => o.id === u.unit_id);
+                return (
+                  <label key={u.unit_id} className={`agent-unit ${p.chosen.includes(u.unit_id) ? 'on' : ''}`}>
+                    <div className="agent-unit-line">
+                      <input type="checkbox" checked={p.chosen.includes(u.unit_id)} onChange={() => p.onToggleUnit(u.unit_id)} />
+                      {officer && <span className="mode">{MODE_ICON[officer.mode]}</span>}
+                      <strong>{u.callsign}</strong>
+                      <span className="role">{u.role}</span>
+                      {proposal && <span className="eta">{secs(proposal.eta)}</span>}
+                      {p.devices[u.unit_id] && now - p.devices[u.unit_id] < 7000 ? <span className="paired">📱</span> : null}
+                    </div>
+                    <p className="agent-reason">{u.reason}</p>
+                    <blockquote className="agent-message">{u.message}</blockquote>
+                  </label>
+                );
+              })}
+            </div>
+            {p.rec.support.map((s) => <p className="support" key={s}>{s}</p>)}
+            {p.rec.cautions.length > 0 && <ul className="agent-cautions">{p.rec.cautions.map((c) => <li key={c}>{c}</li>)}</ul>}
+            {p.rec.latency_ms !== undefined && <small className="fine">Assessed in {Math.round(p.rec.latency_ms)} ms</small>}
+          </>)}
+          <div className="actions">
+            <button type="button" className="primary approve" onClick={p.onDispatch} disabled={!p.chosen.length || p.recLoading || !p.rec}>
+              Approve — agent contacts {p.chosen.length} unit{p.chosen.length === 1 ? '' : 's'}
+            </button>
+            <button type="button" className="ghost" onClick={p.onDismiss}>Dismiss</button>
+            <button type="button" className="ghost" onClick={p.onReassess} disabled={p.recLoading}>Re-assess</button>
+          </div>
+          <p className="fine">The agent recommends; a person approves. Nothing is sent until you approve. {policy.priority} by policy.</p>
         </div>
-        <div className="actions">
-          <button type="button" className="primary approve" onClick={p.onDispatch} disabled={!p.chosen.length}>
-            Dispatch {p.chosen.length} unit{p.chosen.length === 1 ? '' : 's'}
-          </button>
-          <button type="button" className="ghost" onClick={p.onDismiss}>Dismiss</button>
-        </div>
-        <p className="fine">ETAs are real-time estimates on straight-line paths. A person decides; nothing is sent automatically.</p>
-      </>)}
+      )}
 
       {p.dispatch && (<>
         <h3>Units <Tag kind="simulated" /></h3>
