@@ -1,4 +1,4 @@
 SafeSC UI deployment
-Source commit: d2c8adf008273dbaf1dad20ca72f9a1832f4df12
+Source commit: cf6a34ad2111b88a28c5f77c9fca48eb4ffc4aa6
 Runtime: Node gateway and built React UI only.
 Python API, GPU models and storage remain on Runpod.
