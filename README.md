@@ -6,6 +6,8 @@ SafeSC connects a phone camera or uploaded video to a streaming vision pipeline,
 
 [Open the hosted SafeSC dashboard](https://safe-sc.replit.app) · Workspace access token required. The UI runs on Replit; inference and working media stay on Runpod. Original incident windows, thumbnails and review metadata are backed up to private Supabase Storage.
 
+Public project data: [campus activity snapshot and restore instructions](public-data/activity/README.md) · [three original demonstration videos and checksums](demo/videos/README.md). The action clips are staged reenactments with reviewed labels.
+
 ## What works today
 
 - Phone capture through an expiring QR pairing link, a native WebRTC dashboard video path targeting 1080p/60 FPS, separate acknowledged evidence frames, and rear/front camera selection. Audio is off. See [streaming setup and measurements](docs/overview/live-video.md).
