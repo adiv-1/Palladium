@@ -45,8 +45,8 @@ export async function login(token: string) {
   if (!r.ok) throw new Error(r.status === 401 ? 'Wrong access token' : `Login failed (${r.status})`);
 }
 
-export async function existingIncidents(): Promise<any[]> {
-  const r = await fetch('/api/incidents');
+export async function existingIncidents(signal?: AbortSignal): Promise<any[]> {
+  const r = await fetch('/api/incidents', {signal});
   if (!r.ok) throw new Error(`Could not load incidents (${r.status})`);
   return r.json();
 }

@@ -8,6 +8,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
 import './dispatch.css';
 import './agent.css';
+import './command.css';
 import App from './App';
 import OfficerView from './Officer';
 
@@ -18,5 +19,5 @@ const params = new URLSearchParams(location.search);
 const unit = params.get('unit'), room = params.get('room');
 
 createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>{unit && room ? <OfficerView unitId={unit} room={room} /> : <App />}</React.StrictMode>,
+  <React.StrictMode>{unit && room ? <OfficerView unitId={unit} room={room} /> : <App embedded={params.get('embedded') === '1'} />}</React.StrictMode>,
 );

@@ -102,11 +102,36 @@ function ReviewPage({id,onBack}:{id:string,onBack:()=>void}){
   </>
 }
 
+const hasCommandCenter = import.meta.env.MODE === 'hosted';
+const commandTab = 'Command center';
+
+function CommandCenter({visible}:{visible:boolean}){
+  const observer=useRef<ResizeObserver|null>(null);
+  useEffect(()=>()=>observer.current?.disconnect(),[]);
+  return <iframe
+    className="command-frame"
+    title="3D command center"
+    src="/command/?embedded=1"
+    hidden={!visible}
+    onLoad={({currentTarget:frame})=>{
+      observer.current?.disconnect();
+      const content=frame.contentDocument?.body;
+      if(!content)return;
+      observer.current=new ResizeObserver(([entry])=>{
+        // A hidden tab has zero size. Keep its last height until it is shown again.
+        if(entry.contentRect.height>0)frame.style.height=Math.ceil(entry.borderBoxSize[0].blockSize)+'px';
+      });
+      observer.current.observe(content);
+    }}
+  />;
+}
+
 function App(){
   const [bookmarkNotice,setBookmarkNotice]=useState('');
   const seenIncidents=useRef(new Set<string>());
   const [reviewAlert,setReviewAlert]=useState<AnyRecord|null>(null),[notificationPermission,setNotificationPermission]=useState('Notification' in window?Notification.permission:'unavailable');
-  const [authed,setAuthed]=useState(false),[token,setToken]=useState(''),[sources,setSources]=useState<AnyRecord[]>([]),[incidents,setIncidents]=useState<AnyRecord[]>([]),[health,setHealth]=useState<AnyRecord>({}),[selected,setSelected]=useState<string|null>(null),[pair,setPair]=useState(''),[error,setError]=useState(''),[uploading,setUploading]=useState(false),[tick,setTick]=useState(0),[connected,setConnected]=useState(false),[tab,setTab]=useState(location.hash==='#learning'?'Learning repository':'Overview');
+  const [authed,setAuthed]=useState(false),[token,setToken]=useState(''),[sources,setSources]=useState<AnyRecord[]>([]),[incidents,setIncidents]=useState<AnyRecord[]>([]),[health,setHealth]=useState<AnyRecord>({}),[selected,setSelected]=useState<string|null>(null),[pair,setPair]=useState(''),[error,setError]=useState(''),[uploading,setUploading]=useState(false),[tick,setTick]=useState(0),[connected,setConnected]=useState(false),[tab,setTab]=useState(location.hash==='#learning'?'Learning repository':hasCommandCenter?commandTab:'Overview');
+  const [commandOpened,setCommandOpened]=useState(tab===commandTab);
   const refresh=async()=>{try{const [s,i,h]=await Promise.all([api('/sources'),api('/incidents'),api('/health')]);i.forEach((incident:AnyRecord)=>seenIncidents.current.add(incident.id));setSources(s);setIncidents(i);setHealth(h);setAuthed(true)}catch(e:any){if(e.status===401)setAuthed(false);else setConnected(false)}};
   useEffect(()=>{refresh()},[]);
   useEffect(()=>{if(!authed)return;let ws:WebSocket;let retry:number;let stopped=false;
@@ -128,10 +153,18 @@ function App(){
   async function exportFeedback(){try{const data=await api('/reviews/export');const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='safesc-review-history.json';link.click();URL.revokeObjectURL(url)}catch(e){setError(String(e))}}
   if(!authed)return <div className="login"><div className="brand"><Shield/><strong>Safe<span>SC</span></strong></div><span className="eyebrow">AUTHORIZED REVIEW WORKSPACE</span><h1>A clearer view.<br/>A human decision.</h1><p>Enter your workspace access token to continue.</p><form onSubmit={async e=>{e.preventDefault();try{await post('/login',{token});refresh()}catch(e){setError(String(e))}}}><input type="password" autoComplete="current-password" aria-label="Workspace access token" placeholder="Workspace access token" value={token} onChange={e=>setToken(e.target.value)}/><button className="primary">Open workspace <ArrowUpRight size={18}/></button></form>{error&&<p className="error">{error}</p>}<small>Access token: data/app_token on the server</small></div>;
   const source=sources.find(s=>s.status==='streaming')||sources[0],pending=incidents.filter(i=>i.review_status==='pending').length;
-  return <div className="shell"><aside><div className="brand"><Shield size={27}/><strong>Safe<span>SC</span></strong></div><div className="workspace"><i className="dot green"/><div>Campus safety lab<small>HUMAN REVIEW WORKSPACE</small></div></div><span className="nav-label">WORKSPACE</span>{[['Overview',Activity],['Live monitor',Radio],['Incident queue',Layers],['Campus activity',MapPin],['Learning repository',BookOpen],['Privacy & controls',Lock]].map(([label,Icon]:any)=><button key={label} className={'nav '+(tab===label?'active':'')} onClick={()=>{setTab(label);setSelected(null);history.replaceState(null,'',label==='Learning repository'?'#learning':location.pathname+location.search)}}><Icon size={18}/>{label}{label==='Incident queue'&&pending>0&&<b>{pending}</b>}</button>)}{import.meta.env.MODE==='hosted'&&<a className="nav command-link" href="/command/" aria-label="3D command view"><Layers size={18}/>3D command view</a>}<div className="sidebar-bottom"><Shield size={20}/><p>AI observes.<br/><strong>People decide.</strong></p><small>No identity recognition.<br/>No automatic dispatch.</small></div></aside>
+  return <div className="shell"><aside><div className="brand"><Shield size={27}/><strong>Safe<span>SC</span></strong></div><div className="workspace"><i className="dot green"/><div>Campus safety lab<small>HUMAN REVIEW WORKSPACE</small></div></div><span className="nav-label">WORKSPACE</span>{[
+    ...(hasCommandCenter?[[commandTab,MapPin]]:[]),
+    ['Overview',Activity],['Live monitor',Radio],['Incident queue',Layers],['Campus activity',MapPin],['Learning repository',BookOpen],['Privacy & controls',Lock]
+  ].map(([label,Icon]:any)=><button key={label} aria-label={label} aria-current={tab===label&&!selected?'page':undefined} className={'nav '+(tab===label&&!selected?'active':'')} onClick={()=>{
+    if(label===commandTab)setCommandOpened(true);
+    setTab(label);setSelected(null);
+    history.replaceState(null,'',label==='Learning repository'?'#learning':location.pathname+location.search);
+  }}><Icon size={18}/>{label}{label==='Incident queue'&&pending>0&&<b>{pending}</b>}</button>)}<div className="sidebar-bottom"><Shield size={20}/><p>AI observes.<br/><strong>People decide.</strong></p><small>No identity recognition.<br/>No automatic dispatch.</small></div></aside>
     <div className="main"><header><span>Workspace <span className="slash">/</span> {selected?'Incident review':tab}</span><div>{notificationPermission!=='unavailable'&&<button className="text-button" title="Notify this reviewer while the workspace is open. No campus-wide alerts are sent." onClick={async()=>{setNotificationPermission(await Notification.requestPermission())}}><Bell size={16}/>{notificationPermission==='granted'?'Review alerts on':'Enable review alerts'}</button>}<i className={'dot '+(connected?'green':'')}/>{connected?'Workspace connected':'Reconnecting'}<span className="avatar">SC</span></div></header><main>
     {reviewAlert&&<div className="review-notification" role="status"><AlertTriangle size={20}/><div><strong>{reviewAlert.record?.trigger_origin==='reviewer'?'Marked moment saved · review required':'Possible incident · review required'}</strong><p>Open the original footage, assess the uncertainty, then confirm or dismiss.</p></div><button onClick={()=>{setSelected(reviewAlert.id);setReviewAlert(null)}}>Review footage <ArrowUpRight size={16}/></button><button className="text-button" aria-label="Dismiss notification" onClick={()=>setReviewAlert(null)}><X size={16}/></button></div>}
-    {selected?<ReviewPage id={selected} onBack={()=>setSelected(null)}/>:tab==='Learning repository'?<React.Suspense fallback={<p>Loading learning repository…</p>}><LearningRepository/></React.Suspense>:tab==='Campus activity'?<React.Suspense fallback={<p>Loading campus activity…</p>}><ActivityMap/></React.Suspense>:<><div className="page-heading"><div><span className="eyebrow">SAFETY, WITH CONTEXT</span><h1>{tab==='Privacy & controls'?'Trust is part of the system.':tab==='Incident queue'?'The moments worth a closer look.':'A clearer view of campus.'}</h1><p>Observable events. Preserved context. Human decisions.</p></div><button onClick={pairPhone}><Smartphone size={17}/>Connect phone</button></div>
+    {commandOpened&&<CommandCenter visible={tab===commandTab&&!selected}/>}
+    {selected?<ReviewPage id={selected} onBack={()=>setSelected(null)}/>:tab===commandTab?null:tab==='Learning repository'?<React.Suspense fallback={<p>Loading learning repository…</p>}><LearningRepository/></React.Suspense>:tab==='Campus activity'?<React.Suspense fallback={<p>Loading campus activity…</p>}><ActivityMap/></React.Suspense>:<><div className="page-heading"><div><span className="eyebrow">SAFETY, WITH CONTEXT</span><h1>{tab==='Privacy & controls'?'Trust is part of the system.':tab==='Incident queue'?'The moments worth a closer look.':'A clearer view of campus.'}</h1><p>Observable events. Preserved context. Human decisions.</p></div><button onClick={pairPhone}><Smartphone size={17}/>Connect phone</button></div>
     {error&&<div className="error" role="alert">{error}</div>}{health.verifier_research_mode&&<div className="simulation">HIGH-RECALL RESEARCH CANDIDATE · Owner-approved staged demo · Human review required. See Learning repository for measured misses and false alerts.</div>}{health.simulated&&<div className="simulation">SIMULATED DEVELOPMENT MODE · Fixture alerts are not real model results.</div>}
     {source?.status==='streaming'&&<div className="live-actions"><button onClick={()=>markMoment(source.id)}><Eye size={16}/>Mark moment for review</button><span className="fine">Save context when you see something that deserves a closer look.</span></div>}
     {bookmarkNotice&&<p className="fine" role="status">{bookmarkNotice}</p>}

@@ -10,7 +10,7 @@ npm install
 npm run dev        # http://localhost:5174
 ```
 
-On the hosted site, open **3D command view** from the reviewer workspace to use the dashboard at `/command/`. Officer links use the same path with the unit and room in the query string.
+The hosted site opens the **Command center** in the signed-in reviewer workspace. The dashboard also has a direct route at `/command/`. Officer links use that route with the unit and room in the query string.
 
 Press **D**, or click **Stage demo incident**, to fire a staged event.
 
