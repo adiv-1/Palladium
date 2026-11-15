@@ -91,6 +91,7 @@ class MossDetector:
         self.object_frames={};self.object_text='';self.object_sample=None;self.object_version=0
         self.last_object_request=0;self.last_object_output=0;self.spatial_enabled=settings.moss_spatial_output
         self.caption_text='';self.caption_finished=True;self.observer_notes=deque(maxlen=30);self.caption_sequence=0
+        self.evidence_pool=[]
     async def prepare_verifier(self):
         if self.use_verifier and self.verifier is None:
             from apps.api.config import settings
@@ -223,15 +224,27 @@ class MossDetector:
                 self.last_object_request=timestamps[-1]
             from apps.api.config import settings
             idle=self.verification_task is None or self.verification_task.done()
-            if idle and len(self.evidence_frames)>=2 and timestamps[-1]-self.last_verified>=settings.verification_interval_seconds:
+            if idle and len(self.evidence_frames)>=4 and timestamps[-1]-self.last_verified>=settings.verification_interval_seconds:
                 self.last_verified=timestamps[-1]
-                self.verification_task=asyncio.create_task(self.verify_window(list(self.evidence_frames),self.observer_text,list(tracks)))
-    async def verify_window(self,frames,notes,tracks):
+                self.verification_task=asyncio.create_task(self.verify_window(list(self.evidence_frames),self.observer_text,list(tracks),list(self.evidence_pool)))
+    async def verify_window(self,frames,notes,tracks,pool=None):
         try:
             await self.prepare_verifier();self.phase='verifying'
             detection=await asyncio.to_thread(self.verifier.verify_frames,frames,notes,tracks)
             self.pending.append(detection);self.error=None
             self.response_audit.append(dict(self.verifier.last_audit))
+            from apps.api.config import settings
+            if detection.state in ['REVIEW_REQUIRED','HIGH_PRIORITY_REVIEW'] and detection.confidence>=settings.alert_confidence_threshold:
+                fresh=[f for f in pool or [] if f.index not in set(detection.supporting_frames)]
+                if len(fresh)>=2:
+                    # An event-focused second pass uses different ORIGINAL frames,
+                    # rather than waiting for a brief action to occur again.
+                    from apps.api.video import select_evidence
+                    confirm=select_evidence(fresh,min(4,len(fresh)))
+                    self.phase='confirming_event'
+                    checked=await asyncio.to_thread(self.verifier.verify_frames,confirm,'',tracks)
+                    self.pending.append(checked)
+                    self.response_audit.append({**dict(self.verifier.last_audit),'pass':'event_context_confirmation'})
         except Exception as error:
             self.error=f'Visual verification rejected: {error}'
             audit=dict(self.verifier.last_audit) if self.verifier else {}
@@ -239,6 +252,12 @@ class MossDetector:
         self.phase='observing'
     async def finish(self):
         if self.verification_task:await self.verification_task
+        frames=getattr(self,'evidence_frames',[])
+        # A short upload can end while its first verification is still running.
+        # Inspect the latest retained context once instead of dropping that tail.
+        if self.use_verifier and len(frames)>=4 and frames[-1].timestamp-self.last_verified>.25:
+            self.last_verified=frames[-1].timestamp
+            await self.verify_window(list(frames),self.observer_text,[],list(self.evidence_pool))
     def drain(self):
         result=list(self.pending); self.pending.clear(); return result
     async def close(self):
@@ -250,22 +269,24 @@ class MossDetector:
 class TemporalGate:
     def __init__(self,threshold=.75,cooldown=20,agreement_window=4):
         self.threshold=threshold; self.cooldown=cooldown; self.history=deque(maxlen=5); self.last_alert=-1e9
-        self.agreement_window=agreement_window
+        self.agreement_window=agreement_window;self.last_reason='awaiting_evidence'
     def consider(self,detection,now,valid_indices):
         if detection.state in ['NORMAL','WATCH']:
-            self.history.clear(); return False
+            self.history.clear();self.last_reason='ordinary_or_uncertain';return False
         events=detection.observable_events
         supported=set(detection.supporting_frames)&set(valid_indices)
         if detection.confidence<self.threshold or len(supported)<2 or not events or max(e.timestamp_end for e in events)>now+.5:
-            return False
-        if max(e.timestamp_end for e in events)-min(e.timestamp_start for e in events)<.5: return False
+            self.last_reason='below_threshold_or_unsupported';return False
+        if max(e.timestamp_end for e in events)-min(e.timestamp_start for e in events)<.25:self.last_reason='insufficient_temporal_span';return False
         actors={a for e in events for a in e.actors}
-        self.history.append((now,actors,supported))
-        adjacent=[h for h in self.history if 0<=now-h[0]<=self.agreement_window and (not actors or h[1]&actors)]
-        if len(adjacent)<2 or now-self.last_alert<self.cooldown: return False
+        event_time=max(e.timestamp_end for e in events)
+        self.history.append((event_time,actors,supported,detection.action))
+        adjacent=[h for h in self.history if abs(event_time-h[0])<=self.agreement_window and (not actors or h[1]&actors) and (not detection.action or not h[3] or h[3]==detection.action)]
+        if event_time-self.last_alert<self.cooldown:self.last_reason='cooldown';return False
+        if len(adjacent)<2:self.last_reason='awaiting_confirmation';return False
         # Repeated identical frame evidence does not count as an independent window.
-        if len({tuple(sorted(h[2])) for h in adjacent})<2: return False
-        self.last_alert=now; self.history.clear(); return True
+        if len({tuple(sorted(h[2])) for h in adjacent})<2:self.last_reason='duplicate_evidence';return False
+        self.last_alert=event_time;self.history.clear();self.last_reason='accepted';return True
 
 class ByteTracker:
     def __init__(self,frame_rate=2):

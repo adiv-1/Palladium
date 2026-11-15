@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     verifier_adapter: str = ''
     verifier_research_mode: bool = False
     verification_interval_seconds: float = Field(4,ge=2,le=30)
+    verification_frame_count: int = Field(8,ge=4,le=8)
+    max_inference_lag_seconds: float = Field(60,ge=10,le=120)
     alert_agreement_seconds: float = Field(12,ge=2,le=30)
     enhancement_model: str = 'bypass'
     fastllve_checkpoint: str = ''

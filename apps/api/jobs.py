@@ -51,6 +51,9 @@ async def command(argv,cwd=None):
 from .trajectories import export_trajectories
 
 async def run(job):
+    if job.kind=='learning_train':
+        from .learning import run_training_job
+        return await run_training_job(job)
     incident=get(Incident,job.incident_id)
     if not incident: raise RuntimeError('Incident was removed')
     folder=(settings.data_dir/'incidents'/incident.id).resolve(); original=folder/'original.mp4'

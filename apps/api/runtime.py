@@ -7,7 +7,7 @@ from collections import deque
 from .config import settings
 from .db import Source, Incident, Job, ReviewAction, save, get
 from .schemas import Detection
-from .video import CircularBuffer, LightingGate, Frame, decode, encode, digest, read_video, write_clip
+from .video import CircularBuffer, LightingGate, Frame, decode, encode, digest, read_video, write_clip,select_evidence
 from ml.adapters import MossDetector, FixtureDetector, TemporalGate, ByteTracker, UnavailableModel
 
 class Hub:
@@ -24,7 +24,7 @@ pairings={}
 
 class VideoSession:
     def __init__(self,source):
-        self.source=source; self.buffer=CircularBuffer(settings.pre_event_seconds+settings.post_event_seconds+5)
+        self.source=source; self.buffer=CircularBuffer(settings.pre_event_seconds+settings.post_event_seconds+settings.max_inference_lag_seconds+5)
         self.gate=TemporalGate(settings.alert_confidence_threshold,settings.alert_cooldown_seconds,settings.alert_agreement_seconds)
         self.light=LightingGate(settings.dark_luminance_threshold,settings.light_luminance_threshold)
         self.detector=FixtureDetector() if settings.streaming_model=='fixture' else MossDetector(settings.moss_ws_url)
@@ -37,7 +37,18 @@ class VideoSession:
         self.last_saved=0
         self.last_bookmark=-1e9
         self.persistence_tasks=set();self.review_alert=None;self.chat_notes=[];self.last_chat_id=0
-        self.last_published=0;self.persistence_errors=[]
+        self.last_published=0;self.persistence_errors=[];self.review_alerts=[];self.previous_thumbnail=None
+    def set_alert(self,alert):
+        self.review_alert=alert
+        for n,item in enumerate(self.review_alerts):
+            if item['id']==alert['id']:self.review_alerts[n]=alert;break
+        else:self.review_alerts.append(alert);self.review_alerts=self.review_alerts[-10:]
+    def update_alert(self,notice_id,**changes):
+        for n,alert in enumerate(self.review_alerts):
+            if alert['id']==notice_id:
+                changed={**alert,**changes};self.review_alerts[n]=changed
+                if self.review_alert and self.review_alert['id']==notice_id:self.review_alert=changed
+                break
     def bookmark(self):
         if len(self.buffer.frames)<2:raise ValueError('Wait for a few video frames before marking a moment')
         end=self.buffer.frames[-1].timestamp
@@ -82,8 +93,12 @@ class VideoSession:
                 sampled=Frame(frame.timestamp,frame.index,encode(output[-1])); self.enhanced_latest=sampled.jpeg
                 self.enhanced[frame.index]=sampled
             if settings.streaming_model=='onestreamer': raise UnavailableModel('OneStreamer checkpoint not configured')
-            evidence=self.buffer.window(max(0,frame.timestamp-4),frame.timestamp)
-            if len(evidence)>4:evidence=[evidence[round(i*(len(evidence)-1)/3)] for i in range(4)]
+            previous=getattr(self.detector,'last_verified',frame.timestamp-4)
+            coverage=min(settings.max_inference_lag_seconds,max(4,frame.timestamp-max(0,previous)+1))
+            pool=self.buffer.window(max(0,frame.timestamp-coverage),frame.timestamp)
+            self.detector.evidence_pool=list(pool)
+            count=settings.verification_frame_count
+            evidence=select_evidence(pool,count)
             self.detector.evidence_frames=evidence
             self.inference_state='loading' if not getattr(self.detector,'ws',True) else 'observing'
             await self.detector.observe([sampled],[frame.timestamp],self.tracks)
@@ -112,18 +127,30 @@ class VideoSession:
             self.last_observation=detection.model_dump()
             self.observations.append(self.last_observation);self.observations=self.observations[-100:]
             event_end=max((event.timestamp_end for event in detection.observable_events),default=current_time)
+            if current_time-event_end>settings.max_inference_lag_seconds:
+                self.gate.last_reason='evidence_too_old';continue
             eligible=self.buffer.window(max(0,event_end-settings.pre_event_seconds),event_end)
             if self.gate.consider(detection,current_time,[f.index for f in eligible]):
                 # Center evidence on the observed event, not late model completion.
                 notice_id=secrets.token_hex(8)
-                self.review_alert={'id':notice_id,'status':'saving_context','timestamp':event_end,
+                self.set_alert({'id':notice_id,'status':'saving_context','timestamp':event_end,
+                    'received_stream_time':current_time,'action':detection.action,
+                    'confidence':detection.confidence,'threshold':settings.alert_confidence_threshold,
                     'message':detection.observable_events[0].observation,'post_seconds':settings.post_event_seconds,
-                    'label':'Possible incident — review required','origin':'temporal_review_gate'}
+                    'label':'Possible incident — review required','origin':'temporal_review_gate',
+                    'evidence_rule':'Two corroborating original-frame sets; human review required'})
                 self.pending.append({'trigger':event_end,'detection':detection,'notice_id':notice_id,
                     'output_audit':list(getattr(self.detector,'response_audit',[]))})
     async def push(self,frame):
         self.buffer.append(frame); self.count+=1
         image=await asyncio.to_thread(decode,frame.jpeg)
+        import cv2
+        import numpy as np
+        thumbnail=cv2.resize(cv2.cvtColor(image,cv2.COLOR_BGR2GRAY),(96,54))
+        if self.previous_thumbnail is not None:
+            difference=cv2.absdiff(thumbnail,self.previous_thumbnail).ravel()
+            frame.motion=float(np.mean(np.partition(difference,-max(1,len(difference)//10))[-max(1,len(difference)//10):]))
+        self.previous_thumbnail=thumbnail
         self.latest=frame.jpeg;self.latest_frame=frame
         lighting=await asyncio.to_thread(self.light.update,image)
         if frame.timestamp-self.last_sample>=1/settings.sample_fps:
@@ -156,7 +183,9 @@ class VideoSession:
             'buffer_seconds':frame.timestamp-self.buffer.frames[0].timestamp,'buffer_bytes':self.buffer.size,
             'model':settings.streaming_model,'model_status':'error' if self.error else ('waiting_for_gpu' if self.inference_state=='waiting_for_gpu' else getattr(self.detector,'phase',self.inference_state)),
             'error':self.error,'tracks':self.tracks,'pending_incidents':len(self.pending),
-            'moss_chat':self.chat_notes,'review_alert':self.review_alert,'recording_errors':self.persistence_errors,
+            'moss_chat':self.chat_notes,'review_alert':self.review_alert,'review_alerts':self.review_alerts,
+            'alert_gate':{'threshold':settings.alert_confidence_threshold,'reason':self.gate.last_reason},
+            'recording_errors':self.persistence_errors,
             'moss_objects':{k:v for k,v in (getattr(self.detector,'object_sample',None) or {}).items() if k!='jpeg'},
             'safety_state':self.last_observation['state'] if self.last_observation else 'AWAITING_ASSESSMENT',
             'last_observation':self.last_observation,'simulated':settings.streaming_model=='fixture',
@@ -174,8 +203,7 @@ class VideoSession:
         try:await self.persist(candidate,end,frames)
         except Exception as error:
             self.persistence_errors.append(str(error))
-            if self.review_alert and self.review_alert.get('id')==candidate.get('notice_id'):
-                self.review_alert={**self.review_alert,'status':'failed','error':str(error)}
+            self.update_alert(candidate.get('notice_id'),status='failed',error=str(error))
             await hub.publish('recording_error',{'source_id':self.source.id,'error':str(error)})
     async def persist(self,candidate,end,frozen_frames=None):
         trigger=candidate['trigger']; d=candidate['detection']
@@ -190,7 +218,7 @@ class VideoSession:
         await asyncio.to_thread(write_clip,frames,original)
         thumbnail=folder/'thumbnail.jpg'; thumbnail.write_bytes(frames[len(frames)//2].jpeg)
         source_hash=self.source.original_sha256
-        record={'observable_events':[x.model_dump() for x in d.observable_events], 'uncertainties':d.uncertainties,
+        record={'action':d.action,'observable_events':[x.model_dump() for x in d.observable_events], 'uncertainties':d.uncertainties,
             'supporting_frames':d.supporting_frames,'model':{'name':settings.streaming_model,'revision':settings.model_revision},
             'visual_verifier':settings.observation_verifier_model,
             'observation_model':{'name':'Qwen/Qwen3-VL-4B-Instruct','revision':getattr(getattr(self.detector,'verifier',None),'revision','unconfigured'),
@@ -204,6 +232,8 @@ class VideoSession:
                 'timestamps':'original stream seconds; clip starts at zero','original_upload_untouched':bool(source_hash)}],
             'prompt_version':'safesc-observable-v2','analysis_only_transforms':['Source index/time margin and anonymous track boxes; not applied to stored originals'],
             'moss_observations':[n for n in self.chat_notes if frames[0].timestamp-10<=n['received_stream_time']<=end],
+            'alert_gate':{'threshold':settings.alert_confidence_threshold,'rule':'two original-frame sets','score':d.confidence},
+            'sampling_policy':'Original context and motion transitions; motion only selects frames, never triggers incidents',
             'model_output_audit':candidate.get('output_audit',list(getattr(self.detector,'response_audit',[]))),
             'confidence_note':'Uncalibrated model score, not probability of harm',
             'inference_error':self.error,'frame_timestamps':[{'index':f.index,'timestamp':f.timestamp} for f in frames]}
@@ -216,8 +246,7 @@ class VideoSession:
             incident.record={**incident.record,'confidence_note':'Human bookmark; no AI detection score is asserted'}
             await asyncio.to_thread(save,incident)
             await asyncio.to_thread(save,ReviewAction(incident_id=incident.id,decision='needs_review',note='Reviewer marked this moment from the source feed'))
-        if self.review_alert and self.review_alert.get('id')==candidate.get('notice_id'):
-            self.review_alert={**self.review_alert,'status':'saved','incident_id':incident.id}
+        self.update_alert(candidate.get('notice_id'),status='saved',incident_id=incident.id)
         for kind,enabled in [('review_brief',settings.enable_clip_review),('relayvsr',settings.enable_relay_vsr),('relift',settings.enable_relift)]:
             if enabled: await asyncio.to_thread(save,Job(incident_id=incident.id,kind=kind,priority=0 if kind=='review_brief' else 2 if kind=='relayvsr' else 3))
         await hub.publish('incident',incident.model_dump())
@@ -245,7 +274,9 @@ class VideoSession:
         self.source.status='failed' if self.error else 'completed'; await asyncio.to_thread(save,self.source)
         self.source.telemetry={**self.source.telemetry,'error':self.error,
             'model_status':'error' if self.error else 'completed','last_observation':self.last_observation,
-            'moss_chat':self.chat_notes,'review_alert':self.review_alert,'recording_errors':self.persistence_errors,
+            'moss_chat':self.chat_notes,'review_alert':self.review_alert,'review_alerts':self.review_alerts,
+            'alert_gate':{'threshold':settings.alert_confidence_threshold,'reason':self.gate.last_reason},
+            'recording_errors':self.persistence_errors,
             'safety_state':self.last_observation['state'] if self.last_observation else 'AWAITING_ASSESSMENT',
             'inference_frames':self.inference_frames}
         await asyncio.to_thread(save,self.source)

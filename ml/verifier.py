@@ -53,6 +53,21 @@ def verification_messages(frames,observer_notes='',tracks=None):
     messages=[{'role':'system','content':[{'type':'text','text':VERIFIER_POLICY}]},{'role':'user','content':content}]
     return messages,schema
 
+def generation_target(target,tracks=None):
+    import copy
+    return copy.deepcopy(target)
+
+def validate_visual_output(raw,frames):
+    payload=json.loads(raw);known={f.index:f.timestamp for f in frames}
+    cited=payload.get('supporting_frames',[])
+    if not set(cited)<=known.keys():raise ValueError('Verifier cited frames outside the evidence window')
+    for event in payload.get('observable_events',[]):
+        if not cited:raise ValueError('An event needs supplied supporting frames')
+        event.setdefault('timestamp_start',min(known[i] for i in cited))
+        event.setdefault('timestamp_end',max(known[i] for i in cited))
+        event.setdefault('actors',[])
+    return Detection.model_validate(payload)
+
 _live_verifier=None
 _load_lock=Lock()
 
@@ -136,7 +151,7 @@ class StructuredVisualVerifier:
             'source_frame_indices':ids,'stream_time_range':[start,end],'constrained_decoding':True,
             'runtime_seconds':time.monotonic()-started,'status':'rejected','observer_notes':observer_notes[-600:]}
         self.last_audit=audit
-        detection=Detection.model_validate_json(raw)
+        detection=validate_visual_output(raw,frames)
         if detection.simulated:raise ValueError('A real verifier cannot assert simulated provenance')
         if not set(detection.supporting_frames)<=set(ids):raise ValueError('Verifier cited frames outside the evidence window')
         for event in detection.observable_events:

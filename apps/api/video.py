@@ -13,6 +13,23 @@ class Frame:
     timestamp: float
     index: int
     jpeg: bytes
+    motion: float = 0
+
+def select_evidence(frames,count=8):
+    """Select real context and motion transitions; this never classifies an event."""
+    if len(frames)<=count:return list(frames)
+    chosen={0,len(frames)-1};peaks=[]
+    for index in sorted(range(1,len(frames)),key=lambda i:frames[i].motion,reverse=True):
+        if any(abs(frames[index].timestamp-t)<.7 for t in peaks):continue
+        peaks.append(frames[index].timestamp)
+        for stamp in [frames[index].timestamp-.3,frames[index].timestamp,frames[index].timestamp+.3]:
+            nearest=min(range(len(frames)),key=lambda i:abs(frames[i].timestamp-stamp))
+            if len(chosen)<count:chosen.add(nearest)
+        if len(chosen)>=count:break
+    if len(chosen)<count:
+        for i in np.linspace(0,len(frames)-1,count).round().astype(int):
+            if len(chosen)<count:chosen.add(int(i))
+    return [frames[i] for i in sorted(chosen)]
 
 def digest(path):
     h=sha256()

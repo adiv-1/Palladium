@@ -73,6 +73,8 @@ async def health():
         'verifier_research_mode':settings.verifier_research_mode,'verifier_artifact':verifier_metadata(),
         'tracking_enabled':settings.enable_tracking,'relayvsr_enabled':settings.enable_relay_vsr,
         'clip_review_enabled':settings.enable_clip_review,'preview_transport':'latest-frame-websocket',
+        'alert_threshold':settings.alert_confidence_threshold,'verification_frame_count':settings.verification_frame_count,
+        'max_inference_lag_seconds':settings.max_inference_lag_seconds,
         'relift_enabled':settings.enable_relift,'bvimamba_enabled':settings.enable_bvimamba,
         'retention_hours':settings.retention_hours}
 
