@@ -81,7 +81,7 @@ search, imagery, historical source links, response illustration, and narrow
 layouts. A local fixture backend validates UI/protocol behavior, not real GPU
 detection performance or physical-phone connectivity.
 
-**Release boundary:** the owner authorized pushing `feature/palladium-design` after local checks. Merge, deployment and hosted-configuration changes remain separate. Paired-camera notifications are included at the owner’s request; SMS and real officer/student dispatch remain unconnected.
+**Release boundary:** the owner authorized publishing the Replit UI and then explicitly approved the matching Runpod backend update on November 15, 2026. The code was released from `0103e03`; merge and unrelated hosted-configuration changes remain separate. SMS and real officer/student dispatch remain unconnected.
 
 ## Paired phone notifications
 
@@ -131,5 +131,33 @@ Saved originals passed SHA-256 checks. Mean frame ACKs were approximately
 211–239 ms in those runs. An initial jacket run collided with GPU background
 work, processed no live inference frames, and did not save an alert; that failure
 motivated the idle grace. These timings remain material limits for a short speech.
-The new scheduler and confirmation changes are regression-tested locally; their
-combined GPU latency has not been measured on a deployed copy of this branch.
+Those pre-release checks did not measure the combined scheduler and confirmation
+changes on a deployed copy. The approved deployment checks below record that
+separately.
+
+## Approved deployment — November 15, 2026
+
+The Palladium UI is published at https://safe-sc.replit.app from source `0103e03`
+through the `replit-ui` artifact `546c456`. The same six backend source files
+were installed on the existing idle Runpod API after checking deployed hashes,
+backing up code and SQLite, and verifying a healthy restart. The 18 existing
+incidents, 23 review actions, 37 sources and four learning runs survived the
+restart. Model settings, weights, stored media and the database were not replaced.
+
+[Deployment acceptance](../../evaluation/palladium-release-acceptance.json)
+records real, non-fixture replays through Replit's public camera WebSocket. All
+1,438 sent frames were acknowledged, camera-scoped `saving_context` and `saved`
+notifications arrived, and saved clip hashes passed. Existing review decisions,
+labels and holds were preserved. The three verification incidents were moved
+to recoverable Trash after checks; their original media remains available.
+
+**Model acceptance failed:** the quiet clip produced a physical-contact false
+alert, and the jacket-taking clip was labeled physical contact rather than
+object taking. The contact-and-fall clip matched its expected action. First
+phone alerts arrived approximately 31.6, 25.5 and 51.3 seconds from test start,
+respectively, with an eight-second scripted lead-in target. The test clock starts
+before the camera handshake; these are not action-onset response times. These
+are diagnostic known recordings, not an independent accuracy study or proof of a latency improvement.
+Phone notification transport passed; model accuracy and response time remain
+material limitations. A physical phone and native browser recording were not
+used in these replays. Use a fresh QR after the API restart.

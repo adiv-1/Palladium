@@ -1,0 +1,103 @@
+{
+  "date": "2026-11-15",
+  "status": "deployed_with_model_acceptance_failures",
+  "ui_origin": "https://safe-sc.replit.app",
+  "code_commit": "0103e03e513386ebc59a43033433133fffb46005",
+  "backend_health": "healthy",
+  "rollback_code_and_database_backup": true,
+  "database_replaced": false,
+  "model_settings_preserved": true,
+  "original_record_counts_at_restart": {
+    "incident": 18,
+    "reviewaction": 23,
+    "source": 37,
+    "learningrun": 4
+  },
+  "record_counts_after_restart": {
+    "incident": 18,
+    "reviewaction": 23,
+    "source": 37,
+    "learningrun": 4
+  },
+  "physical_phone_tested": false,
+  "simulated_inference": false,
+  "workspace_credentials_used_only_on_backend_loopback": true,
+  "camera_transport": "wss://safe-sc.replit.app/ws/capture",
+  "method": "Three uploader-authorized public originals, resized/recompressed as browser JPEG samples. Eight-second static lead, full original action, 45-second static tail. Expected labels were reporting metadata only.",
+  "new_original_clip_hashes_verified": true,
+  "original_review_decisions_labels_and_holds_preserved": true,
+  "model_acceptance_passed": false,
+  "results": [
+    {
+      "file": "quiet-scene.mp4",
+      "expected_reviewed_action": "ordinary_activity",
+      "acceptance_passed": false,
+      "frames_sent": 434,
+      "frames_acknowledged": 434,
+      "mean_ack_ms": 196.37304820224412,
+      "p95_ack_ms": 289.9951309664175,
+      "max_ack_ms": 7687.108495039865,
+      "first_phone_alert_seconds": 31.5948414899176,
+      "observed_actions": [
+        "physical_contact"
+      ],
+      "phone_notification_statuses": [
+        "saving_context",
+        "saved"
+      ]
+    },
+    {
+      "file": "staged-contact-and-fall.mp4",
+      "expected_reviewed_action": "physical_contact",
+      "acceptance_passed": true,
+      "frames_sent": 507,
+      "frames_acknowledged": 507,
+      "mean_ack_ms": 177.04568145575305,
+      "p95_ack_ms": 293.74081594869494,
+      "max_ack_ms": 1892.5242690602317,
+      "first_phone_alert_seconds": 25.522341522970237,
+      "observed_actions": [
+        "physical_contact"
+      ],
+      "phone_notification_statuses": [
+        "saving_context",
+        "saved"
+      ]
+    },
+    {
+      "file": "staged-jacket-taking.mp4",
+      "expected_reviewed_action": "object_taking",
+      "acceptance_passed": false,
+      "frames_sent": 497,
+      "frames_acknowledged": 497,
+      "mean_ack_ms": 189.7592842787358,
+      "p95_ack_ms": 287.1033479459584,
+      "max_ack_ms": 5930.670178961009,
+      "first_phone_alert_seconds": 51.30251595098525,
+      "observed_actions": [
+        "physical_contact"
+      ],
+      "phone_notification_statuses": [
+        "saving_context",
+        "saved"
+      ]
+    }
+  ],
+  "final_backend_state": {
+    "status": "ok",
+    "active_sources": 0,
+    "moss_process_running": true,
+    "visual_verifier_loaded": true,
+    "live_idle_grace_seconds": 60.0,
+    "pending_jobs": []
+  },
+  "all_frames_acknowledged": true,
+  "saving_and_saved_phone_notices_received": true,
+  "test_incident_cleanup": {
+    "recoverable_trash": 3,
+    "queued_test_postprocessing_cancelled": 1,
+    "original_media_retained": true,
+    "existing_user_records_changed": false
+  },
+  "latency_reference": "Client test clock begins before the camera WebSocket handshake; scripted lead target is eight seconds. These are not action-onset response times or a before/after latency benchmark."
+}
