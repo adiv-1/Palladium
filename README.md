@@ -64,6 +64,15 @@ Open [localhost:8000](http://localhost:8000) and enter the generated access toke
 
 For the actual GPU stack, follow [model setup and licenses](docs/overview/models.md) and [deployment notes](docs/overview/deployment.md). Checkpoint revisions and measured smoke-test results are recorded in `model-lock.json`. Upstream models use isolated environments; the CPU Docker image is not a validated all-model GPU image.
 
+## Optional: object-removal worker (CPU)
+
+`services/theft_detection/` is a separate CPU process that detects possible bag snatching,
+suspicious object removal and configured restricted-zone entry from a webcam or video, and sends
+reviewable events into the incident queue. It is off unless `THEFT_WORKER_URL` is set. See
+[services/theft_detection/README.md](services/theft_detection/README.md) and its
+[integration guide](services/theft_detection/docs/INTEGRATION.md). Its events describe observed
+object movement only; they are not findings of theft.
+
 ## Connect a phone
 
 1. Serve the application through HTTPS and set `PUBLIC_URL` to that origin.

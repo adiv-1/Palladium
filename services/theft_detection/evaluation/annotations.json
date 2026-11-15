@@ -1,0 +1,23 @@
+{
+  "description": "Small labelled real-footage set for the theft-detection module. Media is NOT in the repository: run demo/fetch_sample_footage.py. Labels were made by watching each clip. Nine clips is far too few to estimate real-world accuracy; this set checks that the real pipeline runs end to end and records concrete failures.",
+  "videos": [
+    {"video": "data/stock/mixkit_31359.mp4", "duration": 7.6, "lighting": "well_lit",
+     "source": "Mixkit 31359, staged by actors (Stock Video Free License)",
+     "events": [{"start": 3.8, "end": 5.5, "type": "possible_snatching", "object": "handbag", "supported": true,
+                 "note": "a runner pulls a handbag from a standing person; handheld camera pans with the action"}]},
+    {"video": "data/stock/mixkit_31395.mp4", "duration": 10.8, "lighting": "dark",
+     "source": "Mixkit 31395, staged by actors (Stock Video Free License)",
+     "events": [{"start": 5.2, "end": 6.5, "type": "possible_snatching", "object": "cell phone", "supported": false,
+                 "note": "phone taken from a hand at night: phones are not a configured class"}]},
+    {"video": "data/stock/mixkit_31354.mp4", "duration": 7.0, "lighting": "well_lit",
+     "source": "Mixkit 31354, staged by actors (Stock Video Free License)",
+     "events": [{"start": 2.5, "end": 4.0, "type": "possible_snatching", "object": "cell phone", "supported": false,
+                 "note": "phone lifted out of an open bag; the bag itself never leaves its holder"}]},
+    {"video": "data/samples/classroom.mp4", "duration": 32.8, "lighting": "well_lit", "source": "Intel IoT DevKit sample-videos, CC-BY-4.0", "events": []},
+    {"video": "data/samples/face-demographics-walking-and-pause.mp4", "duration": 90.9, "lighting": "well_lit", "source": "Intel IoT DevKit sample-videos, CC-BY-4.0", "events": []},
+    {"video": "data/samples/one-by-one-person-detection.mp4", "duration": 139.4, "lighting": "well_lit", "source": "Intel IoT DevKit sample-videos, CC-BY-4.0", "events": []},
+    {"video": "data/samples/people-detection.mp4", "duration": 49.7, "lighting": "well_lit", "source": "Intel IoT DevKit sample-videos, CC-BY-4.0", "events": []},
+    {"video": "data/samples/store-aisle-detection.mp4", "duration": 65.4, "lighting": "well_lit", "source": "Intel IoT DevKit sample-videos, CC-BY-4.0", "events": []},
+    {"video": "data/samples/worker-zone-detection.mp4", "duration": 75.9, "lighting": "well_lit", "source": "Intel IoT DevKit sample-videos, CC-BY-4.0", "events": []}
+  ]
+}

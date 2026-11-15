@@ -27,6 +27,7 @@ def background(coro):
 @asynccontextmanager
 async def lifespan(app):
     init(); background(worker()); background(retention())
+    if theft.enabled(): background(theft.poller())
     yield
     for task in list(tasks): task.cancel()
     await asyncio.gather(*tasks,return_exceptions=True)
@@ -43,6 +44,8 @@ def authenticated(request: Request):
 
 from .activity import router as activity_router
 app.include_router(activity_router, dependencies=[Depends(authenticated)])
+from . import theft
+app.include_router(theft.router, dependencies=[Depends(authenticated)])
 from starlette.middleware.gzip import GZipMiddleware
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
@@ -69,7 +72,7 @@ async def health():
         'visual_verifier':settings.observation_verifier_model,'visual_verifier_loaded':verifier_is_loaded(),
         'tracking_enabled':settings.enable_tracking,'relayvsr_enabled':settings.enable_relay_vsr,
         'relift_enabled':settings.enable_relift,'bvimamba_enabled':settings.enable_bvimamba,
-        'retention_hours':settings.retention_hours}
+        'retention_hours':settings.retention_hours,'theft_worker':theft.status()}
 
 @app.post('/api/models/moss/warm',dependencies=[Depends(authenticated)])
 async def warm_moss():
@@ -160,7 +163,8 @@ async def review(incident_id:str,payload:Review):
     incident=get(Incident,incident_id)
     if not incident: raise HTTPException(404)
     save(ReviewAction(incident_id=incident_id,decision=payload.decision,note=payload.note))
-    incident.review_status=payload.decision; save(incident); await hub.publish('incident',incident.model_dump()); return incident
+    incident.review_status=payload.decision; save(incident); await hub.publish('incident',incident.model_dump())
+    background(theft.forward_review(incident,payload.decision,payload.note)); return incident
 
 @app.post('/api/jobs/{job_id}/retry',dependencies=[Depends(authenticated)])
 def retry(job_id:str):

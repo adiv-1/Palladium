@@ -1,0 +1,290 @@
+{
+  "$defs": {
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "clip_reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Clip Reference"
+        },
+        "frame_reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frame Reference"
+        },
+        "onset_stream_s": {
+          "minimum": 0,
+          "title": "Onset Stream S",
+          "type": "number"
+        },
+        "detected_stream_s": {
+          "minimum": 0,
+          "title": "Detected Stream S",
+          "type": "number"
+        },
+        "detection_delay_s": {
+          "minimum": 0,
+          "title": "Detection Delay S",
+          "type": "number"
+        },
+        "processing_lag_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Processing Lag S"
+        },
+        "features": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Features",
+          "type": "object"
+        },
+        "tracks": {
+          "items": {
+            "$ref": "#/$defs/TrackRef"
+          },
+          "maxItems": 20,
+          "title": "Tracks",
+          "type": "array"
+        },
+        "object_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Label"
+        },
+        "object_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Ref"
+        },
+        "zone_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Zone Id"
+        }
+      },
+      "required": [
+        "onset_stream_s",
+        "detected_stream_s",
+        "detection_delay_s"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "ReviewRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "pending",
+            "confirmed",
+            "dismissed",
+            "uncertain"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "note": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Note",
+          "type": "string"
+        },
+        "reviewed_at_utc": {
+          "format": "date-time",
+          "title": "Reviewed At Utc",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "reviewed_at_utc"
+      ],
+      "title": "ReviewRecord",
+      "type": "object"
+    },
+    "TrackRef": {
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "pattern": "^(person|object)_[0-9]+$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "role": {
+          "maxLength": 40,
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref",
+        "role"
+      ],
+      "title": "TrackRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "event_id": {
+      "pattern": "^evt_[0-9a-f]{16}$",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "source_id": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Source Id",
+      "type": "string"
+    },
+    "event_type": {
+      "enum": [
+        "possible_snatching",
+        "suspicious_object_removal",
+        "rapid_object_transfer",
+        "possible_restricted_area_entry",
+        "uncertain_interaction"
+      ],
+      "title": "Event Type",
+      "type": "string"
+    },
+    "timestamp_utc": {
+      "format": "date-time",
+      "title": "Timestamp Utc",
+      "type": "string"
+    },
+    "evidence_score": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Evidence Score",
+      "type": "number"
+    },
+    "score_calibrated": {
+      "const": false,
+      "default": false,
+      "title": "Score Calibrated",
+      "type": "boolean"
+    },
+    "severity": {
+      "enum": [
+        "info",
+        "review"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "observation": {
+      "maxLength": 1000,
+      "minLength": 3,
+      "title": "Observation",
+      "type": "string"
+    },
+    "uncertainties": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Uncertainties",
+      "type": "array"
+    },
+    "evidence": {
+      "$ref": "#/$defs/Evidence"
+    },
+    "model_version": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Model Version",
+      "type": "string"
+    },
+    "review_status": {
+      "default": "pending",
+      "enum": [
+        "pending",
+        "confirmed",
+        "dismissed",
+        "uncertain"
+      ],
+      "title": "Review Status",
+      "type": "string"
+    },
+    "review": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReviewRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "simulated": {
+      "default": false,
+      "title": "Simulated",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "event_id",
+    "source_id",
+    "event_type",
+    "timestamp_utc",
+    "evidence_score",
+    "severity",
+    "observation",
+    "evidence",
+    "model_version"
+  ],
+  "title": "Event",
+  "type": "object"
+}

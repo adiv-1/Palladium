@@ -1,0 +1,273 @@
+{
+  "seeds_per_scenario": 100,
+  "seed_base": 90000,
+  "note": "mock detections; temporal logic only",
+  "analysis_fps": 10.0,
+  "per_scenario": [
+    {
+      "scenario": "N01_handoff_to_friend",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 100
+    },
+    {
+      "scenario": "N02_picks_up_own_bag",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 100
+    },
+    {
+      "scenario": "N03_adjusts_backpack_strap",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 0
+    },
+    {
+      "scenario": "N04_exchange_belongings",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 201
+    },
+    {
+      "scenario": "N05_helps_carry_luggage",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 99
+    },
+    {
+      "scenario": "N06_moves_bag_to_another_seat",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 100
+    },
+    {
+      "scenario": "N07_crowd_brushing_past",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 3
+    },
+    {
+      "scenario": "N08_temporary_occlusion",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 1,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 3
+    },
+    {
+      "scenario": "N09_dropped_item_returned",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 200
+    },
+    {
+      "scenario": "N10_runs_with_own_bag",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 1
+    },
+    {
+      "scenario": "N11_camera_shake",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 58
+    },
+    {
+      "scenario": "N12_removal_from_unmonitored_spot",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 100
+    },
+    {
+      "scenario": "N13_two_walkers_cross",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 0
+    },
+    {
+      "scenario": "N14_passes_restricted_zone_edge",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 0
+    },
+    {
+      "scenario": "N15_owner_returns_from_out_of_view",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 100
+    },
+    {
+      "scenario": "N16_runs_off_right_after_being_passed",
+      "runs": 100,
+      "labelled_events": 0,
+      "detected": 0,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": null,
+      "stage1_only_false_alerts": 0
+    },
+    {
+      "scenario": "P01_runby_snatch",
+      "runs": 100,
+      "labelled_events": 100,
+      "detected": 91,
+      "missed": 9,
+      "false_alerts": 0,
+      "info_events": 8,
+      "median_delay_s": 0.8,
+      "stage1_only_false_alerts": 0
+    },
+    {
+      "scenario": "P02_walkup_and_pull_away",
+      "runs": 100,
+      "labelled_events": 100,
+      "detected": 91,
+      "missed": 9,
+      "false_alerts": 0,
+      "info_events": 2,
+      "median_delay_s": 0.8,
+      "stage1_only_false_alerts": 0
+    },
+    {
+      "scenario": "P03_unattended_bag_taken_while_depositor_in_view",
+      "runs": 100,
+      "labelled_events": 100,
+      "detected": 100,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": 1.21,
+      "stage1_only_false_alerts": 0
+    },
+    {
+      "scenario": "P04_removal_from_monitored_zone",
+      "runs": 100,
+      "labelled_events": 100,
+      "detected": 100,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": 1.65,
+      "stage1_only_false_alerts": 0
+    },
+    {
+      "scenario": "P05_restricted_zone_entry",
+      "runs": 100,
+      "labelled_events": 100,
+      "detected": 100,
+      "missed": 0,
+      "false_alerts": 0,
+      "info_events": 0,
+      "median_delay_s": 1.05,
+      "stage1_only_false_alerts": 0
+    }
+  ],
+  "overall": {
+    "true_positives": 482,
+    "false_positives": 0,
+    "false_negatives": 18,
+    "precision": 1.0,
+    "recall": 0.964,
+    "false_alerts_in_negative_footage": 0,
+    "negative_footage_hours": 5.918,
+    "false_alerts_per_hour_negative": 0.0,
+    "median_time_to_detection_s": 1.06,
+    "p90_time_to_detection_s": 1.65,
+    "info_events": 11
+  },
+  "stage1_only": {
+    "true_positives": 492,
+    "false_positives": 1065,
+    "false_negatives": 8,
+    "precision": 0.316,
+    "recall": 0.984,
+    "false_alerts_in_negative_footage": 1065,
+    "negative_footage_hours": 5.918,
+    "false_alerts_per_hour_negative": 179.95,
+    "median_time_to_detection_s": 0.49,
+    "p90_time_to_detection_s": 1.05,
+    "info_events": 0
+  },
+  "dismissal_reasons": {
+    "gradual_transfer": 403,
+    "picked_up_by_a_track_that_handled_it_before": 149,
+    "prior_holder_still_has_an_object": 203,
+    "moved_only_a_short_distance": 53,
+    "camera_motion": 58,
+    "no_other_handler_in_view_and_not_a_monitored_zone": 200
+  }
+}

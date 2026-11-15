@@ -1,0 +1,7 @@
+# Previous behaviour, for A/B comparison: no before/after possession checks, raw detections down to
+# score 0.10 may veto an alert, and a lost bag track may be re-linked far away from any person.
+engine:
+  possession_checks: false
+  veto_min_score: 0.1
+tracker:
+  bag_recover_requires_person: false

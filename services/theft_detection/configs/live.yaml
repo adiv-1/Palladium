@@ -1,0 +1,20 @@
+# Live webcam testing (`theft-detect live`). Staged, consented trials only.
+# Recording is OFF here; pass --record-evidence to keep short clips around events.
+source:
+  source_id: laptop_webcam
+  pace: realtime
+  analysis_fps: 10
+  queue_size: 2
+  reconnect_attempts: 3
+detector:
+  model: yolox_tiny
+  intra_op_threads: 4
+evidence:
+  enabled: false
+  directory: data/evidence
+  retention_hours: 2
+events:
+  trials_path: data/live_trials.jsonl
+api:
+  host: 127.0.0.1        # never exposed beyond this machine unless you change it
+  port: 8077

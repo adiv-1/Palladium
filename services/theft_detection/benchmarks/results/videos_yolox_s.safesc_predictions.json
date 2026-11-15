@@ -1,0 +1,41 @@
+{
+  "label": "theft_detection yolox_s @ 10.0 fps",
+  "videos": [
+    {
+      "video": "data/stock/mixkit_31359.mp4",
+      "events": []
+    },
+    {
+      "video": "data/stock/mixkit_31395.mp4",
+      "events": []
+    },
+    {
+      "video": "data/stock/mixkit_31354.mp4",
+      "events": []
+    },
+    {
+      "video": "data/samples/classroom.mp4",
+      "events": []
+    },
+    {
+      "video": "data/samples/face-demographics-walking-and-pause.mp4",
+      "events": []
+    },
+    {
+      "video": "data/samples/one-by-one-person-detection.mp4",
+      "events": []
+    },
+    {
+      "video": "data/samples/people-detection.mp4",
+      "events": []
+    },
+    {
+      "video": "data/samples/store-aisle-detection.mp4",
+      "events": []
+    },
+    {
+      "video": "data/samples/worker-zone-detection.mp4",
+      "events": []
+    }
+  ]
+}

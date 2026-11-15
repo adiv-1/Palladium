@@ -1,0 +1,14 @@
+# Hackathon demo: evidence capture ON (short clips around events, deleted after 2 hours),
+# video replayed at native speed, events also appended to a local JSON-lines log.
+source:
+  source_id: demo_camera
+  analysis_fps: 10
+  pace: realtime
+detector:
+  model: yolox_tiny
+evidence:
+  enabled: true
+  directory: data/evidence
+  retention_hours: 2
+events:
+  jsonl_path: data/events.jsonl

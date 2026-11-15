@@ -1,0 +1,53 @@
+{
+  "model": "yolox_tiny@sha256:427cc366d34e",
+  "videos": [
+    "people-detection.mp4",
+    "store-aisle-detection.mp4",
+    "worker-zone-detection.mp4",
+    "mixkit_31359.mp4",
+    "mixkit_31354.mp4"
+  ],
+  "frames": 786,
+  "reference_detections": {
+    "person": 1465,
+    "bag": 23
+  },
+  "retained_fraction": {
+    "brightness x0.5": {
+      "person": 0.99,
+      "bag": 0.913
+    },
+    "brightness x0.25": {
+      "person": 0.973,
+      "bag": 0.652
+    },
+    "brightness x0.1 + noise": {
+      "person": 0.594,
+      "bag": 0.0
+    },
+    "JPEG quality 20": {
+      "person": 0.97,
+      "bag": 0.652
+    },
+    "JPEG quality 8": {
+      "person": 0.855,
+      "bag": 0.087
+    },
+    "half resolution": {
+      "person": 0.994,
+      "bag": 0.87
+    },
+    "quarter resolution": {
+      "person": 0.974,
+      "bag": 0.739
+    },
+    "sensor noise sigma 25": {
+      "person": 0.909,
+      "bag": 0.391
+    },
+    "motion blur 15 px": {
+      "person": 0.885,
+      "bag": 0.478
+    }
+  }
+}

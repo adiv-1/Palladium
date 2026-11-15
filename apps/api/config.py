@@ -1,6 +1,6 @@
 from pathlib import Path
 import secrets
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -36,6 +36,16 @@ class Settings(BaseSettings):
     enable_bvimamba: bool = False
     allow_rtsp: bool = False
     max_upload_mb: int = 500
+    # Optional theft-detection worker (services/theft_detection). Empty URL = feature off.
+    theft_worker_url: str = ''
+    theft_worker_token: str = ''
+    theft_poll_seconds: float = Field(1, ge=0.2, le=30)
+    theft_timeout_seconds: float = Field(2, gt=0, le=30)
+
+    @field_validator('theft_worker_url')
+    @classmethod
+    def _strip_slash(cls, v: str) -> str:
+        return v.strip().rstrip('/')
 
 settings = Settings()
 settings.data_dir.mkdir(parents=True, exist_ok=True)

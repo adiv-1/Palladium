@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SafeSC · object-removal review</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #ffffff; --ink: #16191f; --muted: #5d6573; --line: #dfe3ea;
+    --accent: #1f5fbf; --review: #b3261e; --info: #6b5b00; --ok: #1b7a43; --chip: #eef1f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111418; --panel: #1a1e25; --ink: #e8ebf0; --muted: #98a1b0; --line: #2b313b;
+            --accent: #7fb0ff; --review: #ff8a80; --info: #e6cf6a; --ok: #6fd39a; --chip: #232934; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; padding: 12px 20px;
+           border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; font-weight: 650; }
+  .pill { padding: 2px 10px; border-radius: 999px; background: var(--chip); font-size: 12px; font-weight: 600; }
+  .pill.running { color: var(--ok); } .pill.error { color: var(--review); } .pill.sim { color: var(--info); }
+  .notice { margin: 0; padding: 8px 20px; font-size: 12.5px; color: var(--muted); border-bottom: 1px solid var(--line); }
+  main { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr); gap: 16px; padding: 16px 20px; }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; }
+  #video { width: 100%; border-radius: 6px; background: #000; display: block; aspect-ratio: 16 / 9; object-fit: contain; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
+  select, input, button, textarea { font: inherit; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; }
+  select { flex: 1 1 240px; min-width: 0; }
+  button { cursor: pointer; font-weight: 600; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { button.primary { color: #0b1220; } }
+  button:disabled { opacity: .5; cursor: default; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; margin-top: 14px; }
+  .tile { background: var(--chip); border-radius: 8px; padding: 8px 10px; }
+  .tile b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; }
+  .tile span { font-size: 11.5px; color: var(--muted); }
+  .stack { display: flex; flex-direction: column; gap: 16px; }
+  .event { border: 1px solid var(--line); border-left: 4px solid var(--info); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+  .event.review { border-left-color: var(--review); }
+  .event .top { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+  .event .type { font-weight: 650; }
+  .event .meta { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .event p { margin: 6px 0; }
+  .event ul { margin: 4px 0 6px 18px; padding: 0; color: var(--muted); font-size: 12.5px; }
+  .event details { font-size: 12px; color: var(--muted); }
+  .event pre { white-space: pre-wrap; margin: 6px 0 0; font-size: 11.5px; }
+  .event img { max-width: 100%; border-radius: 6px; margin-top: 6px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+  .actions input { flex: 1 1 140px; min-width: 0; }
+  .status-tag { font-size: 12px; font-weight: 650; }
+  .status-tag.confirmed { color: var(--review); } .status-tag.dismissed { color: var(--ok); } .status-tag.uncertain { color: var(--info); }
+  .empty { color: var(--muted); font-size: 13px; }
+  .rejected { font-size: 12.5px; padding: 6px 0; border-bottom: 1px solid var(--line); display: flex; gap: 10px; }
+  .rejected:last-child { border-bottom: 0; }
+  .rejected time { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 52px; }
+  .scroll { max-height: 62vh; overflow: auto; }
+  .state-row { font-size: 12.5px; padding: 4px 0; border-bottom: 1px solid var(--line); display: flex; gap: 10px; flex-wrap: wrap; }
+  .state-row:last-child { border-bottom: 0; }
+  .state-row b { font-weight: 650; min-width: 74px; }
+  .cand { color: var(--review); font-weight: 600; }
+  .trial-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .trial-controls select { flex: 1 1 220px; }
+  .trial-controls input { flex: 1 1 160px; min-width: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 11.5px; }
+  .v-detected, .v-correct { color: var(--ok); font-weight: 650; }
+  .v-missed, .v-false_alert { color: var(--review); font-weight: 650; }
+  .tablewrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SafeSC · object-removal review</h1>
+  <span id="state" class="pill">idle</span>
+  <span id="sim" class="pill sim" hidden>synthetic footage / mock detector</span>
+  <span id="detector" class="meta" style="color:var(--muted);font-size:12px"></span>
+</header>
+<p class="notice">Events below are <b>candidates for human review</b>, based only on how tracked boxes moved. They do not establish
+who an object belongs to, what anyone intended, or that anything wrongful happened. Track numbers are temporary and anonymous;
+no faces are analysed. Evidence scores are heuristic and uncalibrated.</p>
+<main>
+  <div class="stack">
+    <section>
+      <h2>Video</h2>
+      <img id="video" alt="Annotated video stream">
+      <div class="controls">
+        <select id="source" aria-label="Video source"></select>
+        <select id="fps" aria-label="Analysis rate" style="flex:0 0 auto">
+          <option value="5">5 fps</option><option value="8">8 fps</option>
+          <option value="10" selected>10 fps</option><option value="15">15 fps</option>
+        </select>
+        <button id="start" class="primary">Start</button>
+        <button id="stop">Stop</button>
+      </div>
+      <div class="tiles" id="tiles"></div>
+    </section>
+    <section>
+      <h2>Live analysis state</h2>
+      <div id="livestate"><p class="empty">No source running.</p></div>
+    </section>
+    <section>
+      <h2>Candidates the verifier rejected (most recent first)</h2>
+      <div id="rejected"><p class="empty">Nothing rejected yet.</p></div>
+    </section>
+    <section>
+      <h2>Staged trials</h2>
+      <div class="trial-controls">
+        <select id="scenario" aria-label="Scenario"></select>
+        <input id="trialnote" placeholder="Note (optional)" aria-label="Trial note">
+        <button id="trialstart" class="primary">Start trial</button>
+        <button id="trialstop">Stop trial</button>
+      </div>
+      <p id="trialstatus" class="empty">No trial running. Start one, act it out, then stop it.</p>
+      <div class="tablewrap"><table><thead><tr><th>Scenario</th><th>Expected</th><th>Result</th><th>Outcome</th><th>Bag seen</th><th>Delay</th><th>Why</th></tr></thead><tbody id="trials"></tbody></table></div>
+    </section>
+  </div>
+  <section>
+    <h2>Event timeline</h2>
+    <div id="events" class="scroll"><p class="empty">No events yet.</p></div>
+  </section>
+</main>
+<script>
+const token = new URLSearchParams(location.search).get("token");
+const q = (path) => token ? path + (path.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(token) : path;
+const api = async (path, opts) => {
+  const r = await fetch(q(path), opts);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+};
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const fmt = (v, d = 1) => (v == null ? "–" : Number(v).toFixed(d));
+const notes = {};      // unsent reviewer notes survive re-renders
+let lastEventsKey = "";
+
+$("video").src = q("/api/v1/stream.mjpg");
+
+async function loadSources() {
+  const s = await api("/api/v1/sources");
+  const sel = $("source");
+  const group = (label, items, name) => {
+    if (!items.length) return;
+    const g = document.createElement("optgroup"); g.label = label;
+    for (const it of items) { const o = el("option", null, name(it)); o.value = it; g.appendChild(o); }
+    sel.appendChild(g);
+  };
+  group("Videos in the demo folder", s.videos, (v) => v);
+  group("Synthetic scenes (rendered live)", s.synthetic, (v) => v.replace("synthetic:", "").replaceAll("_", " "));
+  group("Webcam", s.webcams, (v) => "Webcam " + v);
+}
+
+$("start").onclick = async () => {
+  $("start").disabled = true;
+  try {
+    await api("/api/v1/source", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uri: $("source").value, analysis_fps: Number($("fps").value) }) });
+  } catch (e) { alert("Could not start: " + e.message); }
+  $("start").disabled = false;
+};
+$("stop").onclick = () => api("/api/v1/stop", { method: "POST" }).catch(() => {});
+
+function tile(value, label) { const t = el("div", "tile"); t.appendChild(el("b", null, value)); t.appendChild(el("span", null, label)); return t; }
+
+async function refreshStatus(s) {
+  const st = $("state"); st.textContent = s.status + (s.detail ? " · " + s.detail : "");
+  st.className = "pill " + (s.status === "running" ? "running" : s.status === "error" ? "error" : "");
+  $("sim").hidden = !s.simulated;
+  $("detector").textContent = s.detector ? "detector: " + s.detector + (s.providers && s.providers.length ? " · " + s.providers[0] : "") : "";
+  const m = s.metrics, r = s.reader || {}, tiles = $("tiles");
+  tiles.replaceChildren();
+  if (!m) return;
+  tiles.append(
+    tile(fmt(m.analysed_fps), "analysed fps (target " + s.target_analysis_fps + ")"),
+    tile(fmt(s.source_fps), "source fps"),
+    tile(fmt(m.inference_ms.mean) + " ms", "detector mean"),
+    tile(fmt(m.inference_ms.p95) + " ms", "detector p95"),
+    tile(fmt(m.capture_to_result_ms.p95, 0) + " ms", "capture → result p95"),
+    tile(fmt(m.cpu_percent_of_machine) + " %", "CPU (whole machine)"),
+    tile(fmt(m.rss_mb, 0) + " MB", "memory (peak " + fmt(m.peak_rss_mb, 0) + ")"),
+    tile(String(r.frames_dropped ?? 0), "frames dropped (stale)"),
+    tile(String(s.queue_depth ?? 0), "frames queued now"),
+    tile(fmt(s.stream_time_s) + " s", "stream time"),
+    tile(String(s.events_stored), "events stored"));
+}
+
+function eventCard(e) {
+  const card = el("div", "event " + e.severity);
+  const top = el("div", "top");
+  top.append(el("span", "type", e.event_type.replaceAll("_", " ")),
+             el("span", "meta", e.severity === "review" ? "needs review" : "info only"),
+             el("span", "meta", "evidence score " + fmt(e.evidence_score, 2) + " (uncalibrated)"));
+  card.append(top);
+  const ev = e.evidence;
+  card.append(el("div", "meta", new Date(e.timestamp_utc).toISOString().replace(".000", "") +
+    " · stream " + fmt(ev.detected_stream_s) + " s · alert " + fmt(ev.detection_delay_s, 2) + " s after onset" +
+    (ev.processing_lag_s != null ? " · processing lag " + fmt(ev.processing_lag_s * 1000, 0) + " ms" : "") +
+    (e.simulated ? " · SIMULATED" : "")));
+  card.append(el("p", null, e.observation));
+  if (e.uncertainties.length) { const ul = el("ul"); e.uncertainties.forEach((u) => ul.append(el("li", null, u))); card.append(ul); }
+  const det = el("details"); det.append(el("summary", null, "Measured features · " + e.event_id));
+  det.append(el("pre", null, Object.entries(ev.features).map(([k, v]) => k + ": " + v).join("\n") + "\nmodel: " + e.model_version));
+  card.append(det);
+  if (ev.frame_reference) { const img = el("img"); img.src = q("/api/v1/evidence/" + ev.frame_reference); img.alt = "Frame at detection"; card.append(img); }
+  if (ev.clip_reference) { const a = el("a", null, "Open event clip"); a.href = q("/api/v1/evidence/" + ev.clip_reference); a.target = "_blank"; const wrap = el("div"); wrap.append(a); card.append(wrap); }
+  const actions = el("div", "actions");
+  if (e.review_status === "pending") {
+    const note = el("input"); note.placeholder = "Reviewer note (optional)"; note.value = notes[e.event_id] || "";
+    note.oninput = () => { notes[e.event_id] = note.value; };
+    actions.append(note);
+    for (const [label, status] of [["Confirm", "confirmed"], ["Dismiss", "dismissed"], ["Uncertain", "uncertain"]]) {
+      const b = el("button", null, label);
+      b.onclick = async () => {
+        await api("/api/v1/events/" + e.event_id + "/review", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status, note: note.value }) });
+        delete notes[e.event_id]; lastEventsKey = ""; refreshEvents();
+      };
+      actions.append(b);
+    }
+  } else {
+    actions.append(el("span", "status-tag " + e.review_status, "Reviewer marked: " + e.review_status +
+      (e.review && e.review.note ? " — " + e.review.note : "")));
+  }
+  card.append(actions);
+  return card;
+}
+
+async function refreshEvents() {
+  const events = await api("/api/v1/events?limit=100");
+  const key = events.map((e) => e.event_id + e.review_status + (e.evidence.frame_reference || "")).join("|");
+  if (key === lastEventsKey || document.activeElement?.tagName === "INPUT") return;
+  lastEventsKey = key;
+  const box = $("events");
+  box.replaceChildren(...(events.length ? events.map(eventCard) : [el("p", "empty", "No events yet.")]));
+}
+
+async function refreshRejected() {
+  const items = (await api("/api/v1/decisions?limit=40")).filter((d) => d.outcome === "dismissed").slice(0, 12);
+  const box = $("rejected");
+  if (!items.length) { box.replaceChildren(el("p", "empty", "Nothing rejected yet.")); return; }
+  box.replaceChildren(...items.map((d) => {
+    const row = el("div", "rejected");
+    row.append(el("time", null, fmt(d.stream_time_s) + " s"), el("span", null, d.kind + " candidate — " + d.reason.replaceAll("_", " ")));
+    return row;
+  }));
+}
+
+async function refreshLiveState() {
+  const st = await api("/api/v1/state"), box = $("livestate");
+  const eng = st.engine;
+  if (!eng) { box.replaceChildren(el("p", "empty", "No source running.")); return; }
+  const rows = [];
+  for (const c of eng.open_candidates) {
+    const r = el("div", "state-row");
+    r.append(el("b", "cand", "VERIFYING"), el("span", null, c.kind + ": " + c.object + " " + (c.from ? c.from + " → " : "") + c.to + " · " + fmt(c.elapsed_s) + " s"));
+    rows.push(r);
+  }
+  for (const o of eng.objects) {
+    const r = el("div", "state-row");
+    r.append(el("b", null, o.ref), el("span", null, o.label + " · " + o.state));
+    rows.push(r);
+  }
+  if (eng.camera_unstable) { const r = el("div", "state-row"); r.append(el("b", "cand", "CAMERA"), el("span", null, "moving / unstable — candidates will be held back")); rows.push(r); }
+  box.replaceChildren(...(rows.length ? rows : [el("p", "empty", "No bag is being tracked right now (" + fmt(eng.stream_time_s) + " s).")]));
+}
+
+async function loadScenarios() {
+  const sc = await api("/api/v1/scenarios"), sel = $("scenario");
+  for (const [k, v] of Object.entries(sc)) { const o = el("option", null, v.title + " — expect " + v.expected.replace("_", " ")); o.value = k; sel.append(o); }
+}
+$("trialstart").onclick = async () => {
+  try { await api("/api/v1/trials/start", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scenario: $("scenario").value, note: $("trialnote").value }) }); }
+  catch (e) { alert("Could not start trial: " + e.message); }
+};
+$("trialstop").onclick = async () => {
+  try { await api("/api/v1/trials/stop", { method: "POST" }); $("trialnote").value = ""; }
+  catch (e) { alert("Could not stop trial: " + e.message); }
+};
+async function refreshTrials(active) {
+  $("trialstatus").textContent = active ? "Trial running: " + active.scenario + " · " + active.frames + " frames analysed · " + active.events + " events" : "No trial running. Start one, act it out, then stop it.";
+  const rows = await api("/api/v1/trials?limit=20");
+  $("trials").replaceChildren(...rows.map((t) => {
+    const tr = el("tr");
+    const why = t.candidates.length ? t.candidates.map((c) => c.kind + ": " + c.outcome + " (" + c.reason.replaceAll("_", " ") + ")").join("; ") : (t.still_open_candidates.length ? "candidate still open at stop" : "no candidate opened");
+    tr.append(el("td", null, t.title), el("td", null, t.expected.replace("_", " ")), el("td", "v-" + t.verdict, t.verdict.replace("_", " ")),
+      el("td", null, t.outcome.replaceAll("_", " ")), el("td", null, t.bag_detection_coverage == null ? "–" : Math.round(t.bag_detection_coverage * 100) + " %"),
+      el("td", null, t.alert_delay_s.length ? t.alert_delay_s.map((d) => fmt(d, 2) + " s").join(", ") : "–"), el("td", null, why));
+    return tr;
+  }));
+}
+
+async function tick() {
+  try {
+    const status = await api("/api/v1/status");
+    await Promise.all([refreshStatus(status), refreshEvents(), refreshRejected(), refreshLiveState(), refreshTrials(status.trial)]);
+  } catch (e) { $("state").textContent = "API unreachable"; }
+}
+loadSources().catch(() => {});
+loadScenarios().catch(() => {});
+tick(); setInterval(tick, 1000);
+</script>
+</body>
+</html>

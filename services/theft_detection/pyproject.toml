@@ -1,0 +1,39 @@
+[project]
+name = "safesc-theft-detection"
+version = "0.1.0"
+description = "Standalone, CPU-first video analysis module that emits reviewable object-removal event candidates for SafeSC"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  "numpy>=2.0,<3",
+  "opencv-python-headless>=4.10,<5",
+  "onnxruntime>=1.20,<2",
+  "pydantic>=2.7,<3",
+  "pyyaml>=6,<7",
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30,<1",
+  "httpx>=0.27,<1",
+  "psutil>=6,<8",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<9"]
+
+[project.scripts]
+theft-detect = "theft_detection.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/theft_detection"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# keep pytest temp files next to the project instead of the system temp directory
+addopts = "--basetemp=.cache/pytest-tmp -q"
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
+markers = [
+  "real_model: runs the real ONNX detector (needs downloaded weights); skipped when weights are absent",
+  "slow: longer-running integration test",
+]
