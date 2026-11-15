@@ -26,7 +26,8 @@ def git(*args):
 
 def private_path(name):
     p=Path(name)
-    return (any(part in {'data','weights','checkpoints','third_party','node_modules','.venv'} for part in p.parts)
+    return ((bool(p.parts) and p.parts[0] in {'data','weights','checkpoints','third_party'})
+        or any(part in {'node_modules','.venv'} for part in p.parts)
         or name.startswith(('docs/local/','docs/screenshots/'))
         or (p.name.startswith('.env') and p.name!='.env.example')
         or p.suffix.lower() in {'.pem','.key','.p12','.pfx','.db','.sqlite','.sqlite3'}

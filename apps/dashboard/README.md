@@ -64,10 +64,10 @@ When an incident is selected, the SafeSC backend's dispatch agent (Claude, model
 | Bike racks, buildings | OpenStreetMap via `scripts/build_osm_data.py` (© OpenStreetMap contributors, ODbL) | Real |
 | Live incidents | Staged events, or a connected SafeSC | Demo / Live |
 | Camera positions, officer roster | Invented; deliberately **not** real DPS camera locations | Simulated |
-| History columns | Simulated until `public/data/history.json` exists | Simulated |
+| History columns | Simulated until `public/osm/history.json` exists | Simulated |
 | Cost today | $0.60/h per L4 GPU at 40 cameras per GPU, from the feasibility brief; not measured | Estimate |
 
-**Real history:** geocode the DPS daily crime log (hand-mapping the top ~30 locations is enough) and save it as `public/data/history.json`:
+**Real history:** geocode the DPS daily crime log (hand-mapping the top ~30 locations is enough) and save it as `public/osm/history.json`:
 
 ```json
 [{"lat": 34.0224, "lng": -118.2910, "hour": 21, "type": "rack_activity"}]

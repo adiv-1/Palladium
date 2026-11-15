@@ -233,10 +233,10 @@ __pycache__/
 .pytest_cache/
 node_modules/
 dist/
-data/
-weights/
-checkpoints/
-third_party/
+/data/
+/weights/
+/checkpoints/
+/third_party/
 evaluation/**/*.mp4
 evaluation/**/*.mov
 evaluation/**/*.webm

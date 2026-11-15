@@ -54,8 +54,9 @@ def sqlite_options(connection, _):
     connection.execute('PRAGMA journal_mode=WAL')
     connection.execute('PRAGMA busy_timeout=5000')
 
-def init():
+def init(recover=True):
     SQLModel.metadata.create_all(engine)
+    if not recover:return
     with Session(engine) as s:
         for job in s.exec(select(Job).where(Job.status=='running')):
             job.status='failed'; job.error='Worker restarted; retry explicitly'; s.add(job)

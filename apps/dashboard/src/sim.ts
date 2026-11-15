@@ -101,7 +101,7 @@ export function arcPath(from: LngLat, to: LngLat): [number, number, number][] {
 
 // Simulated history, shaped like the patterns in the feasibility brief: rack activity
 // rising in the evening near racks, altercations late at night, person-down calls spread out.
-// Replace with a geocoded DPS daily crime log at public/data/history.json (see README).
+// Replace with a geocoded DPS daily crime log at public/osm/history.json (see README).
 export function simulatedHistory(buildings: Building[], racks: Rack[]): HistoryPoint[] {
   const random = rng(146);
   const campusBuildings = buildings.filter((b) => onCampus(b.position));

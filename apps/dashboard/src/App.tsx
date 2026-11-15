@@ -76,14 +76,14 @@ export default function App() {
   // ---- data ------------------------------------------------------------------------
   useEffect(() => {
     (async () => {
-      const [r, b] = await Promise.all([fetch('/data/racks.json').then((x) => x.json()), fetch('/data/buildings.json').then((x) => x.json())]);
+      const [r, b] = await Promise.all([fetch(`${import.meta.env.BASE_URL}osm/racks.json`).then((x) => x.json()), fetch(`${import.meta.env.BASE_URL}osm/buildings.json`).then((x) => x.json())]);
       const rackList: Rack[] = r.racks.map((x: any) => ({id: x.id, position: [x.lng, x.lat], capacity: x.capacity}));
       const buildingList = parseBuildings(b.buildings);
       setRacks(rackList);
       setBuildings(buildingList);
       setDs({officers: makeOfficers(buildingList), dispatches: []});
       try {
-        const h = await fetch('/data/history.json');
+        const h = await fetch(`${import.meta.env.BASE_URL}osm/history.json`);
         if (!h.ok || !(h.headers.get('content-type') || '').includes('json')) throw new Error('none');
         const rows = await h.json();
         setHistory(rows.map((p: any) => ({position: [p.lng, p.lat], hour: p.hour, type: p.type})));

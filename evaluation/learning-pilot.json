@@ -1,0 +1,505 @@
+{
+  "kind": "academic research pilot, not verified legal outcomes",
+  "annotation_revision": "e478cb5b2277c6b7cf6a1dc4691021592003e216",
+  "video_source": "https://www.crcv.ucf.edu/projects/real-world/",
+  "annotations": "https://github.com/Xuange923/Surveillance-Video-Understanding",
+  "review_authority": "Published UCA human annotations plus assistant visual contact-sheet curation; not USC officials",
+  "split_counts": {
+    "train": 19,
+    "val": 8,
+    "test": 12
+  },
+  "total_eligible": 39,
+  "examples": [
+    {
+      "video_id": "Assault018_x264",
+      "split": "train",
+      "start": 0.6,
+      "end": 4.6,
+      "action": "physical_contact",
+      "eligible": true,
+      "description": "A person approaches another person, who falls following contact.",
+      "original_sha256": "356a959dd9be5eca3b737e21209a73cc0a202e10fa02f22e0a7e142cf9e7013a"
+    },
+    {
+      "video_id": "Assault024_x264",
+      "split": "train",
+      "start": 0.9999999999999999,
+      "end": 7.2,
+      "action": "physical_contact",
+      "eligible": true,
+      "description": "A person strikes another person and the other person falls.",
+      "original_sha256": "4d1413014b52b138608a870452a5102acdfec569a3c288dd7c8e43db52eebeaa"
+    },
+    {
+      "video_id": "Assault020_x264",
+      "split": "train",
+      "start": 1.8000000000000003,
+      "end": 7.0,
+      "action": "physical_contact",
+      "eligible": true,
+      "description": "One person pushes and strikes another person in a small group.",
+      "original_sha256": "4e5dac8a883c9500912cc0de69af183eeb49e0b6f2aa24e7d865c57bed268a34"
+    },
+    {
+      "video_id": "Assault012_x264",
+      "split": "train",
+      "start": 9.799999999999999,
+      "end": 13.799999999999999,
+      "action": "physical_contact",
+      "eligible": true,
+      "description": "A person runs toward another person and pushes them to the ground.",
+      "original_sha256": "e06d611b896b2e3e014ad62493666a7108f006d3b530f8e7e25c711aa21c3cf2"
+    },
+    {
+      "video_id": "Assault026_x264",
+      "split": "train",
+      "start": 7.3999999999999995,
+      "end": 15.399999999999999,
+      "action": "physical_contact",
+      "eligible": true,
+      "description": "A standing person repeatedly strikes a seated person.",
+      "original_sha256": "ce12e7e35c424296f97eb646853127774dc93f0d73c4100cd4a419572c621725"
+    },
+    {
+      "video_id": "Assault025_x264",
+      "split": "train",
+      "start": 17.6,
+      "end": 21.6,
+      "action": "physical_contact",
+      "eligible": true,
+      "description": "People make forceful physical contact in a crowd.",
+      "original_sha256": "6dd87ed9972fdf2dc590ce0e48da387dd6c545cf711f5dab8d69acf7458bcdcf"
+    },
+    {
+      "video_id": "Stealing055_x264",
+      "split": "train",
+      "start": 18.8,
+      "end": 26.8,
+      "action": "object_taking",
+      "eligible": true,
+      "description": "A person removes a small object from a drawer and moves it toward their clothing.",
+      "original_sha256": "15cdc7ba0787cf9d77da59f34a71a67915ff6879c69149e669647cee9a44a598"
+    },
+    {
+      "video_id": "Stealing015_x264",
+      "split": "train",
+      "start": 31.800000000000004,
+      "end": 39.800000000000004,
+      "action": "insufficient_visibility",
+      "eligible": false,
+      "description": "",
+      "original_sha256": "5cee7e2663c55d40779af0337f28429d339bec559270dd6c7617740031f00690"
+    },
+    {
+      "video_id": "Stealing027_x264",
+      "split": "train",
+      "start": 1.8000000000000003,
+      "end": 9.8,
+      "action": "insufficient_visibility",
+      "eligible": false,
+      "description": "",
+      "original_sha256": "c39487a365439996f248d5eae28acb2fa4078c52a53553d833ac2eda938686cd"
+    },
+    {
+      "video_id": "Stealing074_x264",
+      "split": "train",
+      "start": 14.299999999999999,
+      "end": 22.299999999999997,
+      "action": "object_taking",
+      "eligible": true,
+      "description": "A person reaches inside a vehicle and removes an item.",
+      "original_sha256": "e3ee5920dc63134cd6a64d2c1e69f0d6f89e4f1fa8bb9aa2c6b423f4667e1c65"
+    },
+    {
+      "video_id": "Stealing022_x264",
+      "split": "train",
+      "start": 5.6,
+      "end": 13.6,
+      "action": "insufficient_visibility",
+      "eligible": false,
+      "description": "",
+      "original_sha256": "4ccd3e98473f6d41d27ca28b93ac159229016056d8a8f417370b618c3e6ae1fa"
+    },
+    {
+      "video_id": "Stealing024_x264",
+      "split": "train",
+      "start": 6.8,
+      "end": 14.8,
+      "action": "object_taking",
+      "eligible": true,
+      "description": "A person reaches behind a seated person and removes a bag.",
+      "original_sha256": "1919e83ca1a10a258665b6579bd87832ddc8d737bc5bf3c25572d8b34bed1b68"
+    },
+    {
+      "video_id": "Robbery023_x264",
+      "split": "train",
+      "start": 9.799999999999999,
+      "end": 17.799999999999997,
+      "action": "object_taking",
+      "eligible": true,
+      "description": "A person collects items from a display counter into a bag.",
+      "original_sha256": "7756ab30a454fa371a1df6704a344590c8a77524f8892ea33943efb255f5dd0d"
+    },
+    {
+      "video_id": "Robbery072_x264",
+      "split": "train",
+      "start": 0,
+      "end": 4.2,
+      "action": "ordinary_activity",
+      "eligible": true,
+      "description": "",
+      "original_sha256": "be4b12b18181eb58ef1adeef24887e7a632ad01d9d0f8840afbc79075b55e133"
+    },
+    {
+      "video_id": "Robbery082_x264",
+      "split": "train",
+      "start": 38.300000000000004,
+      "end": 46.300000000000004,
+      "action": "object_taking",
+      "eligible": true,
+      "description": "People reach toward another person and remove items from their hands.",
+      "original_sha256": "94d7b34211965eab733233aa8cb27084eeca14890dcb65fca4a93d612e135bd4"
+    },
+    {
+      "video_id": "Robbery011_x264",
+      "split": "train",
+      "start": 24.400000000000002,
+      "end": 32.400000000000006,
+      "action": "object_taking",
+      "eligible": true,
+      "description": "A person reaches into the cashier area and collects items into a bag.",
+      "original_sha256": "d0d596764a9cf89df4489f5a3397ea7532af287ba6bab0b816cbab00740f76d5"
+    },
+    {
+      "video_id": "Robbery050_x264",
+      "split": "train",
+      "start": 14.0,
+      "end": 18.0,
+      "action": "insufficient_visibility",
+      "eligible": false,
+      "description": "",
+      "original_sha256": "9f4bce177f474846190d163e9b8cfe9cce41fb7a82f2c177edc1fa2f12667596"
+    },
+    {
+      "video_id": "Robbery058_x264",
+      "split": "train",
+      "start": 0.19999999999999996,
+      "end": 7.1000000000000005,
+      "action": "insufficient_visibility",
+      "eligible": false,
+      "description": "",
+      "original_sha256": "4cfd1babe7ed08e4bf7c89ec74260ea3cb2827cbaadd45e14729558865e521a8"
+    },
+    {
+      "video_id": "Normal_Videos157_x264",
+      "split": "train",
+      "start": 0,
+      "end": 6.765666666666666,
+      "action": "ordinary_activity",
+      "eligible": true,
+      "description": "",
+      "original_sha256": "c1e36531136f12ca038341398b453a03d7be199663402c23abf4e9b9a582253e"
+    },
+    {
+      "video_id": "Normal_Videos344_x264",
+      "split": "train",
+      "start": 0,
+      "end": 6.9656666666666665,
+      "action": "ordinary_activity",
+      "eligible": true,
+      "description": "",
+      "original_sha256": "cf0627fe9102a4268019a22e38b9ce2a074c8493f3ded9ed1490a4c91085b149"
+    },
+    {
+      "video_id": "Normal_Videos_345_x264",
+      "split": "train",
+      "start": 0,
+      "end": 6.9656666666666665,
+      "action": "ordinary_activity",
+      "eligible": true,
+      "description": "",
+      "original_sha256": "1ac537cb6c49303d705f455f78a6379f7fa8eab571a4fbae5a9dc1550b49df14"
+    },
+    {
+      "video_id": "Normal_Videos_881_x264",
+      "split": "train",
+      "start": 0,
+      "end": 7.4656666666666665,
+      "action": "ordinary_activity",
+      "eligible": true,
+      "description": "",
+      "original_sha256": "7ea8085b97496beffe5d8a5c5d7b3c6613084b1daaa9391611dd737502393ea6"
+    },
+    {
+      "video_id": "Normal_Videos055_x264",
+      "split": "train",
+      "start": 0,
+      "end": 8,
+      "action": "ordinary_activity",
+      "eligible": true,
+      "description": "",
+      "original_sha256": "d75a9c226025d8ae6a00878f2165883babaddbc2600b067af44977decebf722f"
+    },
+    {
+      "video_id": "Normal_Videos290_x264",
+      "split": "train",
+      "start": 0,
+      "end": 8,
+      "action": "ordinary_activity",
+      "eligible": true,
+      "description": "",
+      "original_sha256": "75c237ffa759d4e62a492b040d71372ef97ab0cf7789be21967370e2ea20d55e"
+    },
+    {
+      "video_id": "Assault050_x264",
+      "split": "val",
+      "start": 1.5,
+      "end": 9.5,
+      "action": "physical_contact",
+      "eligible": true,
+      "description": "One person knocks another person down and makes repeated physical contact.",
+      "original_sha256": "4ea6f0a2a1aeb53af12e79c720efc3c08b01786292e1737a55440fb3137ab2c6"
+    },
+    {
+      "video_id": "Assault044_x264",
+      "split": "val",
+      "start": 1.5,
+      "end": 9.5,
+      "action": "physical_contact",
+      "eligible": true,
+      "description": "Several people strike or push a person in a crowded doorway.",
+      "original_sha256": "8aa4bb5287a63c35e304efb63ecf096123a4855691af9cb85b6fcccde41d63f5"
+    },
+    {
+      "video_id": "Assault052_x264",
+      "split": "val",
+      "start": 1.4,
+      "end": 9.4,
+      "action": "physical_contact",
+      "eligible": true,
+      "description": "A person runs toward a group and pushes people down.",
+      "original_sha256": "efb5fa4e40460752a1ea0df8a682ef8101eeeeb189e63148a3854b8c4d68f570"
+    },
+    {
+      "video_id": "Stealing105_x264",
+      "split": "val",
+      "start": 0,
+      "end": 8,
+      "action": "insufficient_visibility",
+      "eligible": false,
+      "description": "",
+      "original_sha256": "821edb12e9cc51ff2c293c0ddf4431dc26a0ad8173945ceab5a728668ee03021"
+    },
+    {
+      "video_id": "Stealing097_x264",
+      "split": "val",
+      "start": 10.1,
+      "end": 18.1,
+      "action": "object_taking",
+      "eligible": true,
+      "description": "A person opens a vehicle door, removes an item, and moves away.",
+      "original_sha256": "85ee1bde0832c4e146230f8437e2535bfac8e0fb72c9509195abdb8dedede888"
+    },
+    {
+      "video_id": "Stealing110_x264",
+      "split": "val",
+      "start": 19.200000000000003,
+      "end": 27.200000000000003,
+      "action": "insufficient_visibility",
+      "eligible": false,
+      "description": "",
+      "original_sha256": "ba358f6b117480aa0a78e257e7d1d04b9592dbca22ea990a0d0872857bb48bd1"
+    },
+    {
+      "video_id": "Robbery116_x264",
+      "split": "val",
+      "start": 13.799999999999999,
+      "end": 14.965666666666667,
+      "action": "insufficient_visibility",
+      "eligible": false,
+      "description": "",
+      "original_sha256": "cbdef25ddc37ae41132350b7e4413e9d5b42ce3270b969a05566c8fd35c0171c"
+    },
+    {
+      "video_id": "Robbery138_x264",
+      "split": "val",
+      "start": 13.2,
+      "end": 20.4,
+      "action": "insufficient_visibility",
+      "eligible": false,
+      "description": "",
+      "original_sha256": "4ea6f0a2a1aeb53af12e79c720efc3c08b01786292e1737a55440fb3137ab2c6"
+    },
+    {
+      "video_id": "Robbery123_x264",
+      "split": "val",
+      "start": 6.3999999999999995,
+      "end": 13.5,
+      "action": "object_taking",
+      "eligible": true,
+      "description": "A person reaches across a counter and pulls at a computer while another person holds it.",
+      "original_sha256": "795ecd1936c0bd1b168c79bff51bd0633948b4a50fbf51da547db8fe332bd2db"
+    },
+    {
+      "video_id": "Normal_Videos731_x264",
+      "split": "val",
+      "start": 0,
+      "end": 8,
+      "action": "ordinary_activity",
+      "eligible": true,
+      "description": "",
+      "original_sha256": "f2e83836322ba807adc360d5cfdceec8de6aafa75e1ea8373230bb603da35407"
+    },
+    {
+      "video_id": "Normal_Videos916_x264",
+      "split": "val",
+      "start": 0,
+      "end": 8,
+      "action": "ordinary_activity",
+      "eligible": true,
+      "description": "",
+      "original_sha256": "11ff1155741a69a33aa95d66f22946c95692823b284cbaf3f5ab03e86ef042ee"
+    },
+    {
+      "video_id": "Normal_Videos705_x264",
+      "split": "val",
+      "start": 0,
+      "end": 8,
+      "action": "ordinary_activity",
+      "eligible": true,
+      "description": "",
+      "original_sha256": "3adebeeb7b9f40c7fb3d4e9c5860c9b0998a4a5e1c095653f32ec6bebf73f8e4"
+    },
+    {
+      "video_id": "Assault038_x264",
+      "split": "test",
+      "start": 1.1,
+      "end": 4.565666666666666,
+      "action": "physical_contact",
+      "eligible": true,
+      "description": "One person strikes another person, who falls to the ground.",
+      "original_sha256": "aaa157f51c8c068b96ad2e967acaf591061e1601050677a352330cc547445649"
+    },
+    {
+      "video_id": "Assault039_x264",
+      "split": "test",
+      "start": 4.1,
+      "end": 9.099999999999998,
+      "action": "physical_contact",
+      "eligible": true,
+      "description": "One person repeatedly strikes another person near a counter.",
+      "original_sha256": "ea12ebf923f01eeba6a3967dc5f6fc8067ab4b619b7452c26b67382671d5ec24"
+    },
+    {
+      "video_id": "Assault029_x264",
+      "split": "test",
+      "start": 1.5,
+      "end": 9.5,
+      "action": "physical_contact",
+      "eligible": true,
+      "description": "Two standing people make repeated kicking motions toward a person on the ground.",
+      "original_sha256": "ce2396e9b19753d01ba35d1f968fcc6760efd1cae0a2428eb2cbcb5ac359da4b"
+    },
+    {
+      "video_id": "Assault031_x264",
+      "split": "test",
+      "start": 7.5,
+      "end": 15.5,
+      "action": "physical_contact",
+      "eligible": true,
+      "description": "People push and strike each other in a crowded area.",
+      "original_sha256": "b4638a8ab342913eda0c24bcc900d7831d5059baddc4569bcc9164e97d5c150b"
+    },
+    {
+      "video_id": "Stealing081_x264",
+      "split": "test",
+      "start": 35.4,
+      "end": 41.1,
+      "action": "object_taking",
+      "eligible": true,
+      "description": "A person removes an item from a vehicle and moves away.",
+      "original_sha256": "241d862a062fcf6241ff211b16f2fe1c474a8a86b361b7b8eb74319e8269d5e3"
+    },
+    {
+      "video_id": "Robbery089_x264",
+      "split": "test",
+      "start": 1.2000000000000002,
+      "end": 5.2,
+      "action": "object_taking",
+      "eligible": true,
+      "description": "A person pulls at another person's bag, and the other person falls.",
+      "original_sha256": "ba7d0afdc4a1c5ee6cf8101eee45a27bf2f314a336c0ef302d0c1830166ede63"
+    },
+    {
+      "video_id": "Robbery106_x264",
+      "split": "test",
+      "start": 2.6,
+      "end": 9.6,
+      "action": "insufficient_visibility",
+      "eligible": false,
+      "description": "",
+      "original_sha256": "1a3f50b4e048d130e2d00d8af51e7a474cef8cad46d9f80a96a493bcf57fc894"
+    },
+    {
+      "video_id": "Robbery102_x264",
+      "split": "test",
+      "start": 36.7,
+      "end": 42.4,
+      "action": "object_taking",
+      "eligible": true,
+      "description": "Two people pull on the same bag in a courtyard.",
+      "original_sha256": "9d10d2155478859668f9aec008e9c107e566011202c247da889b4b423e6713a7"
+    },
+    {
+      "video_id": "Robbery105_x264",
+      "split": "test",
+      "start": 5.6,
+      "end": 13.099999999999998,
+      "action": "ordinary_activity",
+      "eligible": true,
+      "description": "",
+      "original_sha256": "851d29e0b0786686aa188061c87536a5be055c6dce24a69bdb6773779980e89d"
+    },
+    {
+      "video_id": "Normal_Videos609_x264",
+      "split": "test",
+      "start": 0,
+      "end": 8,
+      "action": "ordinary_activity",
+      "eligible": true,
+      "description": "",
+      "original_sha256": "4f3d84f87d43e80f9a9fcadb8ae061c11f6c7362ada26c88661fc22ee99752a9"
+    },
+    {
+      "video_id": "Normal_Videos610_x264",
+      "split": "test",
+      "start": 0,
+      "end": 8,
+      "action": "ordinary_activity",
+      "eligible": true,
+      "description": "",
+      "original_sha256": "a3349e080576bccb6646e8f3c23cc4cd48d7ae4e166854e4dbbda509ab4ade6f"
+    },
+    {
+      "video_id": "Normal_Videos555_x264",
+      "split": "test",
+      "start": 0,
+      "end": 8,
+      "action": "ordinary_activity",
+      "eligible": true,
+      "description": "",
+      "original_sha256": "0f028145f92641f7cfbe0bcd108e79401c3432d0d83c3e32fdf80d88e4812844"
+    },
+    {
+      "video_id": "Normal_Videos570_x264",
+      "split": "test",
+      "start": 0,
+      "end": 8,
+      "action": "ordinary_activity",
+      "eligible": true,
+      "description": "",
+      "original_sha256": "9fb8a60a46183d4a7f94524d28418c821908bf95a99992dd9e091474b766ed29"
+    }
+  ]
+}

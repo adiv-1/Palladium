@@ -1,0 +1,581 @@
+{
+ "source": "OpenStreetMap amenity=bicycle_parking",
+ "attribution": "(c) OpenStreetMap contributors, ODbL",
+ "fetched": "2026-11-14",
+ "racks": [
+  {
+   "id": "osm-node-6047194085",
+   "lat": 34.025158,
+   "lng": -118.286128,
+   "capacity": 6,
+   "covered": false
+  },
+  {
+   "id": "osm-node-6047237641",
+   "lat": 34.025795,
+   "lng": -118.281209,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-6047237642",
+   "lat": 34.025331,
+   "lng": -118.281507,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-6814770332",
+   "lat": 34.020531,
+   "lng": -118.290271,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-6814770337",
+   "lat": 34.021048,
+   "lng": -118.282176,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-6814770338",
+   "lat": 34.020987,
+   "lng": -118.282026,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-6814770339",
+   "lat": 34.020776,
+   "lng": -118.281519,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-6814792631",
+   "lat": 34.024283,
+   "lng": -118.280182,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-6814792632",
+   "lat": 34.024252,
+   "lng": -118.280133,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-6814955798",
+   "lat": 34.021708,
+   "lng": -118.290992,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-6814958389",
+   "lat": 34.024777,
+   "lng": -118.287455,
+   "capacity": 14,
+   "covered": false
+  },
+  {
+   "id": "osm-node-8144251536",
+   "lat": 34.017958,
+   "lng": -118.290431,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-8144251542",
+   "lat": 34.017955,
+   "lng": -118.29114,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-8144251550",
+   "lat": 34.01787,
+   "lng": -118.291249,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-8144251551",
+   "lat": 34.017918,
+   "lng": -118.291184,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-8144251552",
+   "lat": 34.017062,
+   "lng": -118.290265,
+   "capacity": 5,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9591449484",
+   "lat": 34.025594,
+   "lng": -118.284513,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9591449514",
+   "lat": 34.025436,
+   "lng": -118.284504,
+   "capacity": null,
+   "covered": true
+  },
+  {
+   "id": "osm-node-9742719130",
+   "lat": 34.022473,
+   "lng": -118.284008,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9742719131",
+   "lat": 34.022474,
+   "lng": -118.284092,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9742719132",
+   "lat": 34.022309,
+   "lng": -118.283844,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9747025527",
+   "lat": 34.019288,
+   "lng": -118.282654,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9749789885",
+   "lat": 34.021603,
+   "lng": -118.290906,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9749944398",
+   "lat": 34.024279,
+   "lng": -118.287808,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9749944399",
+   "lat": 34.02442,
+   "lng": -118.287937,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9749944400",
+   "lat": 34.024333,
+   "lng": -118.28791,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9749944401",
+   "lat": 34.024152,
+   "lng": -118.287923,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9749944402",
+   "lat": 34.024501,
+   "lng": -118.288131,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9750068257",
+   "lat": 34.019406,
+   "lng": -118.289179,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9750094847",
+   "lat": 34.022033,
+   "lng": -118.282276,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9750094848",
+   "lat": 34.022093,
+   "lng": -118.282401,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9750094849",
+   "lat": 34.021599,
+   "lng": -118.282366,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9750094850",
+   "lat": 34.022246,
+   "lng": -118.282747,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9750094851",
+   "lat": 34.022294,
+   "lng": -118.282875,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9750094863",
+   "lat": 34.022368,
+   "lng": -118.283,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9752901578",
+   "lat": 34.019849,
+   "lng": -118.286452,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9753002516",
+   "lat": 34.025078,
+   "lng": -118.28296,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9753026927",
+   "lat": 34.024708,
+   "lng": -118.284061,
+   "capacity": 14,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9753026928",
+   "lat": 34.025418,
+   "lng": -118.284157,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9753026929",
+   "lat": 34.025598,
+   "lng": -118.286481,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9753055529",
+   "lat": 34.022616,
+   "lng": -118.29016,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-9753055530",
+   "lat": 34.022716,
+   "lng": -118.290481,
+   "capacity": 14,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886746",
+   "lat": 34.021697,
+   "lng": -118.284594,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886747",
+   "lat": 34.022651,
+   "lng": -118.284081,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886748",
+   "lat": 34.021844,
+   "lng": -118.284921,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886749",
+   "lat": 34.021992,
+   "lng": -118.284893,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886750",
+   "lat": 34.019346,
+   "lng": -118.285745,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886751",
+   "lat": 34.02155,
+   "lng": -118.284176,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886752",
+   "lat": 34.016432,
+   "lng": -118.285888,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886756",
+   "lat": 34.021564,
+   "lng": -118.279844,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886757",
+   "lat": 34.021485,
+   "lng": -118.278591,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886758",
+   "lat": 34.021486,
+   "lng": -118.279991,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886759",
+   "lat": 34.019551,
+   "lng": -118.285951,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886760",
+   "lat": 34.01767,
+   "lng": -118.286033,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886761",
+   "lat": 34.016429,
+   "lng": -118.286265,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886762",
+   "lat": 34.019186,
+   "lng": -118.285847,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886763",
+   "lat": 34.018948,
+   "lng": -118.28601,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886764",
+   "lat": 34.022151,
+   "lng": -118.280016,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886765",
+   "lat": 34.022433,
+   "lng": -118.28085,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-10837886766",
+   "lat": 34.022331,
+   "lng": -118.284224,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-node-12402901899",
+   "lat": 34.02474,
+   "lng": -118.287496,
+   "capacity": 38,
+   "covered": false
+  },
+  {
+   "id": "osm-node-12403418733",
+   "lat": 34.022813,
+   "lng": -118.290612,
+   "capacity": 6,
+   "covered": false
+  },
+  {
+   "id": "osm-node-14239970415",
+   "lat": 34.017117,
+   "lng": -118.291221,
+   "capacity": 5,
+   "covered": false
+  },
+  {
+   "id": "osm-node-14239971891",
+   "lat": 34.016814,
+   "lng": -118.291407,
+   "capacity": 20,
+   "covered": false
+  },
+  {
+   "id": "osm-node-14369105450",
+   "lat": 34.023319,
+   "lng": -118.285835,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-way-331744693",
+   "lat": 34.020769,
+   "lng": -118.287514,
+   "capacity": 32,
+   "covered": false
+  },
+  {
+   "id": "osm-way-458021409",
+   "lat": 34.019253,
+   "lng": -118.287656,
+   "capacity": 48,
+   "covered": false
+  },
+  {
+   "id": "osm-way-458021410",
+   "lat": 34.019246,
+   "lng": -118.287535,
+   "capacity": 48,
+   "covered": false
+  },
+  {
+   "id": "osm-way-458022632",
+   "lat": 34.020986,
+   "lng": -118.287379,
+   "capacity": 26,
+   "covered": false
+  },
+  {
+   "id": "osm-way-458798924",
+   "lat": 34.018825,
+   "lng": -118.285317,
+   "capacity": 46,
+   "covered": false
+  },
+  {
+   "id": "osm-way-583756328",
+   "lat": 34.021629,
+   "lng": -118.283285,
+   "capacity": 200,
+   "covered": false
+  },
+  {
+   "id": "osm-way-583756329",
+   "lat": 34.021776,
+   "lng": -118.283355,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-way-642297912",
+   "lat": 34.02568,
+   "lng": -118.282293,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-way-642299331",
+   "lat": 34.026063,
+   "lng": -118.282045,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-way-1060835796",
+   "lat": 34.019148,
+   "lng": -118.282476,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-way-1060835797",
+   "lat": 34.019153,
+   "lng": -118.282783,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-way-1060835798",
+   "lat": 34.019227,
+   "lng": -118.282471,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-way-1061152173",
+   "lat": 34.018955,
+   "lng": -118.289631,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-way-1061517967",
+   "lat": 34.019074,
+   "lng": -118.28283,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-way-1061534617",
+   "lat": 34.025175,
+   "lng": -118.286195,
+   "capacity": 30,
+   "covered": false
+  },
+  {
+   "id": "osm-way-1061535961",
+   "lat": 34.025349,
+   "lng": -118.282642,
+   "capacity": null,
+   "covered": false
+  },
+  {
+   "id": "osm-way-1061537289",
+   "lat": 34.02293,
+   "lng": -118.290964,
+   "capacity": 14,
+   "covered": false
+  }
+ ]
+}

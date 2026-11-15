@@ -65,6 +65,7 @@ PY
     .venv/bin/python scripts/download_weights.py --only relift da3 alltracker
     ;;
   verifier)
+    uv pip install --python .venv/bin/python peft==0.17.1 lm-format-enforcer==0.11.3
     .venv/bin/python - <<'PY'
 import json
 from pathlib import Path
