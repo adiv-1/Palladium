@@ -4,12 +4,12 @@
 @keyframes agent-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 /* Loading: three pulsing dots */
-.agent-loading { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 300; color: var(--muted); }
+.agent-loading { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 400; color: var(--muted); }
 .agent-loading::after { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 9px 0 0 currentColor, 18px 0 0 currentColor; animation: agent-dots 1.2s ease-in-out infinite; }
 @keyframes agent-dots { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 
 /* Urgency pill: soft tints, never a solid fill */
-.urgency { display: inline-block; padding: 4px 11px; border-radius: 999px; font-family: var(--font); font-size: 10px; font-weight: 600; line-height: 1.4; letter-spacing: .12em; text-transform: uppercase; background: var(--tint-2); color: var(--muted); }
+.urgency { display: inline-block; padding: 4px 11px; border-radius: 999px; font-family: var(--font); font-size: 11px; font-weight: 600; line-height: 1.4; letter-spacing: .12em; text-transform: uppercase; background: var(--tint-2); color: var(--muted); }
 .urgency.critical { background: var(--red-soft); color: var(--red-text); animation: agent-pulse 1.6s ease-in-out infinite; }
 .urgency.high { background: var(--yellow-soft); color: var(--yellow-text); }
 .urgency.moderate, .urgency.low { background: var(--tint-2); color: var(--muted); }
@@ -25,17 +25,17 @@
 .agent-unit input[type="checkbox"] { margin: 0; accent-color: var(--ink); }
 .agent-unit input[type="checkbox"]:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .agent-unit strong { font-family: var(--font); font-size: 14px; font-weight: 500; color: var(--text); }
-.agent-unit .role { font-size: 10px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--yellow-text); }
-.agent-unit .reason { flex-basis: 100%; font-size: 12px; font-weight: 300; color: var(--muted); }
+.agent-unit .role { font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--yellow-text); }
+.agent-unit .reason { flex-basis: 100%; font-size: 12px; font-weight: 400; color: var(--muted); }
 .agent-unit .eta { margin-left: auto; font-family: var(--font); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
 
 .agent-message { margin: 8px 0 0; padding: 10px 12px; border-left: 2px solid var(--yellow); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background: var(--yellow-soft); font-size: 12.5px; font-weight: 400; font-style: normal; color: var(--text); }
 .agent-cautions { margin: 8px 0; padding-left: 16px; font-size: 12px; font-weight: 400; color: var(--yellow-text); }
-.agent-latency { font-size: 10px; letter-spacing: .06em; color: var(--muted); }
+.agent-latency { font-size: 11px; letter-spacing: .06em; color: var(--muted); }
 
 /* Officer phone page outreach */
 .agent-outreach { margin: 10px 0; padding: 14px 16px; border-left: 3px solid var(--yellow); border-radius: var(--radius); background: var(--yellow-soft); font-size: 15px; font-weight: 400; line-height: 1.5; color: var(--text); }
-.agent-outreach::before { content: "From dispatch agent"; display: block; margin-bottom: 6px; font-size: 10px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--yellow-text); }
+.agent-outreach::before { content: "From dispatch agent"; display: block; margin-bottom: 6px; font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--yellow-text); }
 
 @media (prefers-reduced-motion: reduce) {
   .agent-card::before, .agent-loading::after, .urgency.critical { animation: none; }

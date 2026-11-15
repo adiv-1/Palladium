@@ -20,7 +20,7 @@ body:has(.command-center),
 
 .command-center.app.embedded { padding: 0; }
 .command-center h1, .command-center h2, .command-center h3 { font-family: inherit; }
-.command-center h1 { font-size: clamp(25px, 4vw, 38px); font-weight: 300; letter-spacing: -.03em; line-height: 1.12; }
+.command-center h1 { font-size: clamp(25px, 4vw, 38px); font-weight: 400; letter-spacing: -.03em; line-height: 1.12; }
 .command-center h2 { font-size: 17px; font-weight: 400; letter-spacing: -.01em; }
 :where(.command-center) button {
   min-height: 34px;
@@ -75,7 +75,7 @@ body:has(.command-center),
   flex-wrap: wrap;
   gap: 10px;
 }
-.command-heading p { color: var(--muted); font-weight: 300; margin: 6px 0 0; }
+.command-heading p { color: var(--muted); font-weight: 400; margin: 6px 0 0; }
 .command-center .live-status { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 .command-center .live-status.connected { color: var(--green); }
 .command-center .chips {
@@ -96,9 +96,9 @@ body:has(.command-center),
   background: var(--surface);
   box-shadow: var(--shadow-card);
 }
-.command-center .chip-label { grid-column: 1 / -1; color: var(--muted); font-size: 10px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; }
-.command-center .chip strong { font: 300 24px/1.2 var(--font); font-variant-numeric: tabular-nums; }
-.command-center .tag { justify-self: start; font-size: 9px; letter-spacing: .08em; }
+.command-center .chip-label { grid-column: 1 / -1; color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; }
+.command-center .chip strong { font: 400 24px/1.2 var(--font); font-variant-numeric: tabular-nums; }
+.command-center .tag { justify-self: start; font-size: 11px; letter-spacing: .08em; }
 .command-center .tag-demo, .command-center .tag-estimate { background: var(--yellow-soft); color: var(--yellow-text); }
 .command-center .tag-simulated { color: var(--violet); background: var(--tint-1); }
 .command-center .tag-real, .command-center .tag-live { color: var(--green); background: var(--green-soft); }
@@ -130,7 +130,7 @@ body:has(.command-center),
   box-shadow: var(--shadow-card);
   pointer-events: none;
 }
-.command-map-label span { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.command-map-label span { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .command-center .maplibregl-ctrl-bottom-right { bottom: 0 !important; }
 .command-center .maplibregl-ctrl-attrib { color: var(--muted) !important; }
 .command-center .maplibregl-ctrl-attrib-button { min-height: 0; background: transparent; }

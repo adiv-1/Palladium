@@ -48,12 +48,12 @@ input, select, textarea { font-family: var(--font); }
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
 }
-.panel h3 { font-size: 10.5px; letter-spacing: 1.2px; color: var(--muted); text-transform: uppercase; font-weight: 500; }
+.panel h3 { font-size: 11px; letter-spacing: 1.2px; color: var(--muted); text-transform: uppercase; font-weight: 500; }
 
 /* ---------- tags ---------- */
 .tag {
   display: inline-block;
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.9px;
   text-transform: uppercase;
@@ -89,11 +89,11 @@ header.strip {
 }
 header.strip::-webkit-scrollbar { display: none; }
 .brand { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 500; letter-spacing: 0; white-space: nowrap; margin-right: 6px; color: var(--text); }
-.brand b, .brand span { color: var(--text); font-weight: 300; }
+.brand b, .brand span { color: var(--text); font-weight: 400; }
 .brand::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
 .chip { display: flex; flex-direction: column; justify-content: center; padding: 3px 14px; border-left: 1px solid var(--border); white-space: nowrap; min-width: 0; }
-.chip small, .chip label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; font-weight: 500; }
-.chip strong, .chip b { font-family: var(--font); font-size: 15px; font-weight: 300; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.chip small, .chip label { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; font-weight: 500; }
+.chip strong, .chip b { font-family: var(--font); font-size: 15px; font-weight: 400; letter-spacing: 0; font-variant-numeric: tabular-nums; }
 .strip .spacer, .strip .grow { flex: 1; }
 .strip button { white-space: nowrap; padding: 6px 14px; font-size: 12px; }
 
@@ -147,11 +147,11 @@ aside.panel.detail {
   animation: slide-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1) both;
 }
 @keyframes slide-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
-.detail h2 { font-size: 20px; font-weight: 300; letter-spacing: 0; line-height: 1.25; }
+.detail h2 { font-size: 20px; font-weight: 400; letter-spacing: 0; line-height: 1.25; }
 .detail .place, .detail .meta { color: var(--muted); font-size: 12px; }
 .sev {
   display: inline-block;
-  font-size: 10px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase;
+  font-size: 11px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase;
   padding: 4px 10px; border-radius: 999px;
   background: var(--yellow-soft); color: var(--yellow-text);
 }
@@ -167,7 +167,7 @@ aside.panel.detail {
 .evidence { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .evidence li { position: relative; padding: 10px 12px 10px 26px; background: var(--surface-2); border-radius: var(--radius-sm); font-size: 12px; line-height: 1.45; }
 .evidence li::before { content: ''; position: absolute; left: 11px; top: 16px; width: 5px; height: 5px; border-radius: 50%; background: var(--yellow); }
-.uncertainty { font-size: 11.5px; color: var(--muted); border-left: 2px solid var(--yellow); padding-left: 10px; }
+.uncertainty { font-size: 12px; color: var(--muted); border-left: 2px solid var(--yellow); padding-left: 10px; }
 .responder { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); }
 .responder strong { font-family: var(--font); font-weight: 500; }
 .actions { display: flex; gap: 8px; }
@@ -187,7 +187,7 @@ footer.bottom > :first-child { flex: 1.2; }
 footer.bottom > :nth-child(2) { flex: 2; }
 footer.bottom > :nth-child(3) { flex: 0.9; }
 .scrub { display: flex; flex-direction: column; gap: 6px; }
-.scrub .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10.5px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted); }
+.scrub .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted); }
 .scrub strong { color: var(--text); font-family: var(--font); font-weight: 500; }
 input[type='range'] { width: 100%; accent-color: var(--ink); background: transparent; -webkit-appearance: none; appearance: none; height: 18px; }
 input[type='range']::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: linear-gradient(90deg, var(--yellow-soft), var(--red-soft)), var(--tint-2); }
@@ -197,11 +197,11 @@ input[type='range']::-moz-range-thumb { width: 12px; height: 12px; border-radius
 .funnel { display: flex; align-items: stretch; justify-content: space-between; gap: 4px; overflow-x: auto; scrollbar-width: none; }
 .funnel::-webkit-scrollbar { display: none; }
 .funnel .step { position: relative; flex: 1; min-width: 70px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 14px 0 4px; }
-.funnel .step:not(:last-child)::after { content: '\203A'; position: absolute; right: 0; top: 50%; transform: translateY(-58%); font-size: 22px; font-weight: 300; color: var(--faint); }
-.funnel .step strong, .funnel .step b { font-family: var(--font); font-size: 26px; font-weight: 300; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.funnel .step:not(:last-child)::after { content: '\203A'; position: absolute; right: 0; top: 50%; transform: translateY(-58%); font-size: 22px; font-weight: 400; color: var(--faint); }
+.funnel .step strong, .funnel .step b { font-family: var(--font); font-size: 26px; font-weight: 400; letter-spacing: 0; font-variant-numeric: tabular-nums; }
 .funnel .step:last-child strong, .funnel .step:last-child b { color: var(--red-text); }
-.funnel .step small, .funnel .step span { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
-.toggles { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; }
+.funnel .step small, .funnel .step span { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.toggles { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
 .toggles label { display: flex; align-items: center; gap: 7px; cursor: pointer; color: var(--text); white-space: nowrap; }
 .toggles input[type='checkbox'] { accent-color: var(--ink); width: 13px; height: 13px; margin: 0; }
 
@@ -238,7 +238,7 @@ input[type='range']::-moz-range-thumb { width: 12px; height: 12px; border-radius
   bottom: 110px; left: 50%;
   transform: translateX(-50%);
   max-width: 60vw;
-  font-size: 9.5px; color: var(--muted);
+  font-size: 11px; color: var(--muted);
   text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   pointer-events: none;
 }
@@ -252,7 +252,7 @@ input[type='range']::-moz-range-thumb { width: 12px; height: 12px; border-radius
   display: flex; flex-direction: column; gap: 12px;
   box-shadow: var(--shadow-pop);
 }
-.modal h2 { font-size: 18px; font-weight: 300; }
+.modal h2 { font-size: 18px; font-weight: 400; }
 .modal p { color: var(--muted); font-size: 12px; }
 .modal form { display: flex; flex-direction: column; gap: 10px; }
 .modal input {
@@ -275,7 +275,7 @@ input[type='range']::-moz-range-thumb { width: 12px; height: 12px; border-radius
   background: var(--surface) !important;
   color: var(--muted) !important;
   font-family: var(--font) !important;
-  font-size: 9px !important;
+  font-size: 11px !important;
   border-radius: 999px !important;
   border: 1px solid var(--border);
 }
@@ -328,7 +328,7 @@ input[type='range']::-moz-range-thumb { width: 12px; height: 12px; border-radius
 .strip .chips { display: flex; align-items: center; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .strip .chips::-webkit-scrollbar { display: none; }
 .strip .chip { flex-direction: row; align-items: center; gap: 8px; }
-.strip .chip-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.strip .chip-label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
 .strip-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .legend > div { display: flex; align-items: center; gap: 8px; }
 .swatch.cone.gold { background: color-mix(in srgb, var(--yellow) 55%, transparent); }

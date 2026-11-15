@@ -113,7 +113,7 @@ export default function Trends() {
         stroked: true, lineWidthUnits: 'pixels', getLineWidth: 3, getFillColor: (m: any) => (m.post === selected ? [255, 245, 170, 255] : [255, 204, 0, 255]), getLineColor: [18, 20, 23, 255],
         pickable: true, updateTriggers: {getRadius: t, getFillColor: selected}} as any) as unknown as Layer);
       out.push(new TextLayer({id: 'post-rank', data: plan.posts.filter(() => age > 2.6), getPosition: (p: any) => p.position, getPixelOffset: [0, -20], getText: (p: any) => String(p.rank),
-        getSize: 15, getColor: isDark() ? [255, 235, 140, 255] : [20, 22, 26, 255], fontFamily: 'Manrope, sans-serif', fontWeight: 800, outlineWidth: 4, outlineColor: outlineRGBA(), fontSettings: {sdf: true}} as any) as unknown as Layer);
+        getSize: 15, getColor: isDark() ? [255, 235, 140, 255] : [20, 22, 26, 255], fontFamily: 'Inter, sans-serif', fontWeight: 800, outlineWidth: 4, outlineColor: outlineRGBA(), fontSettings: {sdf: true}} as any) as unknown as Layer);
       out.push(new ScatterplotLayer({id: 'walkers', data: current, getPosition: (m: any) => m.pos, radiusUnits: 'pixels', getRadius: 6, stroked: true, lineWidthUnits: 'pixels', getLineWidth: 2,
         getFillColor: [240, 243, 247, 255], getLineColor: [255, 204, 0, 255], updateTriggers: {getPosition: t}} as any) as unknown as Layer);
     } else if (campus) {

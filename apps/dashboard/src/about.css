@@ -15,8 +15,8 @@
   scrollbar-width: thin; scrollbar-color: var(--tint-3) transparent;
 }
 .about-inner { max-width: 1280px; margin: 0 auto; padding: 24px 16px 72px; display: flex; flex-direction: column; gap: 32px; }
-.about h1 { font-size: clamp(32px, 5vw, 52px); font-weight: 200; letter-spacing: -1.4px; line-height: 1.05; }
-.about h2 { font-size: 22px; font-weight: 300; letter-spacing: -0.3px; }
+.about h1 { font-size: clamp(32px, 5vw, 52px); font-weight: 400; letter-spacing: -1.4px; line-height: 1.05; }
+.about h2 { font-size: 22px; font-weight: 400; letter-spacing: -0.3px; }
 .about h3 { font-size: 15px; font-weight: 500; }
 .about .muted { color: var(--muted); }
 
@@ -30,7 +30,7 @@
 /* hero */
 .hero { padding: 24px 8px 4px; max-width: 860px; }
 .eyebrow {
-  display: inline-block; font-size: 10.5px; font-weight: 500; letter-spacing: 1.6px; text-transform: uppercase;
+  display: inline-block; font-size: 11px; font-weight: 500; letter-spacing: 1.6px; text-transform: uppercase;
   color: var(--muted); margin-bottom: 12px;
 }
 .eyebrow::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--red); margin-right: 8px; vertical-align: 1px; }
@@ -124,17 +124,17 @@
 
 /* caption */
 .caption { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; min-height: 130px; }
-.cap-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 11.5px; margin-bottom: 8px; }
-.caption h3 { font-size: 18px; font-weight: 300; margin-bottom: 4px; }
+.cap-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; margin-bottom: 8px; }
+.caption h3 { font-size: 18px; font-weight: 400; margin-bottom: 4px; }
 .caption p { color: var(--muted); max-width: 78ch; line-height: 1.6; }
 .lane-pill {
-  display: inline-block; font-size: 9.5px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase;
+  display: inline-block; font-size: 11px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase;
   padding: 3px 10px; border-radius: 999px; border: 0;
 }
 .lane-pill.live { color: var(--red-text); background: var(--red-soft); }
 .lane-pill.trends { color: var(--green); background: var(--green-soft); }
 .ex-tag {
-  font-size: 10.5px; font-weight: 500; color: var(--yellow-text); background: var(--yellow-soft);
+  font-size: 11px; font-weight: 500; color: var(--yellow-text); background: var(--yellow-soft);
   border: 1px dashed color-mix(in srgb, var(--yellow) 55%, transparent); border-radius: 999px; padding: 2px 10px;
 }
 .dots { list-style: none; margin: 16px 0 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
@@ -153,10 +153,10 @@
 .agent:hover { transform: translateY(-2px); box-shadow: var(--shadow-pop); }
 .agent header { position: static; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; height: auto; padding: 0; background: none; border: 0; backdrop-filter: none; overflow: visible; }
 .agent p { font-size: 12.5px; color: var(--muted); line-height: 1.55; }
-.agent .tech { font-size: 11.5px; color: var(--muted); }
-.agent .tech span { color: var(--text); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; font-size: 9.5px; margin-right: 6px; }
+.agent .tech { font-size: 12px; color: var(--muted); }
+.agent .tech span { color: var(--text); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; font-size: 11px; margin-right: 6px; }
 .agent .status {
-  margin-top: auto; display: flex; flex-direction: row; gap: 8px; align-items: flex-start; font-size: 11.5px; font-weight: 500; line-height: 1.45;
+  margin-top: auto; display: flex; flex-direction: row; gap: 8px; align-items: flex-start; font-size: 12px; font-weight: 500; line-height: 1.45;
   padding: 10px 14px; border-radius: var(--radius-sm); border: 0;
 }
 .agent .status i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: currentColor; margin-top: 5px; }

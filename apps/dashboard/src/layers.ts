@@ -107,7 +107,7 @@ export function buildLayers(x: Inputs): Layer[] {
   layers.push(new TextLayer<Building>({id: 'building-labels', data: labelled,
     getPosition: (b) => [b.position[0], b.position[1], (Number(b.tags.height) || 12) + 6] as any,
     getText: (b) => b.name, getSize: (b) => (b.id === x.focusBuildingId ? 15 : 11),
-    getColor: (b) => (b.id === x.focusBuildingId ? (isDark() ? [255, 214, 80, 255] : [150, 98, 0, 255]) : (isDark() ? [175, 182, 194, 175] : [84, 90, 100, 235])), fontFamily: 'DM Sans, sans-serif', fontWeight: 700,
+    getColor: (b) => (b.id === x.focusBuildingId ? (isDark() ? [255, 214, 80, 255] : [150, 98, 0, 255]) : (isDark() ? [175, 182, 194, 175] : [84, 90, 100, 235])), fontFamily: 'Inter, sans-serif', fontWeight: 700,
     outlineWidth: 3, outlineColor: outlineRGBA(), fontSettings: {sdf: true}, characterSet: 'auto',
     updateTriggers: {getSize: x.focusBuildingId, getColor: x.focusBuildingId}}) as unknown as Layer);
 
@@ -228,7 +228,7 @@ export function buildLayers(x: Inputs): Layer[] {
     id: 'officer-labels', data: x.officers, getPosition: (o) => o.position,
     getText: (o) => (o.status === 'en_route' && o.route ? `${o.callsign} \u00b7 ${Math.ceil(Math.max(0, o.route.seconds - (x.now - o.route.startedAt) / 1000))}s` : o.callsign), getSize: 11,
     updateTriggers: {getText: x.now},
-    getColor: labelRGBA(), getPixelOffset: [0, -26], fontFamily: 'DM Sans, sans-serif', fontWeight: 700,
+    getColor: labelRGBA(), getPixelOffset: [0, -26], fontFamily: 'Inter, sans-serif', fontWeight: 700,
     outlineWidth: 3, outlineColor: outlineRGBA(), fontSettings: {sdf: true},
   }) as unknown as Layer);
 

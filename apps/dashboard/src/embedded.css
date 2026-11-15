@@ -1,7 +1,20 @@
-/* When a page is shown inside the reviewer site (?embedded=1) the parent provides the navigation. */
+/* When a page is shown inside the reviewer site (?embedded=1) it must look like part of that page:
+   same canvas, same left edge, no repeated titles (the section header already names the view). */
+html.embedded, html.embedded body, html.embedded #root { background: var(--bg); }
 /* The Live page keeps its strip (stats and the stage-demo and connect buttons); other pages only had navigation there. */
 html.embedded body:not(:has(.command-center)) header.strip { display: none; }
-html.embedded .inc-page, html.embedded .about { inset: 0; }
-html.embedded .panel.side { top: var(--gutter); }
-html.embedded .post-detail { top: var(--gutter); }
+html.embedded .inc-page, html.embedded .about { inset: 0; background: var(--bg); }
+html.embedded .inc-wrap, html.embedded .about-inner { max-width: none; padding: 0 0 48px; }
+html.embedded .inc-hero { padding: 0; }
+html.embedded .inc-hero h1, html.embedded .hero h1, html.embedded .hero-logo, html.embedded .hero .eyebrow { display: none; }
+html.embedded .hero { padding: 0; max-width: none; }
+/* Map pages become the same rounded card as the Live map. */
+html.embedded .app:not(.command-center) { inset: 0; border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-card); border: 1px solid var(--border); }
+html.embedded .panel.side { top: var(--gutter); left: var(--gutter); bottom: var(--gutter); }
+html.embedded .post-detail { top: var(--gutter); right: var(--gutter); }
+/* Live map: the section header already says "Respond"; keep only the action buttons. */
+html.embedded .command-heading > div:first-child { display: none; }
+html.embedded .command-heading { justify-content: flex-end; }
 html.embedded .command-center .command-map .pending { top: 16px; }
+
+html.embedded .command-center header.strip { background: none; border: 0; box-shadow: none; padding: 0; backdrop-filter: none; }

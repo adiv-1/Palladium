@@ -4,7 +4,7 @@
    Every stylesheet must use these tokens (no hard-coded greys, whites or rgba(255,255,255,x)). */
 :root,
 :root[data-theme='light'] {
-  --font: 'Urbanist', 'Segoe UI', system-ui, sans-serif;
+  --font: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
 
   --bg: #e6e6e8;            /* canvas */
   --surface: #f3f3f4;       /* cards */
@@ -13,8 +13,8 @@
   --border: rgba(20, 22, 26, 0.07);
   --line: rgba(20, 22, 26, 0.12);
   --text: #16181b;
-  --muted: #6c7178;
-  --faint: #9a9fa6;
+  --muted: #565b62;
+  --faint: #747a82;
   --ink: #121315;           /* primary buttons, active nav pill */
   --on-ink: #ffffff;
 
@@ -53,8 +53,8 @@
   --border: rgba(255, 255, 255, 0.07);
   --line: rgba(255, 255, 255, 0.13);
   --text: #ececee;
-  --muted: #a0a4ab;
-  --faint: #6f7379;
+  --muted: #b3b7be;
+  --faint: #8e939a;
   --ink: #f2f2f4;
   --on-ink: #111213;
 
@@ -89,3 +89,8 @@
   --teal: var(--green);
   --radius-old: var(--radius);
 }
+
+/* Readable type: Inter at normal weights. Titles are medium weight, never light. */
+body { font-weight: 400; font-synthesis: none; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+h1, h2 { font-weight: 600; letter-spacing: -0.02em; }
+h3, h4 { font-weight: 600; }
