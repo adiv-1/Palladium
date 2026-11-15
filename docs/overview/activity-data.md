@@ -1,6 +1,6 @@
 # Public activity snapshot
 
-The Campus activity tab uses official structured LAPD public records, not complete police narratives, Citizen posts, or camera judgments. The snapshot downloaded November 14, 2026 contains **75,686 grouped reports**, occurrence dates January 1, 2010 through October 31, 2026. The normalized SQLite file is **21,901,312 bytes**. Selected raw pages, request manifests, and SHA-256 hashes remain locally under ignored `data/activity/`; the dashboard server has only the minimized database and metadata.
+The Campus activity tab uses official structured LAPD public records, not complete police narratives, Citizen posts, or camera judgments. The snapshot downloaded November 14, 2026 contains **75,686 grouped reports**, occurrence dates January 1, 2010 through October 31, 2026. The normalized SQLite file is **21,901,312 bytes**. Working files live under ignored `data/activity/`. A separately curated, compressed public snapshot under [public-data/activity](../../public-data/activity/README.md) includes the minimized database, selected source pages, manifests, checksums, and prepared analysis. No private incident or learning data is included.
 
 ## Sources and geographic scope
 

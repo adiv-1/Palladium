@@ -1,0 +1,9 @@
+{
+  "downloaded_at": "2026-11-15T02:12:00.606879+00:00",
+  "sha256": "e9bdbfdf6a0ab11f914db7d18faca49a7dd4975f111fce65918d416885e0b59a",
+  "source": "https://www.openstreetmap.org/copyright",
+  "license": "ODbL",
+  "query": "[out:json][timeout:90];way[\"highway\"](34.009856,-118.3018536,34.0410403,-118.26370569999999);out geom;",
+  "boundary": "USC UPC Lyft service area (published boundary approximation)",
+  "purpose": "Full-zone street visualization; access/connectivity not validated for routing"
+}

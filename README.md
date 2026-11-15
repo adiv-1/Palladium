@@ -91,7 +91,7 @@ Transport is timestamped JPEG over WebSockets. Low-latency capture targets up to
 uv run python scripts/data/download_activity.py
 ```
 
-The importer requests selected non-demographic LAPD fields near USC, filters the published UPC Lyft boundary approximation, and writes compressed source pages plus a normalized SQLite snapshot under ignored `data/activity/`. The map database is approximately 22 MB. No source video, incident database, or downloaded police data is included in this repository.
+The importer requests selected non-demographic LAPD fields near USC, filters the published UPC Lyft boundary approximation, and writes compressed source pages plus a normalized SQLite snapshot under ignored `data/activity/`. The map database is approximately 22 MB. A versioned, losslessly compressed copy of the complete minimized public activity snapshot and prepared analysis is included in [public-data/activity](public-data/activity/README.md). Restore it with `python3 -m scripts.data.activity_snapshot restore`. Private source video and the application/incident database remain excluded.
 
 The map shows reported history, not personal risk or a forecast. Locations and the digitized service boundary are approximate. See [data methodology and coverage](docs/overview/activity-data.md).
 

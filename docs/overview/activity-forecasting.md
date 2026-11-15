@@ -24,7 +24,9 @@ atomically replaces `data/activity/forecast-bundle.json`. It also writes
 `forecast-model.json` and `forecast-evaluation.json` for reproducibility.
 
 Copy the prepared bundle to the same relative path on an existing backend to
-enable the new UI. The repository does not contain the ignored data artifacts.
+enable the new UI, or restore the checksummed public snapshot included under
+`public-data/activity` with `python3 -m scripts.data.activity_snapshot restore`.
+The private working `data/` directory remains ignored.
 If preparation is missing, the UI reports that explicitly; it does not fabricate
 predictions. Default deployment has not been changed by this local implementation.
 
