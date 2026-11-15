@@ -47,11 +47,28 @@ def verification_messages(frames,observer_notes='',tracks=None):
     for frame in frames:
         content.extend([{'type':'text','text':f'Original source frame {frame.index}; stream time {frame.timestamp:.3f} seconds.'},
             {'type':'image','image':Image.open(io.BytesIO(frame.jpeg)).convert('RGB')}])
-    content.append({'type':'text','text':json.dumps({'stream_time_range':[start,end],
+    content.append({'type':'text','text':json.dumps({'stream_time_range':[round(start,3),round(end,3)],
         'valid_source_frame_ids':ids,'anonymous_tracks_in_latest_frame':tracks or [],
         'untrusted_streaming_observer_notes':observer_notes[-600:],'schema':schema})})
     messages=[{'role':'system','content':[{'type':'text','text':VERIFIER_POLICY}]},{'role':'user','content':content}]
     return messages,schema
+
+def generation_target(target,tracks=None):
+    import copy
+    return copy.deepcopy(target)
+
+def validate_visual_output(raw,frames):
+    payload=json.loads(raw);known={f.index:f.timestamp for f in frames}
+    cited=payload.get('supporting_frames',[])
+    if not set(cited)<=known.keys():raise ValueError('Verifier cited frames outside the evidence window')
+    for event in payload.get('observable_events',[]):
+        if not cited:raise ValueError('An event needs supplied supporting frames')
+        # Model-generated decimal times are never authoritative alignment.
+        # The cited source frames define this evidence interval exactly.
+        event['timestamp_start']=min(known[i] for i in cited)
+        event['timestamp_end']=max(known[i] for i in cited)
+        event.setdefault('actors',[])
+    return Detection.model_validate(payload)
 
 _live_verifier=None
 _load_lock=Lock()
@@ -136,7 +153,7 @@ class StructuredVisualVerifier:
             'source_frame_indices':ids,'stream_time_range':[start,end],'constrained_decoding':True,
             'runtime_seconds':time.monotonic()-started,'status':'rejected','observer_notes':observer_notes[-600:]}
         self.last_audit=audit
-        detection=Detection.model_validate_json(raw)
+        detection=validate_visual_output(raw,frames)
         if detection.simulated:raise ValueError('A real verifier cannot assert simulated provenance')
         if not set(detection.supporting_frames)<=set(ids):raise ValueError('Verifier cited frames outside the evidence window')
         for event in detection.observable_events:

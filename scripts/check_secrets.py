@@ -17,6 +17,7 @@ PATTERNS = {
     'Hugging Face token': rb'\bhf_[A-Za-z0-9]{20,}\b',
     'GitHub token': rb'\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,})\b',
     'Runpod token': rb'\brpa_[A-Za-z0-9_-]{20,}\b',
+    'Supabase secret': rb'\bsb_secret_[A-Za-z0-9_-]{20,}\b',
     'AWS access key': rb'\b(?:AKIA|ASIA)[A-Z0-9]{16}\b',
     'live Stripe secret': rb'\bsk_live_[A-Za-z0-9]{20,}\b',
 }

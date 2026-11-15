@@ -5,18 +5,18 @@ SafeSC: deployed single-GPU architecture (November 14, 2026)
 +--------------------------------------+      +---------------------------+
 | Open expiring QR pairing link        |      | Access-token sign-in      |
 | Rear/front camera; audio off         |      | Pair phone / upload video |
-| Timestamped JPEGs; one frame in flight|      | Mark moment / review queue|
+| Timestamped JPEGs; max 2 in flight   |      | Mark moment / review queue|
 | Camera stays in foreground           |      | Original + derived media  |
 +------------------+-------------------+      +-------------+-------------+
                    | WSS /ws/capture                        | HTTPS / WSS
                    | pairing token in first message         | secure cookie
                    +--------------------+-------------------+
                                         |
-                         Runpod HTTPS proxy (TLS)
+                         Replit UI/gateway -> Runpod HTTPS proxy (TLS)
                                         |
  RUNPOD SECURE CLOUD: one A40, 48 GB VRAM, 9 vCPUs, 50 GB system RAM
 +------------------------------------------------------------------------+
-| CPU CONTROL PLANE: FastAPI + React/Vite + SQLite + PyAV                  |
+| CPU CONTROL PLANE: FastAPI + SQLite + PyAV; React UI on Replit                  |
 |                                                                        |
 |  Upload exact bytes -> immutable upload + SHA-256                       |
 |  Phone JPEGs -> timestamp validation -> bounded ORIGINAL frame buffer   |
@@ -32,7 +32,7 @@ SafeSC: deployed single-GPU architecture (November 14, 2026)
 | GPU REALTIME ROLES      v                                              |
 |  +---------------------------------------------------------------+     |
 |  | FastLLVE: bypass / 50% blend / full, only when dark             |     |
-|  | YOLO11n + ByteTrack: temporary anonymous track IDs              |     |
+|  | Tracking/object overlay disabled in this deployment              |     |
 |  |                            |                                  |     |
 |  | MOSS NF4 observer: native timestamped frame streaming           |     |
 |  | Native silence + concise descriptions; no raw caption alerts   |     |
@@ -62,7 +62,7 @@ SafeSC: deployed single-GPU architecture (November 14, 2026)
 |  Unload MOSS and visual verifier; release live CUDA allocations          |
 |  Run one isolated postprocessing subprocess at a time:                 |
 |                                                                        |
-|  RelayVSR             ReLift                       BVI-Mamba            |
+|  Qwen clip review, then RelayVSR / ReLift / optional BVI-Mamba            |
 |  bounded review       original first,              optional comparison  |
 |  working copy -> 4x   conservative LLVE second      centered 5-frame     |
 |  visible AI label     NPZ -> Three.js JSON          visible AI label     |
@@ -78,8 +78,9 @@ SafeSC: deployed single-GPU architecture (November 14, 2026)
 CPU intake stays online during a running heavy job. A newly connected phone
 continues to buffer and receive ACKs while its analysis is visibly queued.
 The GPU Pod's included CPU resources run this plane; no extra CPU server exists.
-Stopping this Pod also stops the web/API service. A separate CPU host is an
-optional later deployment choice if GPU-independent uptime is required.
+Stopping this Pod stops the API, live inference and media access. The Replit UI
+stays reachable but disconnected. A separate API host is a later deployment
+choice if GPU-independent backend uptime is required.
 
 Network and storage boundaries
 ------------------------------
@@ -88,7 +89,7 @@ MOSS: 127.0.0.1:18001 only; its unauthenticated protocol is never public.
 Reviewer access: owner-only data/app_token; cookie is Secure + HttpOnly.
 Phone access: one-hour random pairing token in /capture#fragment, first WS message.
 Mac: source backup + provider API keys + conservative local spend/stop guard.
-Worker: HF download token; no Runpod or Vultr administration key.
+Worker: HF download token + Supabase archive secret; no Runpod/Vultr admin key.
 data/uploads/: exact uploaded bytes, read-only and SHA-256 hashed.
 data/incidents/: originals and separately named derived review artifacts.
 data/safesc.db: sources, jobs, provenance and append-only reviewer actions.
@@ -147,3 +148,11 @@ Permitted confirmed incidents / separately uploaded missed events
 The first pilot uses 19 research training windows. Automatic promotion failed
 because false alerts increased; the owner approved the high-recall staged demo.
 No continuous self-training, institutional approval or zero-miss claim is made.
+
+Private archive (independent CPU/network worker, no extra GPU)
+-------------------------------------------------------------
+Original incident + thumbnail + versioned review JSON -> private Supabase bucket.
+800 MiB managed cap: evict oldest archived media first; retain summary/history.
+48-hour demo retention; cleanup runs while backend is online.
+Failed uploads retain local originals. No Supabase keys in browser/Replit UI.
+Replacement API: scripts.restore_archive restores unexpired originals and index.
