@@ -55,6 +55,10 @@ export function createGateway({backendOrigin = process.env.SAFESC_BACKEND_ORIGIN
     // Reject absolute-form URLs; the client cannot select another upstream host.
     if (!req.url?.startsWith('/') || req.url.startsWith('//')) return reply(res, 400, 'Invalid request path');
     if (req.url === '/_health') return reply(res, 200, 'UI gateway ready');
+    // Palladium's front door is the 3D command app; the reviewer app keeps /capture for phone cameras.
+    if (['GET', 'HEAD'].includes(req.method) && /^\/(\?|$)/.test(req.url)) {
+      res.writeHead(302, {Location: '/command/' + req.url.slice(1), 'Cache-Control': 'no-store'}); return res.end();
+    }
     if (/^\/api(?:\/|\?|$)/.test(req.url)) {
       const remote = upstream(req);
       remote.setTimeout(15 * 60_000, () => remote.destroy(new Error('Upstream timeout')));
@@ -78,12 +82,13 @@ export function createGateway({backendOrigin = process.env.SAFESC_BACKEND_ORIGIN
     if (pathname.includes('\0') || pathname.split('/').some(p => p.startsWith('.') && p !== '')) {
       return reply(res, 404, 'Not found');
     }
+    const command = pathname === '/command' || pathname.startsWith('/command/');
     let filename = resolve(root, '.' + pathname);
     if (!filename.startsWith(root + sep) && filename !== root) return reply(res, 404, 'Not found');
     let info = await stat(filename).catch(() => null);
     if (!info?.isFile()) {
       if (extname(pathname)) return reply(res, 404, 'Not found');
-      filename = resolve(root, 'index.html');
+      filename = resolve(root, command ? 'command/index.html' : 'index.html');
       info = await stat(filename).catch(() => null);
     }
     if (!info?.isFile()) return reply(res, 503, 'UI build missing. Run npm run build first.');
@@ -92,14 +97,16 @@ export function createGateway({backendOrigin = process.env.SAFESC_BACKEND_ORIGIN
       // OSM tiles require a Referer. Cross-origin requests disclose only the
       // public site origin; pairing fragments and review paths stay private.
       'Referrer-Policy':'strict-origin-when-cross-origin',
-      'Cache-Control':pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache'});
+      'Cache-Control':/^\/(?:command\/)?assets\//.test(pathname) ? 'public, max-age=31536000, immutable' : 'no-cache'});
     if (req.method === 'HEAD') return res.end();
     createReadStream(filename).on('error', () => res.destroy()).pipe(res);
   });
 
   server.on('upgrade', (req, socket, head) => {
     const reject = status => { socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\n\r\n`); };
-    if (!['/ws/events', '/ws/capture', '/ws/preview', '/ws/live'].includes(req.url?.split('?')[0]) || req.headers.upgrade?.toLowerCase() !== 'websocket') {
+    const pathname = req.url?.split('?')[0] || '';
+    const allowed = ['/ws/events', '/ws/capture', '/ws/preview', '/ws/live'].includes(pathname) || /^\/ws\/dispatch\/[A-Za-z0-9_-]{22,64}$/.test(pathname);
+    if (!allowed || req.headers.upgrade?.toLowerCase() !== 'websocket') {
       reject('404 Not Found'); return;
     }
     // Same-origin browser sockets only. Non-browser clients may omit Origin; backend auth still applies.

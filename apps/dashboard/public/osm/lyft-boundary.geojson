@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "name": "USC UPC Lyft service area (published boundary approximation)",
+    "source_url": "https://transnet.usc.edu/index.php/how-to-use-lyft/",
+    "map_url": "https://transnet.usc.edu/wp-content/uploads/2024/01/UPC-Boundaries.pdf",
+    "verified_on": "2026-11-14",
+    "method": "Digitized street intersections from USC's published UPC map: Normandie, Washington (including its diagonal segment), Main, and Martin Luther King Jr. This is not an official machine-readable Lyft geofence.",
+    "historical_scope": "Current published area applied to all historical records; historical ride boundaries may differ.",
+    "ride_eligibility": "Check the Lyft app for actual coverage.",
+    "coordinate_reference": "Published USC map, aligned to OpenStreetMap street intersections retrieved 2026-11-14; \u00a9 OpenStreetMap contributors, ODbL."
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -118.3001932,
+          34.010856
+        ],
+        [
+          -118.3008536,
+          34.0399708
+        ],
+        [
+          -118.2847627,
+          34.0400403
+        ],
+        [
+          -118.2647057,
+          34.0309941
+        ],
+        [
+          -118.274031,
+          34.0111326
+        ],
+        [
+          -118.3001932,
+          34.010856
+        ]
+      ]
+    ]
+  }
+}

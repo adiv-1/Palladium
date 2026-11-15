@@ -261,3 +261,7 @@ id_ed25519
 *.tar
 *.tar.gz
 *.zip
+
+# Stray YOLO weights downloaded by ultralytics
+yolo11n.pt
+yolo11n-pose.pt

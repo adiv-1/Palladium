@@ -173,3 +173,21 @@ async def test_camera_intake_continues_while_gpu_is_busy(monkeypatch):
         assert session.count==5
     finally:
         release.set();await session.close()
+
+def test_dispatch_relay_forwards_within_a_room_only():
+    room='A'*22
+    with TestClient(app) as c:
+        with c.websocket_connect(f'/ws/dispatch/{room}') as dashboard, \
+             c.websocket_connect(f'/ws/dispatch/{room}') as phone, \
+             c.websocket_connect(f'/ws/dispatch/{"B"*22}') as other:
+            dashboard.send_text(json.dumps({'type':'assign','unit':'officer-1'}))
+            assert phone.receive_json()=={'type':'assign','unit':'officer-1'}
+            phone.send_text(json.dumps({'type':'ack','unit':'officer-1'}))
+            assert dashboard.receive_json()['type']=='ack'
+            other.send_text(json.dumps({'type':'ping'}))
+            dashboard.send_text('not json')
+            dashboard.send_text(json.dumps({'type':'after'}))
+            assert phone.receive_json()=={'type':'after'}  # neither the other room nor invalid JSON arrived
+        from starlette.websockets import WebSocketDisconnect as Closed
+        with pytest.raises(Closed):
+            with c.websocket_connect('/ws/dispatch/short') as bad: bad.receive_text()

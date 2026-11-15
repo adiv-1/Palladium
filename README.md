@@ -76,6 +76,18 @@ Open [localhost:8000](http://localhost:8000) and enter the generated access toke
 
 For the actual GPU stack, follow [model setup and licenses](docs/overview/models.md) and [deployment notes](docs/overview/deployment.md). Checkpoint revisions and measured smoke-test results are recorded in `model-lock.json`. Upstream models use isolated environments; the CPU Docker image is not a validated all-model GPU image.
 
+## 3D command dashboard
+
+`apps/dashboard` is a full-screen 3D view of campus for the dispatcher: live incident beams, approve-and-dispatch arcs, hourly history columns and camera coverage cones. It runs on Google Photorealistic 3D Tiles when a key is set, and otherwise on a free MapLibre fallback.
+
+The hosted workspace opens the **Command center** after sign-in and loads incidents with the existing session. The sidebar also gives reviewers access to the overview and other workspace views. The [Replit hosting guide](docs/overview/replit.md) covers building and publishing the command view and officer links.
+
+```bash
+cd apps/dashboard && npm install && npm run dev   # http://localhost:5174
+```
+
+Every layer is labelled Real, Demo, Simulated or Estimate. Camera positions and officers are simulated. See [apps/dashboard/README.md](apps/dashboard/README.md).
+
 ## Connect a phone
 
 To host the dashboard and phone capture page on Replit while keeping inference on Runpod, use the checked-in `.replit` configuration and [Replit hosting instructions](docs/overview/replit.md). Only the public backend origin belongs in Replit configuration; provider tokens stay on their existing machines.

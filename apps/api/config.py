@@ -46,6 +46,20 @@ class Settings(BaseSettings):
     enable_tracking: bool = False
     moss_spatial_output: bool = False
     enable_bvimamba: bool = False
+    # Detector cascade (STREAMING_MODEL=cascade); see docs/overview/cascade.md.
+    detector_weights: str = 'yolo11n.pt'
+    cascade_pose: bool = True
+    pose_weights: str = 'yolo11n-pose.pt'
+    person_down_seconds: float = Field(10, ge=2, le=120)
+    rack_dwell_seconds: float = Field(45, ge=5, le=600)
+    rack_zones: str = ''
+    cascade_cooldown_seconds: float = Field(30, ge=0, le=600)
+    # Dispatch agent (apps/api/dispatch_agent.py): recommends units; a person approves.
+    dispatch_agent_model: str = 'claude-opus-5-5'
+    anthropic_api_key: str = ''
+    # Adversarial debate (apps/api/debate.py): 'auto' = claude if ANTHROPIC_API_KEY is set, else rules.
+    debate_gate: str = 'auto'  # 'auto' | 'rules' | 'claude' | 'jev'
+    debate_model: str = 'claude-haiku-5-5'
     enable_clip_review: bool = False
     allow_rtsp: bool = False
     max_upload_mb: int = 500

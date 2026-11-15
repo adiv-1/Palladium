@@ -1,0 +1,121 @@
+/* Final layer, loaded last. Cleans up generated-looking UI following unslop (github.com/heydamir/unslop,
+   by Damir Sokolovsky, CC BY 4.0): flat buttons, sentence-case labels, no glows or gradients on controls,
+   weights 400 and 500, one ease curve, and translucent floating panels over the map. The map, layers and
+   simulations are untouched. */
+:root {
+  --ui: 'Geist', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --text: #ededed;
+  --text-2: #a1a1a6;
+  --muted: #85858b;
+  --hair: rgba(237, 237, 237, 0.08);
+  --hair-2: rgba(237, 237, 237, 0.14);
+  --raised: rgba(255, 255, 255, 0.07);
+  --glass: rgba(24, 24, 27, 0.58);
+  --glass-strong: rgba(24, 24, 27, 0.78);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---- type ---- */
+*:not(svg *):not(code):not(pre) { font-family: var(--ui) !important; text-transform: none !important; letter-spacing: 0 !important; }
+.logo { gap: 12px !important; padding-right: 6px; }
+.logo strong { letter-spacing: 0.16em !important; font-weight: 600 !important; font-size: 21px !important; line-height: 1; color: #fff; }
+body { color: var(--text); font-feature-settings: 'cv11', 'ss01'; }
+h1, h2, h3, h4, strong, b, .brand, .logo { font-weight: 500 !important; }
+.logo strong { font-weight: 600 !important; }
+h1 { letter-spacing: -0.02em !important; }
+b, strong, .num, .chip strong, .stat-row b, .share, .eta, .rank { font-variant-numeric: tabular-nums; }
+.chip-label, .field-label, .eyebrow, .eyebrow-like, .panel h3, .facts dt, .cov-head, .type-row span, .units-head span:not(.tag), .stat-row span {
+  font-size: 12px !important; font-weight: 400 !important; color: var(--text-2) !important;
+}
+.field-label b { color: var(--text) !important; font-weight: 500 !important; }
+.note, .fine, .chip-label, small { color: var(--muted) !important; }
+
+/* ---- surfaces: translucent blocks with a hairline, no coloured glow ---- */
+.panel, .panel.side, aside.panel, .post-detail, .panel.legend, .panel.units, .legend-lite, header.strip, .route-card, .cov, .report, .agent-card, .brief, .intercept, .alert-panel {
+  background: var(--glass) !important;
+  backdrop-filter: blur(22px) saturate(140%) !important; -webkit-backdrop-filter: blur(22px) saturate(140%) !important;
+  border: 1px solid var(--hair) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28) !important;
+}
+.panel, .panel.side, aside.panel, .post-detail { border-radius: 18px !important; }
+.route-card, .cov, .report, .agent-card { background: var(--raised) !important; backdrop-filter: none !important; box-shadow: none !important; border-radius: 12px !important; }
+header.strip { border-radius: 14px !important; background: var(--glass-strong) !important; }
+.modal, .panel.modal { background: var(--glass-strong) !important; border-radius: 18px !important; }
+
+/* ---- buttons ---- */
+button, .button, .ghost, a.ghost { border-radius: 10px !important; box-shadow: none !important; transition: background-color 150ms var(--ease), border-color 150ms var(--ease), color 150ms var(--ease), transform 150ms var(--ease) !important; }
+button:active { transform: scale(0.98); }
+button:not(.primary):not(.on):not(.approve) { background: var(--raised); border: 1px solid var(--hair); color: var(--text); }
+button:not(.primary):not(.on):not(.approve):hover { background: rgba(255, 255, 255, 0.11); border-color: var(--hair-2); }
+.primary, .wide-btn, button.primary, .approve, .primary.approve {
+  background: #ededed !important; color: #141415 !important; border: 1px solid #ededed !important;
+  font-weight: 500 !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+}
+.primary:hover, .wide-btn:hover { background: #ffffff !important; }
+.wide-btn { height: 40px; padding: 0 16px !important; font-size: 14px !important; }
+.ghost, a.ghost { background: transparent !important; border: 1px solid var(--hair-2) !important; color: var(--text) !important; }
+
+/* segmented controls and nav: active = raised surface, not a coloured pill */
+.seg, .tabs { background: rgba(255, 255, 255, 0.04) !important; border: 1px solid var(--hair) !important; border-radius: 12px !important; padding: 3px !important; box-shadow: none !important; }
+.seg button, .tabs a { border-radius: 9px !important; background: transparent !important; border: 0 !important; color: var(--text-2) !important; box-shadow: none !important; font-weight: 400 !important; }
+.seg button:hover, .tabs a:hover { color: var(--text) !important; background: rgba(255, 255, 255, 0.05) !important; }
+.seg button.on, .tabs a.on { background: rgba(255, 255, 255, 0.12) !important; color: var(--text) !important; font-weight: 500 !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important; }
+.tabs a.ext { color: var(--text-2) !important; }
+.tabs a.on .pulse-dot { background: #e5484d; }
+
+/* sliders and checkboxes */
+.range, input[type='range'] { accent-color: #ededed !important; }
+input[type='checkbox'] { accent-color: #ededed !important; }
+
+/* ---- tags, badges, status: quiet text with a small dot, no glowing pills ---- */
+.tag { background: transparent !important; border: 1px solid var(--hair-2) !important; color: var(--text-2) !important; border-radius: 6px !important; font-size: 11px !important; font-weight: 400 !important; padding: 1px 6px !important; box-shadow: none !important; }
+.tag::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; background: var(--muted); }
+.tag-real::before { background: #4cc38a; }
+.tag-demo::before, .tag-estimate::before { background: #f5a524; }
+.tag-live::before { background: #e5484d; }
+.rank { background: transparent !important; border: 1px solid var(--hair-2) !important; color: var(--text) !important; box-shadow: none !important; font-weight: 500 !important; }
+.post-list button.on { background: rgba(255, 255, 255, 0.08) !important; border-color: var(--hair-2) !important; }
+.share { color: var(--text) !important; font-weight: 500 !important; }
+.prio, .sev, .unit-status, .urgency, .decision, .badge { border-radius: 6px !important; box-shadow: none !important; animation: none !important; font-weight: 500 !important; }
+.chip { border-color: var(--hair) !important; }
+
+/* meters: one neutral track, the value in the text colour; red only where something is wrong */
+.meter { background: rgba(255, 255, 255, 0.08) !important; }
+.meter i, .meter.gold i { background: #ededed !important; box-shadow: none !important; }
+.cov-row:first-of-type .meter i { background: var(--muted) !important; }
+
+/* hour chart: muted bars, the peak in the text colour */
+.hours i { background: rgba(255, 255, 255, 0.16) !important; box-shadow: none !important; }
+.hours i.peak { background: #ededed !important; }
+
+/* legend dots */
+.legend-lite i.post { background: #ececee; box-shadow: 0 0 0 2px rgba(20, 20, 22, 0.9); }
+
+/* ---- motion: no decorative pulsing ---- */
+.logo i, .siren, .pending, .alert-card, .unit-status.assigned, .urgency.critical, .assignment.incoming { animation: none !important; }
+.pending { background: var(--glass-strong) !important; border: 1px solid rgba(229, 72, 77, 0.45) !important; box-shadow: none !important; }
+.pending strong { color: var(--text) !important; }
+.pending small { color: var(--text-2) !important; }
+.toast { background: var(--glass-strong) !important; color: var(--text) !important; border: 1px solid var(--hair-2) !important; box-shadow: none !important; }
+
+/* sliders: neutral track, off-white thumb */
+input[type='range']::-webkit-slider-runnable-track { background: rgba(255, 255, 255, 0.14) !important; height: 4px; border-radius: 4px; }
+input[type='range']::-webkit-slider-thumb { background: #ededed !important; border: 2px solid #18181b !important; box-shadow: none !important; }
+input[type='range']::-moz-range-track { background: rgba(255, 255, 255, 0.14) !important; }
+input[type='range']::-moz-range-thumb { background: #ededed !important; border: 2px solid #18181b !important; box-shadow: none !important; }
+.heat-toggle { font-weight: 400 !important; color: var(--text-2) !important; }
+
+/* page backgrounds: plain surface, no colour washes */
+.about, .inc-page { background: var(--bg) !important; }
+.inc-kpi::after { display: none !important; }
+/* diagram labels: sentence case, no wide tracking */
+svg text { text-transform: none !important; letter-spacing: 0 !important; font-family: var(--ui) !important; }
+.agent .tech span { color: var(--text-2) !important; font-weight: 500 !important; font-size: 11px !important; }
+.speed button.on { background: rgba(255, 255, 255, 0.12) !important; color: var(--text) !important; border-color: var(--hair-2) !important; }
+/* incidents: no accent stripes, quiet chips (colour only in the dot) */
+.inc-card::before { display: none !important; }
+.inc-chip, .inc-pill { border-radius: 8px !important; font-weight: 400 !important; background: transparent !important; border: 1px solid var(--hair-2) !important; color: var(--text-2) !important; }
+.inc-chip.on { background: rgba(255, 255, 255, 0.08) !important; color: var(--text) !important; }
+.inc-pill { border-radius: 6px !important; color: var(--text) !important; }
+.inc-chip:focus-visible { outline-color: #ededed !important; }
