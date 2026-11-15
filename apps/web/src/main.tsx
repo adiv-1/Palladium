@@ -13,7 +13,6 @@ import PhoneAlerts,{type PhoneAlert} from './PhoneAlerts';
 import {readNavigation,navigationHash,type WorkspaceTab} from './workspaceNavigation.mjs';
 import {WorkspaceStateProvider,useWorkspaceState} from './WorkspaceState';
 const ReviewPage=React.lazy(()=>import('./IncidentReview'));
-const DemoVideos=React.lazy(()=>import('./DemoVideos'));
 import StorageStatus from './StorageStatus';
 import IncidentQueue from './IncidentQueue';
 import {updateIncidentQueue} from './incidentQueueState.mjs';
@@ -152,7 +151,6 @@ function App(){
           tab==='incidents'?<><div className="page-heading"><div><span className="eyebrow">Evidence & review</span><h1>Every moment, in context.</h1><p>Preserved video, reviewed labels, and a clear record of human decisions.</p></div><button onClick={pairPhone}><Smartphone size={16}/>Pair phone</button></div><IncidentQueue incidents={incidents} onOpen={openIncident} uploading={uploading} onChange={applyIncident} removedIncident={removedIncident} onDismissUndo={()=>setRemovedIncident(null)}/></>:
           <><div className="page-heading"><div><span className="eyebrow">01 / Real-time video analysis</span><h1>A second set of eyes.</h1><p>Watch the scene. See the observations. Review the original context.</p></div><div className="page-actions"><label className="button"><Upload size={15}/>Upload recording<input hidden type="file" accept="video/mp4,video/quicktime,video/webm" disabled={uploading} onChange={e=>{const f=e.target.files?.[0];if(f)void upload(f);e.target.value=''}}/></label><button className="primary" onClick={pairPhone}><Smartphone size={16}/>Pair phone camera</button></div></div>
             <div className="live-status-strip"><span><i className={'dot '+(source?.status==='streaming'?'green':'')}/>{source?.status==='streaming'?'Receiving video':source?.status==='processing'?'Finishing analysis':'Ready for a source'}</span><span>{pending.length} awaiting review</span><span>{health.streaming_model==='moss'?'MOSS-VL + visual verification':health.streaming_model||'Checking inference'}</span><span>1 active source capacity</span></div>
-            <div hidden={sourceBusy&&['phone','webcam'].includes(source?.kind)}><React.Suspense fallback={<section className="panel" role="status">Loading original demo recordings…</section>}><DemoVideos onAnalyze={async file=>{await upload(file);document.getElementById('live-monitor')?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'})}} busy={uploading||sourceBusy}/></React.Suspense></div>
             <div id="live-monitor"><LiveMonitor source={source} onPair={pairPhone} onUpload={file=>void upload(file)} onOpen={openIncident}/></div>
             {source?.status==='streaming'&&<div className="live-actions"><button onClick={()=>markMoment(source.id)}><Eye size={15}/>Mark moment for review</button><span className="fine">Preserve the surrounding original context.</span></div>}{bookmarkNotice&&<p className="fine" role="status">{bookmarkNotice}</p>}
 

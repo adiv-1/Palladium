@@ -3,7 +3,6 @@ WORKDIR /build/apps/web
 COPY apps/web/package*.json ./
 RUN npm ci --no-audit --no-fund
 COPY apps/web/ ./
-COPY demo/videos/ /build/demo/videos/
 RUN npm run build
 
 FROM python:3.11-slim-bookworm

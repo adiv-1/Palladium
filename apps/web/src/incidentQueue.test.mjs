@@ -2,35 +2,33 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {deriveIncidentCard,updateIncidentQueue} from './incidentQueueState.mjs';
 const incident=record=>({id:'sample',review_status:'pending',start_time:1,end_time:5,record});
-test('unreviewed cards use neutral copy while preserving model output for audit',()=>{
- const input=incident({action:'object_taking',observable_events:[{observation:'A person carries an object.'}],retention_hold:{active:true}});
+test('pending cards show actual model observations with provenance, without changing records',()=>{
+ const input=incident({action:'object_taking',observable_events:[{observation:'A person carries an object.'}],observation_model:{name:'Qwen3-VL'},retention_hold:{active:true}});
  const before=JSON.stringify(input),first=deriveIncidentCard(input);
- assert.equal(first.title,'Saved video for review');assert.equal(first.initialObservation,'A person carries an object.');assert.equal(first.held,true);assert.equal(JSON.stringify(input),before);
- input.record.action='physical_contact';input.record.observable_events[0].observation='Two people make physical contact.';
- const second=deriveIncidentCard(input);assert.equal(second.title,'Saved video for review');assert.equal(second.initialObservation,'Two people make physical contact.');
+ assert.equal(first.title,'A person carries an object.');assert.equal(first.assessmentSource,'Visual verifier · initial assessment');assert.equal(first.reviewStatus,'Pending human review');assert.equal(first.held,true);assert.equal(JSON.stringify(input),before);
+ input.record.observable_events[0].observation='Two people make physical contact.';
+ assert.equal(deriveIncidentCard(input).title,'Two people make physical contact.');
 });
-test('manual cards stay neutral until explicitly labeled',()=>{
- const input=incident({trigger_origin:'reviewer',observable_events:[{observation:'A reviewer saved this moment.'}],clip_review:{report:{takeaway:'Secondary suggestion.'}}});
+test('manual bookmarks without model observations remain neutral',()=>{
+ const input=incident({trigger_origin:'reviewer',observable_events:[{observation:'User-requested full review: a filename.mp4'}],clip_review:{report:{takeaway:'Secondary suggestion.'}}});
  assert.equal(deriveIncidentCard(input).title,'Saved video for review');
- input.record.observable_events[0].observation='A different requested moment.';
- assert.equal(deriveIncidentCard(input).title,'Saved video for review');
- assert.equal(deriveIncidentCard(incident({trigger_origin:'reviewer'})).title,'Saved video for review');
+ assert.equal(deriveIncidentCard(input).assessmentSource,null);
 });
-test('uploader context and secondary review do not affect any queue display fields',()=>{
- for(const trigger_origin of ['model','reviewer']){
-  const input=incident({trigger_origin,action:'object_taking',observable_events:[{observation:'A person retrieves an object.'}]});
-  const expected=deriveIncidentCard(input);
-  input.record.reviewer_context={text:'Uploader provided a staged description.',provenance:'uploader statement'};
-  input.record.uploader_context='Another description.';
-  input.record.clip_review={report:{takeaway:'Different secondary conclusion.',alert_support:'not_supported'}};
-  input.processing_summary={review_brief:{status:'running'},failed:2};
-  assert.deepEqual(deriveIncidentCard(input),expected);
-  assert.equal('contextText' in expected,false);assert.equal('reviewTakeaway' in expected,false);assert.equal('reviewLabel' in expected,false);
- }
+test('completed native MOSS analysis takes priority without promoting a human decision',()=>{
+ const input=incident({trigger_origin:'reviewer',source_sha256:'original-sha',moss_analysis:{model:{name:'MOSS-VL-Realtime'},source_sha256:'original-sha',status:'completed',kind:'moss_native_full_clip',text:'Two people walk along the sidewalk. No physical contact is visible.'},reviewed_label:{title:'Uploader description',description:'A conflicting description',tags:['context']}});
+ const before=JSON.stringify(input),card=deriveIncidentCard(input);
+ assert.equal(card.title,'Two people walk along the sidewalk.');assert.equal(card.description,'No physical contact is visible.');assert.equal(card.assessmentSource,'MOSS · full recording analysis');assert.equal(card.labelVisible,false);assert.equal(card.reviewed,true);assert.deepEqual(card.tags,[]);assert.equal(card.reviewStatus,'Pending human review');assert.equal(JSON.stringify(input),before);
+ input.record.moss_analysis.source_sha256='different-original';assert.equal(deriveIncidentCard(input).assessmentSource,null);
+ input.record.moss_analysis.source_sha256='original-sha';input.record.moss_analysis.status='incomplete';assert.equal(deriveIncidentCard(input).assessmentSource,null);
 });
-test('record IDs and filenames never choose card wording',()=>{
+test('native observations and verifier output are never attributed to each other',()=>{
+ const input=incident({moss_observations:[{model:'MOSS-VL-Realtime',text:'A person stands nearby.'}],observable_events:[{observation:'A person falls.'}],observation_model:{name:'Qwen3-VL'}});
+ const card=deriveIncidentCard(input);assert.equal(card.title,'A person stands nearby.');assert.equal(card.assessmentSource,'MOSS · live observations');
+ input.record.moss_observations=[];assert.equal(deriveIncidentCard(input).title,'A person falls.');assert.equal(deriveIncidentCard(input).assessmentSource,'Visual verifier · initial assessment');
+});
+test('filenames, IDs, uploader context and secondary review never choose model wording',()=>{
  const input=incident({action:'physical_contact',observable_events:[{observation:'A person makes contact.'}]});
- const expected=deriveIncidentCard(input);input.id='another-upload';input.record.source_file='quiet-video.mp4';
+ const expected=deriveIncidentCard(input);input.id='another-upload';input.record.source_file='quiet-video.mp4';input.record.reviewer_context={text:'A staged jacket is taken'};input.record.clip_review={report:{takeaway:'A different conclusion'}};
  assert.deepEqual(deriveIncidentCard(input),expected);
 });
 test('GPS labels require an active valid phone fix',()=>{
@@ -42,7 +40,7 @@ test('GPS labels require an active valid phone fix',()=>{
 
 test('reviewed titles, descriptions and tags replace conflicting AI copy without mutating observations',()=>{
  const input=incident({action:'object_taking',observable_events:[{observation:'Incorrect bag description.'}],reviewed_label:{title:'A jacket is taken',description:'A person picks up the jacket and moves away.',action:'object_taking',tags:['jacket','staged'],provenance:'workspace_reviewer'}});
- const before=JSON.stringify(input),card=deriveIncidentCard(input);assert.equal(card.title,'A jacket is taken');assert.equal(card.description,'A person picks up the jacket and moves away.');assert.deepEqual(card.tags,['jacket','staged']);assert.equal(card.reviewed,true);assert.equal(card.initialObservation,'Incorrect bag description.');assert.equal(JSON.stringify(input),before);
+ input.review_status='confirmed';const before=JSON.stringify(input),card=deriveIncidentCard(input);assert.equal(card.title,'A jacket is taken');assert.equal(card.description,'A person picks up the jacket and moves away.');assert.deepEqual(card.tags,['jacket','staged']);assert.equal(card.reviewed,true);assert.equal(card.initialObservation,'Incorrect bag description.');assert.equal(JSON.stringify(input),before);
 });
 test('soft-deletion events remove cards and restore events preserve dynamic labels',()=>{
  const first={...incident({}),id:'first',created_at:'2026-11-14'},second={...incident({}),id:'second',created_at:'2026-11-15'};

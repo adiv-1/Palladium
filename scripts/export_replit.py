@@ -12,7 +12,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 BRANCH = 'refs/heads/replit-ui'
 FILES = {'.replit', '.gitignore', 'package.json', 'docs/overview/replit.md'}
-PREFIXES = ('apps/web/', 'apps/gateway/', 'demo/videos/')
+PREFIXES = ('apps/web/', 'apps/gateway/')
 
 
 def git(*args, input=None, env=None):

@@ -8,13 +8,13 @@ incident database, archive, retention, or training policy.
 
 ## Three demo tabs
 
-1. **Real-time analysis:** choose one of the three uploader-authorized GitHub
-   recordings, preview its original footage, and select **Analyze this recording**.
-   The original bytes are verified against the checked-in SHA-256 manifest and
-   sent through the existing upload endpoint. The page moves to the live monitor.
-   **Pair phone camera**, arbitrary video uploads, geolocation permission, source
-   telemetry, and manual bookmarks remain available. Descriptions in the clip
-   selector are reviewed metadata, not predetermined analysis results.
+1. **Real-time analysis:** the live monitor appears first, followed by saved videos
+   pending human review. **Pair phone camera**, arbitrary video uploads,
+   geolocation permission, source telemetry, and manual bookmarks remain available.
+   New saved incidents arrive in the same queue through the existing event stream.
+   There is no separate demonstration-video selector. The three original public
+   recordings remain in Git for reproducible evaluation, without being bundled
+   into the frontend or prescribing model results.
 2. **Ambassador positioning:** choose date, Los Angeles time, report family and
    1–8 ambassadors. Select a numbered recommendation to inspect its marginal
    modeled coverage and location. The existing 400 m network coverage scenarios
@@ -39,7 +39,7 @@ state survives navigation between tabs and resets when the page reloads.
 
 Named buildings and their tags come from the branch's November 14 OSM snapshot;
 coverage is concentrated on central campus. Map picking and the walking network
-retain the full supported UPC area. Building data, the favicon and demo clips
+retain the full supported UPC area. Building data and the favicon
 are bundled under `/assets/` so direct FastAPI hosting and the Node gateway use
 the same paths. OSM attribution and ODbL continue to apply.
 
@@ -161,3 +161,21 @@ are diagnostic known recordings, not an independent accuracy study or proof of a
 Phone notification transport passed; model accuracy and response time remain
 material limitations. A physical phone and native browser recording were not
 used in these replays. Use a fresh QR after the API restart.
+
+## Pending-video assessments
+
+Pending cards show stored native MOSS observations, or the initial verifier
+assessment if native observations are unavailable. Provenance distinguishes the
+observer from the visual verifier and secondary clip review. Reviewer labels and
+review decisions remain separate; existing reviewed context stays in incident
+review and the audit. No prediction is selected from an upload filename or ID.
+
+On the data host, `python -m scripts.analyze_saved_moss INCIDENT_ID --save` can
+request a native MOSS pass over a completed uploaded original. This verifies the
+source hash, requires idle capture/jobs and an idle prepared MOSS service, saves
+the prior record and raw inference under ignored `data/moss-analysis`, and attaches
+only a completed result. It never creates an alert or changes human decisions.
+Incomplete passes remain unavailable, not classified as ordinary activity.
+
+The current working UI is previewed directly on Runpod. Replit publication is
+held at the owner's request while further design changes are reviewed.
