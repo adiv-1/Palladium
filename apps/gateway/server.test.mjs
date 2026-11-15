@@ -24,8 +24,44 @@ async function fixture(t, handler) {
     await Promise.all([new Promise(r => gateway.close(r)), new Promise(r => backend.close(r))]);
     await rm(dist, {recursive:true});
   });
-  return {gateway, backend, origin};
+  return {gateway, backend, origin, dist};
 }
+
+test('bundled demo videos support media types, seeking, suffixes and HEAD requests', async t => {
+  const {origin, dist} = await fixture(t);
+  await writeFile(join(dist, 'demo.mp4'), '0123456789');
+  const full = await fetch(origin + '/demo.mp4');
+  assert.equal(full.headers.get('content-type'), 'video/mp4');
+  assert.equal(full.headers.get('accept-ranges'), 'bytes');
+  assert.equal(await full.text(), '0123456789');
+  for (const [range, expected, contentRange] of [
+    ['bytes=3-5', '345', 'bytes 3-5/10'],
+    ['bytes=7-', '789', 'bytes 7-9/10'],
+    ['bytes=-2', '89', 'bytes 8-9/10'],
+    ['bytes=8-100', '89', 'bytes 8-9/10'],
+  ]) {
+    const response = await fetch(origin + '/demo.mp4', {headers:{Range:range}});
+    assert.equal(response.status, 206);
+    assert.equal(response.headers.get('content-range'), contentRange);
+    assert.equal(response.headers.get('content-length'), String(expected.length));
+    assert.equal(await response.text(), expected);
+  }
+  const head = await fetch(origin + '/demo.mp4', {method:'HEAD', headers:{Range:'bytes=3-5'}});
+  assert.equal(head.status, 200);
+  assert.equal(head.headers.get('content-length'), '10');
+  assert.equal(await head.text(), '');
+});
+
+test('invalid or unsatisfiable bundled-video ranges return 416 without file contents', async t => {
+  const {origin, dist} = await fixture(t);
+  await writeFile(join(dist, 'demo.mp4'), '0123456789');
+  for (const range of ['bytes=10-', 'bytes=7-3', 'bytes=-0', 'bytes=-', 'bytes=0-1,4-5']) {
+    const response = await fetch(origin + '/demo.mp4', {headers:{Range:range}});
+    assert.equal(response.status, 416, range);
+    assert.equal(response.headers.get('content-range'), 'bytes */10');
+    assert.equal(await response.text(), '');
+  }
+});
 
 test('serves phone SPA and readiness without backend, excludes private files', async t => {
   const {origin} = await fixture(t);
