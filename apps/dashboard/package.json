@@ -1,0 +1,31 @@
+{
+  "name": "safesc-dashboard",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5174",
+    "build": "tsc -b && vite build",
+    "data": "python scripts/build_osm_data.py"
+  },
+  "dependencies": {
+    "@deck.gl/aggregation-layers": "9.4.1",
+    "@deck.gl/core": "9.4.1",
+    "@deck.gl/extensions": "9.4.1",
+    "@deck.gl/geo-layers": "9.4.1",
+    "@deck.gl/layers": "9.4.1",
+    "@deck.gl/mesh-layers": "9.4.1",
+    "@deck.gl/react": "9.4.1",
+    "maplibre-gl": "6.18.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-map-gl": "8.1.3"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.4",
+    "@types/react-dom": "19.1.5",
+    "@vitejs/plugin-react": "4.4.1",
+    "typescript": "5.8.3",
+    "vite": "6.4.6"
+  }
+}

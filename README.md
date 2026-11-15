@@ -64,6 +64,16 @@ Open [localhost:8000](http://localhost:8000) and enter the generated access toke
 
 For the actual GPU stack, follow [model setup and licenses](docs/overview/models.md) and [deployment notes](docs/overview/deployment.md). Checkpoint revisions and measured smoke-test results are recorded in `model-lock.json`. Upstream models use isolated environments; the CPU Docker image is not a validated all-model GPU image.
 
+## 3D command dashboard
+
+`apps/dashboard` is a full-screen 3D view of campus for the dispatcher: live incident beams, approve-and-dispatch arcs, hourly history columns and camera coverage cones. It runs on Google Photorealistic 3D Tiles when a key is set, and otherwise on a free MapLibre fallback.
+
+```bash
+cd apps/dashboard && npm install && npm run dev   # http://localhost:5174
+```
+
+Every layer is labelled Real, Demo, Simulated or Estimate. Camera positions and officers are simulated. See [apps/dashboard/README.md](apps/dashboard/README.md).
+
 ## Connect a phone
 
 1. Serve the application through HTTPS and set `PUBLIC_URL` to that origin.
